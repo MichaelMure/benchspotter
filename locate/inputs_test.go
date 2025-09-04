@@ -1,0 +1,19 @@
+package locate
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+func TestLocateInputs(t *testing.T) {
+	ins, err := Inputs(".")
+	require.NoError(t, err)
+
+	require.Equal(t, []InputInfo{
+		BoolType{pkg: "internal", name: "name1"},
+		IntType{pkg: "internal", name: "name2", min: 0, max: 24},
+		BoolType{pkg: "internal/anotherpackage", name: "name3"},
+		IntType{pkg: "internal/anotherpackage", name: "name4", min: 180, max: 360},
+	}, ins)
+}
