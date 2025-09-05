@@ -8,13 +8,13 @@ import (
 
 func BenchmarkFoo(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_ = make(map[string]int)
+		_ = make(map[string]int, input2)
 	}
 }
 
 func BenchmarkBar(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_ = make(map[string]int)
+		_ = make(map[string]int, input2)
 	}
 }
 
