@@ -1,13 +1,14 @@
 package locate
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestLocateBenchmarks(t *testing.T) {
-	benchs, err := Benchmarks(".")
+	benchs, err := Benchmarks(context.Background(), ".")
 	require.NoError(t, err)
 
 	require.Equal(t, []BenchInfo{

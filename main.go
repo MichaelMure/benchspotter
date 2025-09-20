@@ -1,17 +1,14 @@
 package main
 
 import (
-	"fmt"
+	"os"
 
-	"benchspotter/locate"
+	"benchspotter/commands"
 )
 
 func main() {
-	benchmarks, err := locate.Benchmarks(".")
-	if err != nil {
-		panic(err)
-	}
-	for _, b := range benchmarks {
-		fmt.Println(b)
+	root := commands.NewRootCommand()
+	if err := root.Execute(); err != nil {
+		os.Exit(1)
 	}
 }

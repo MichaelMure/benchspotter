@@ -1,6 +1,7 @@
 package locate
 
 import (
+	"context"
 	"fmt"
 	"go/ast"
 	"go/types"
@@ -12,7 +13,7 @@ type BenchInfo struct {
 	Package string
 }
 
-func Benchmarks(rootDir string) ([]BenchInfo, error) {
+func Benchmarks(ctx context.Context, rootDir string) ([]BenchInfo, error) {
 	rootDir, err := filepath.Abs(rootDir)
 	if err != nil {
 		return nil, err
@@ -27,6 +28,12 @@ func Benchmarks(rootDir string) ([]BenchInfo, error) {
 
 	for _, pkg := range pkgs {
 		for _, file := range pkg.Syntax {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			default:
+			}
+
 			ast.Inspect(file, func(n ast.Node) bool {
 				fn, ok := n.(*ast.FuncDecl)
 				if !ok || fn.Recv != nil {

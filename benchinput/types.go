@@ -3,12 +3,17 @@ package benchinput
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
-
-	"github.com/iancoleman/strcase"
+	"strings"
 )
 
+var nameRegex = regexp.MustCompile(`[^a-zA-Z0-9_ ]`)
+
 func Bool(name string, default_ bool) bool {
+	if nameRegex.MatchString(name) {
+		panic("input name must not contain any special characters except _ or spaces")
+	}
 	str, err := getEnv(name)
 	if err != nil {
 		return default_
@@ -17,6 +22,9 @@ func Bool(name string, default_ bool) bool {
 }
 
 func Int(name string, default_, min, max int) int {
+	if nameRegex.MatchString(name) {
+		panic("input name must not contain any special characters except _ or spaces")
+	}
 	str, err := getEnv(name)
 	if err != nil {
 		return default_
@@ -29,6 +37,9 @@ func Int(name string, default_, min, max int) int {
 }
 
 func getEnv(name string) (string, error) {
+	if nameRegex.MatchString(name) {
+		panic("input name must not contain any special characters except _ or spaces")
+	}
 	val, ok := os.LookupEnv(EnvVarName(name))
 	if !ok {
 		return "", fmt.Errorf("env var %s not set", EnvVarName(name))
@@ -37,5 +48,8 @@ func getEnv(name string) (string, error) {
 }
 
 func EnvVarName(name string) string {
-	return "BENCHSPOTTER_" + strcase.ToScreamingSnake(name)
+	if nameRegex.MatchString(name) {
+		panic("input name must not contain any special characters except _ or spaces")
+	}
+	return "BENCHSPOTTER_" + strings.ReplaceAll(name, " ", "_")
 }
