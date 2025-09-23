@@ -6,8 +6,9 @@ toolchain go1.24.5
 
 require (
 	github.com/charmbracelet/huh v0.7.0
-	github.com/charmbracelet/huh/spinner v0.0.0-20250915100043-4bd115b572d4
+	github.com/charmbracelet/huh/spinner v0.0.0-20250922180342-f197546b2ab1
 	github.com/go-git/go-billy/v5 v5.6.2
+	github.com/google/uuid v1.6.0
 	github.com/mattn/go-isatty v0.0.20
 	github.com/spf13/cobra v1.10.1
 	github.com/stretchr/testify v1.11.1
@@ -30,7 +31,7 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0 // indirect
 	github.com/charmbracelet/x/ansi v0.10.1 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.13 // indirect
-	github.com/charmbracelet/x/exp/strings v0.0.0-20250919153222-1038f7e6fef4 // indirect
+	github.com/charmbracelet/x/exp/strings v0.0.0-20250922100529-c9afca5d6f21 // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
 	github.com/cyphar/filepath-securejoin v0.4.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect

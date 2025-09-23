@@ -51,3 +51,7 @@ func (e Env) ExecGo(ctx context.Context, args ...string) *exec.Cmd {
 	// cmd.Stdin = e.In.Raw()
 	return cmd
 }
+
+func (e Env) ExecGit(ctx context.Context, args ...string) *exec.Cmd {
+	return execabs.CommandContext(ctx, "git", args...)
+}

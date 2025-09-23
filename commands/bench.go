@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
+	"golang.org/x/perf/benchfmt"
 
 	"benchspotter/commands/execenv"
 	"benchspotter/engine"
@@ -82,20 +83,35 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 		return err
 	}
 
-	it := engine.RunBenches(ctx, env, selection)
+	id, err := engine.PrepareSession(ctx, env)
+	if err != nil {
+		return err
+	}
+
+	it := engine.RunBenches(ctx, env, id, selection)
 	for _, info := range selection {
 		start := time.Now()
+		var res *benchfmt.Result
 		err = env.Spinner().Title(info.Name).ActionWithErr(func(ctx context.Context) error {
-			err, ok := it()
-			if !ok {
-				return fmt.Errorf("unexpected end")
-			}
+			res, err = it()
 			return err
 		}).Run()
 		if err != nil {
 			return err
 		}
-		env.Out.Printf("> %s done in %v\n", info.Name, time.Since(start).Truncate(100*time.Millisecond))
+
+		env.Out.Printf("> Benchmark%s (", res.Name)
+		for i, value := range res.Values {
+			if i > 0 {
+				env.Out.Print(" | ")
+			}
+			if value.OrigUnit != "" {
+				env.Out.Printf("%v %s", value.OrigValue, value.OrigUnit)
+			} else {
+				env.Out.Printf("%v %s", value.Value, value.Unit)
+			}
+		}
+		env.Out.Printf(") done in %v\n", time.Since(start).Truncate(100*time.Millisecond))
 	}
 
 	return nil
