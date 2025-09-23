@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/google/uuid"
+	"golang.org/x/sys/execabs"
 
 	"benchspotter/commands/execenv"
 )
@@ -33,7 +34,7 @@ func recordDiffIfAvailable(ctx context.Context, env *execenv.Env, id string) err
 		return fmt.Errorf("failed to create diff file: %w", err)
 	}
 
-	cmd := env.ExecGit(ctx, "diff")
+	cmd := execabs.CommandContext(ctx, "git", "diff")
 	cmd.Stdout = &CountingWriter{writer: diffFile}
 	err = cmd.Run()
 	_ = diffFile.Close()

@@ -71,6 +71,9 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 		}, nil).
 		Value(&selection)).
 		RunWithContext(ctx)
+	if err != nil {
+		return err
+	}
 
 	err = env.Repo.SetRecall(recallKey, func(yield func(string) bool) {
 		for _, info := range selection {

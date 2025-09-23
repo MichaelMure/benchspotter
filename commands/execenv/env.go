@@ -1,13 +1,10 @@
 package execenv
 
 import (
-	"context"
 	"os"
-	"os/exec"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
-	"golang.org/x/sys/execabs"
 
 	"benchspotter/repository"
 )
@@ -42,16 +39,4 @@ func (e Env) FormSingle(field huh.Field) *huh.Form {
 
 func (e Env) Spinner() *spinner.Spinner {
 	return spinner.New().Output(e.Out.Raw())
-}
-
-func (e Env) ExecGo(ctx context.Context, args ...string) *exec.Cmd {
-	cmd := execabs.CommandContext(ctx, "go", args...)
-	// cmd.Stdout = e.Out.Raw()
-	// cmd.Stderr = e.Err.Raw()
-	// cmd.Stdin = e.In.Raw()
-	return cmd
-}
-
-func (e Env) ExecGit(ctx context.Context, args ...string) *exec.Cmd {
-	return execabs.CommandContext(ctx, "git", args...)
 }

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"golang.org/x/perf/benchfmt"
+	"golang.org/x/sys/execabs"
 
 	"benchspotter/commands/execenv"
 	"benchspotter/repository/locate"
@@ -22,8 +23,8 @@ func RunBenches(ctx context.Context, env *execenv.Env, id string, benches []loca
 		w := benchfmt.NewWriter(out)
 
 		for _, infos := range benches {
-			cmd := env.ExecGo(ctx, "test", "-bench", "^\\Q"+infos.Name+"\\E$",
-				"-benchmem", "-run", "^$", ".")
+			cmd := execabs.CommandContext(ctx, "go", "test", "-bench",
+				"^\\Q"+infos.Name+"\\E$", "-benchmem", "-run", "^$", ".")
 			cmd.Dir = infos.Package
 
 			stdout, err := cmd.StdoutPipe()
