@@ -18,10 +18,23 @@ func NewRootCommand() *cobra.Command {
 		DisableAutoGenTag: true,
 	}
 
+	const mainGroup = "main"
+	const utilitiesGroup = "utilities"
+
+	cmd.AddGroup(&cobra.Group{ID: mainGroup, Title: "Main commands"})
+	cmd.AddGroup(&cobra.Group{ID: utilitiesGroup, Title: "Utilities"})
+
+	addCmdWithGroup := func(child *cobra.Command, groupID string) {
+		cmd.AddCommand(child)
+		child.GroupID = groupID
+	}
+
 	env := execenv.NewEnv()
 
-	cmd.AddCommand(newBenchCommand(env))
-	cmd.AddCommand(newVersionCommand(env))
+	addCmdWithGroup(newBenchCommand(env), mainGroup)
+	addCmdWithGroup(newVersionCommand(env), utilitiesGroup)
+	cmd.SetHelpCommandGroupID(utilitiesGroup)
+	cmd.SetCompletionCommandGroupID(utilitiesGroup)
 
 	return cmd
 }
