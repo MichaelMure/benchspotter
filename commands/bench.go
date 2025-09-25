@@ -39,51 +39,54 @@ func newBenchCommand(env *execenv.Env) *cobra.Command {
 }
 
 func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error {
-	var benchs []locate.BenchInfo
-
-	err := env.Spinner().Title("Finding benchmarks").Context(ctx).
-		ActionWithErr(func(ctx context.Context) error {
-			var err error
-			benchs, err = env.Repo.Benchmarks(ctx)
-			return err
-		}).Run()
-	if err != nil {
-		return fmt.Errorf("failed to discover benchmarks: %w", err)
-	}
-
-	if len(benchs) == 0 {
-		return fmt.Errorf("no benchmarks found")
-	}
-
-	const recallKey = "bench_benchmarks"
-	preSelected := env.Repo.GetRecall(recallKey, options.benchmarks)
 	var selection []locate.BenchInfo
 
-	err = env.FormSingle(huh.NewMultiSelect[locate.BenchInfo]().
-		Title("Select benchmarks").
-		OptionsFunc(func() []huh.Option[locate.BenchInfo] {
-			opts := make([]huh.Option[locate.BenchInfo], len(benchs))
-			for i, info := range benchs {
-				opts[i] = huh.NewOption(info.Name, info).
-					Selected(slices.Contains(preSelected, info.Name))
-			}
-			return opts
-		}, nil).
-		Value(&selection)).
-		RunWithContext(ctx)
-	if err != nil {
-		return err
-	}
+	if len(options.benchmarks) == 0 {
+		var benchs []locate.BenchInfo
 
-	err = env.Repo.SetRecall(recallKey, func(yield func(string) bool) {
-		for _, info := range selection {
-			if !yield(info.Name) {
-				return
-			}
+		err := env.Spinner().Title("Finding benchmarks").Context(ctx).
+			ActionWithErr(func(ctx context.Context) error {
+				var err error
+				benchs, err = env.Repo.Benchmarks(ctx)
+				return err
+			}).Run()
+		if err != nil {
+			return fmt.Errorf("failed to discover benchmarks: %w", err)
 		}
-	})
-	if err != nil {
-		return err
+
+		if len(benchs) == 0 {
+			return fmt.Errorf("no benchmarks found")
+		}
+
+		const recallKey = "bench_benchmarks"
+		preSelected := env.Repo.GetRecall(recallKey, options.benchmarks)
+
+		err = env.FormSingle(huh.NewMultiSelect[locate.BenchInfo]().
+			Title("Select benchmarks").
+			OptionsFunc(func() []huh.Option[locate.BenchInfo] {
+				opts := make([]huh.Option[locate.BenchInfo], len(benchs))
+				for i, info := range benchs {
+					opts[i] = huh.NewOption(info.Name, info).
+						Selected(slices.Contains(preSelected, info.Name))
+				}
+				return opts
+			}, nil).
+			Value(&selection)).
+			RunWithContext(ctx)
+		if err != nil {
+			return err
+		}
+
+		err = env.Repo.SetRecall(recallKey, func(yield func(string) bool) {
+			for _, info := range selection {
+				if !yield(info.Name) {
+					return
+				}
+			}
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	id, err := engine.PrepareSession(ctx, env)
