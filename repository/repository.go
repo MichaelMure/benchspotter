@@ -17,6 +17,8 @@ import (
 	"benchspotter/repository/locate"
 )
 
+const recallDir = "recall"
+
 // Repository is an abstracted access to files and data in a project.
 type Repository struct {
 	// TODO: make those being billy.Filesystem to facilitate mocking
@@ -32,7 +34,6 @@ type Repository struct {
 //  4. uses the current directory
 func AutoDetect() (*Repository, error) {
 	const repoDir = ".benchspotter"
-	const perm = 0755
 
 	var repo Repository
 
@@ -52,7 +53,7 @@ func AutoDetect() (*Repository, error) {
 	}
 	if repo.sourcePath != "" && repo.path == "" {
 		repo.path = filepath.Join(repo.sourcePath, repoDir)
-		return &repo, os.MkdirAll(repo.path, perm)
+		return &repo, repo.init()
 	}
 
 	cwd, err := os.Getwd()
@@ -63,19 +64,41 @@ func AutoDetect() (*Repository, error) {
 	if gitDir, err := detectGitPath(cwd, 0); err == nil {
 		repo.sourcePath = filepath.Dir(gitDir)
 		repo.path = cmp.Or(repo.path, filepath.Join(repo.sourcePath, repoDir))
-		return &repo, os.MkdirAll(repo.path, perm)
+		return &repo, repo.init()
 	}
 
 	cmd := execabs.Command("go", "env", "GOMOD")
 	if out, err := cmd.Output(); err == nil {
 		repo.sourcePath = filepath.Dir(string(out))
 		repo.path = cmp.Or(repo.path, filepath.Join(repo.sourcePath, repoDir))
-		return &repo, os.MkdirAll(repo.path, perm)
+		return &repo, repo.init()
 	}
 
 	repo.sourcePath = filepath.Join(cwd, repoDir)
 	repo.path = cmp.Or(repo.path, filepath.Join(repo.sourcePath, repoDir))
-	return &repo, os.MkdirAll(repo.path, perm)
+	return &repo, repo.init()
+}
+
+func (repo *Repository) init() error {
+	const perm = 0755
+
+	// create root directory
+	err := os.MkdirAll(repo.path, perm)
+	if err != nil {
+		return err
+	}
+
+	// create root .gitignore
+	if _, err := repo.Storage().Stat(".gitignore"); os.IsNotExist(err) {
+		content := "/" + recallDir
+
+		err = util.WriteFile(repo.Storage(), ".gitignore", []byte(content), 0644)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (repo *Repository) Benchmarks(ctx context.Context) ([]locate.BenchInfo, error) {
@@ -92,8 +115,6 @@ func (repo *Repository) Storage() LocalStorage {
 	return billyLocalStorage{Filesystem: osfs.New(repo.path)}
 }
 
-const recallDir = "recall"
-
 // GetRecall returns the "recall" data for a better UX in a command.
 func (repo *Repository) GetRecall(name string, or []string) []string {
 	data, err := util.ReadFile(repo.Storage(), filepath.Join(recallDir, name))
@@ -105,13 +126,6 @@ func (repo *Repository) GetRecall(name string, or []string) []string {
 
 // SetRecall stores a "recall" data for a better UX in a command.
 func (repo *Repository) SetRecall(name string, values iter.Seq[string]) error {
-	if _, err := repo.Storage().Stat(filepath.Join(recallDir, ".gitignore")); os.IsNotExist(err) {
-		err = util.WriteFile(repo.Storage(), filepath.Join(recallDir, ".gitignore"), []byte("*"), 0644)
-		if err != nil {
-			return err
-		}
-	}
-
 	var data strings.Builder
 	first := true
 	for str := range values {
