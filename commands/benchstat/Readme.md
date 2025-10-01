@@ -1,0 +1,1 @@
+Vendored from golang.org/x/perf/cmd/benchstat, because for some reason it's internal?

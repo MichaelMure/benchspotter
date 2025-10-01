@@ -11,8 +11,13 @@ const RootCmdName = "benchspotter"
 func NewRootCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   RootCmdName,
-		Short: "", // TODO
-		Long:  ``, // TODO
+		Short: "Your companion for go benchmarking",
+		Long: RootCmdName + ` is a companion tool to handle the logistics of your go benchmarking, and guide you through powerful analysis.
+
+A typical session is as follow:
+ 1. Select and run benchmarks. They get recorded on disk for later analysis.
+ 2. Analyse, compare, drill down with a collection of tools.
+ 3. Optionally, let ` + RootCmdName + ` optimize parameters.`,
 
 		SilenceUsage:      true,
 		DisableAutoGenTag: true,
@@ -32,6 +37,8 @@ func NewRootCommand() *cobra.Command {
 	env := execenv.NewEnv()
 
 	addCmdWithGroup(newBenchCommand(env), mainGroup)
+	addCmdWithGroup(newAnalyzeCommand(env), mainGroup)
+
 	addCmdWithGroup(newVersionCommand(env), utilitiesGroup)
 	cmd.SetHelpCommandGroupID(utilitiesGroup)
 	cmd.SetCompletionCommandGroupID(utilitiesGroup)

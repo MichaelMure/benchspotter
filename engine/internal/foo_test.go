@@ -6,14 +6,16 @@ import (
 	"benchspotter/benchinput"
 )
 
+// normal benchmark signature
 func BenchmarkFoo(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = make(map[string]int, input2)
 	}
 }
 
-func BenchmarkBar(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+// parameter with a different name
+func BenchmarkBar(foo *testing.B) {
+	for i := 0; i < foo.N; i++ {
 		_ = make(map[string]int, input2)
 	}
 }

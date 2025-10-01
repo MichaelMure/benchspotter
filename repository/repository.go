@@ -1,8 +1,6 @@
 package repository
 
 import (
-	"cmp"
-	"context"
 	"fmt"
 	"iter"
 	"os"
@@ -13,17 +11,14 @@ import (
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-billy/v5/util"
 	"golang.org/x/sys/execabs"
-
-	"benchspotter/repository/locate"
 )
 
 const recallDir = "recall"
 
-// Repository is an abstracted access to files and data in a project.
+// Repository is an abstracted access to sources and BenchSpotter data in a project.
 type Repository struct {
-	// TODO: make those being billy.Filesystem to facilitate mocking
-	sourcePath string
-	path       string
+	sources billy.Filesystem
+	storage billy.Filesystem
 }
 
 // AutoDetect tries to detect the repository root directory. It does, in order:
@@ -39,20 +34,20 @@ func AutoDetect() (*Repository, error) {
 
 	if p, ok := os.LookupEnv("BENCHSPOTTER_PATH"); ok {
 		if fi, err := os.Lstat(p); err == nil && fi.IsDir() {
-			repo.path = filepath.Clean(p)
+			repo.storage = osfs.New(p, osfs.WithBoundOS())
 		} else {
 			return nil, fmt.Errorf("BENCHSPOTTER_PATH is not a directory")
 		}
 	}
 	if p, ok := os.LookupEnv("BENCHSPOTTER_SOURCES"); ok {
 		if fi, err := os.Lstat(p); err == nil && fi.IsDir() {
-			repo.sourcePath = filepath.Clean(p)
+			repo.sources = osfs.New(p, osfs.WithBoundOS())
 		} else {
 			return nil, fmt.Errorf("BENCHSPOTTER_SOURCES is not a directory")
 		}
 	}
-	if repo.sourcePath != "" && repo.path == "" {
-		repo.path = filepath.Join(repo.sourcePath, repoDir)
+	if repo.sources != nil && repo.storage == nil {
+		repo.storage, _ = repo.sources.Chroot(repoDir)
 		return &repo, repo.init()
 	}
 
@@ -62,37 +57,43 @@ func AutoDetect() (*Repository, error) {
 	}
 
 	if gitDir, err := detectGitPath(cwd, 0); err == nil {
-		repo.sourcePath = filepath.Dir(gitDir)
-		repo.path = cmp.Or(repo.path, filepath.Join(repo.sourcePath, repoDir))
+		repo.sources = osfs.New(filepath.Dir(gitDir), osfs.WithBoundOS())
+		if repo.storage == nil {
+			repo.storage, _ = repo.sources.Chroot(repoDir)
+		}
 		return &repo, repo.init()
 	}
 
 	cmd := execabs.Command("go", "env", "GOMOD")
 	if out, err := cmd.Output(); err == nil {
-		repo.sourcePath = filepath.Dir(string(out))
-		repo.path = cmp.Or(repo.path, filepath.Join(repo.sourcePath, repoDir))
+		repo.sources = osfs.New(filepath.Dir(string(out)), osfs.WithBoundOS())
+		if repo.storage == nil {
+			repo.storage, _ = repo.sources.Chroot(repoDir)
+		}
 		return &repo, repo.init()
 	}
 
-	repo.sourcePath = filepath.Join(cwd, repoDir)
-	repo.path = cmp.Or(repo.path, filepath.Join(repo.sourcePath, repoDir))
+	repo.sources = osfs.New(filepath.Join(cwd, repoDir), osfs.WithBoundOS())
+	if repo.storage == nil {
+		repo.storage, _ = repo.sources.Chroot(repoDir)
+	}
 	return &repo, repo.init()
 }
 
 func (repo *Repository) init() error {
 	const perm = 0755
 
-	// create root directory
-	err := os.MkdirAll(repo.path, perm)
+	// create root storage directory
+	err := repo.storage.MkdirAll("/", perm)
 	if err != nil {
 		return err
 	}
 
 	// create root .gitignore
-	if _, err := repo.Storage().Stat(".gitignore"); os.IsNotExist(err) {
-		content := "/" + recallDir
+	if _, err := repo.storage.Stat(".gitignore"); os.IsNotExist(err) {
+		content := "/" + recallDir + "/"
 
-		err = util.WriteFile(repo.Storage(), ".gitignore", []byte(content), 0644)
+		err = util.WriteFile(repo.storage, ".gitignore", []byte(content), 0644)
 		if err != nil {
 			return err
 		}
@@ -101,30 +102,25 @@ func (repo *Repository) init() error {
 	return nil
 }
 
-func (repo *Repository) Benchmarks(ctx context.Context) ([]locate.BenchInfo, error) {
-	return locate.Benchmarks(ctx, repo.sourcePath)
-}
-
-type LocalStorage interface {
-	billy.Filesystem
-	RemoveAll(path string) error
+func (repo *Repository) Sources() billy.Filesystem {
+	return repo.sources
 }
 
 // Storage returns the storage space dedicated to benchspotter
-func (repo *Repository) Storage() LocalStorage {
-	return billyLocalStorage{Filesystem: osfs.New(repo.path)}
+func (repo *Repository) Storage() billy.Filesystem {
+	return repo.storage
 }
 
-// GetRecall returns the "recall" data for a better UX in a command.
-func (repo *Repository) GetRecall(name string, or []string) []string {
-	data, err := util.ReadFile(repo.Storage(), filepath.Join(recallDir, name))
+// GetRecall returns the "recall" storage for a better UX in a command.
+func (repo *Repository) GetRecall(name string) []string {
+	data, err := util.ReadFile(repo.storage, filepath.Join(recallDir, name))
 	if err != nil {
-		return or
+		return nil
 	}
 	return strings.Split(string(data), "\n")
 }
 
-// SetRecall stores a "recall" data for a better UX in a command.
+// SetRecall stores a "recall" storage for a better UX in a command.
 func (repo *Repository) SetRecall(name string, values iter.Seq[string]) error {
 	var data strings.Builder
 	first := true
@@ -136,5 +132,5 @@ func (repo *Repository) SetRecall(name string, values iter.Seq[string]) error {
 		data.WriteString(str)
 	}
 
-	return util.WriteFile(repo.Storage(), filepath.Join(recallDir, name), []byte(data.String()), 0644)
+	return util.WriteFile(repo.storage, filepath.Join(recallDir, name), []byte(data.String()), 0644)
 }

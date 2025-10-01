@@ -12,11 +12,12 @@ import (
 
 	"benchspotter/commands/execenv"
 	"benchspotter/engine"
-	"benchspotter/repository/locate"
 )
 
 type benchOptions struct {
 	benchmarks []string
+	// TODO: named tag?
+	// TODO: run count?
 }
 
 func newBenchCommand(env *execenv.Env) *cobra.Command {
@@ -39,17 +40,17 @@ func newBenchCommand(env *execenv.Env) *cobra.Command {
 }
 
 func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error {
-	var selection []locate.BenchInfo
+	var selection []engine.BenchInfo
 
 	if len(options.benchmarks) == 0 {
-		var benchs []locate.BenchInfo
+		var benchs []engine.BenchInfo
 
-		err := env.Spinner().Title("Finding benchmarks").Context(ctx).
+		err := env.Spinner().Title("Finding benchmarks").
 			ActionWithErr(func(ctx context.Context) error {
 				var err error
-				benchs, err = env.Repo.Benchmarks(ctx)
+				benchs, err = engine.LocateBenchmarks(ctx, env.Repo.Sources())
 				return err
-			}).Run()
+			}).Context(ctx).Run()
 		if err != nil {
 			return fmt.Errorf("failed to discover benchmarks: %w", err)
 		}
@@ -59,14 +60,15 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 		}
 
 		const recallKey = "bench_benchmarks"
-		preSelected := env.Repo.GetRecall(recallKey, options.benchmarks)
+		preSelected := env.Repo.GetRecall(recallKey)
 
-		err = env.FormSingle(huh.NewMultiSelect[locate.BenchInfo]().
+		err = env.FormSingle(huh.NewMultiSelect[engine.BenchInfo]().
 			Title("Select benchmarks").
-			OptionsFunc(func() []huh.Option[locate.BenchInfo] {
-				opts := make([]huh.Option[locate.BenchInfo], len(benchs))
+			OptionsFunc(func() []huh.Option[engine.BenchInfo] {
+				opts := make([]huh.Option[engine.BenchInfo], len(benchs))
 				for i, info := range benchs {
-					opts[i] = huh.NewOption(info.Name, info).
+					line := info.Name + env.Style.TonedDown(" - "+info.Package)
+					opts[i] = huh.NewOption(line, info).
 						Selected(slices.Contains(preSelected, info.Name))
 				}
 				return opts
@@ -94,7 +96,7 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 		return err
 	}
 
-	it := engine.RunBenches(ctx, env, id, selection)
+	it := engine.RunBenches(ctx, env.Repo.Storage(), id, selection)
 	for _, info := range selection {
 		start := time.Now()
 		var res *benchfmt.Result
