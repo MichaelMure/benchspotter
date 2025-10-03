@@ -8,6 +8,7 @@ import (
 	iofs "io/fs"
 	"iter"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
@@ -123,9 +124,9 @@ func buildImportMap(file *ast.File) map[string]string {
 	return importMap
 }
 
-func RunBenches(ctx context.Context, storage billy.Filesystem, id string, benches []BenchInfo) func() (*benchfmt.Result, error) {
+func RunBenches(ctx context.Context, storage billy.Filesystem, id string, benches []BenchInfo, count int) func() (*benchfmt.Result, error) {
 	next, _ := iter.Pull2(func(yield func(*benchfmt.Result, error) bool) {
-		out, err := storage.Create(filepath.Join(id, benchFilename))
+		out, err := storage.Create(filepath.Join(sessionDir, id, benchFilename))
 		if err != nil {
 			yield(nil, err)
 			return
@@ -135,7 +136,7 @@ func RunBenches(ctx context.Context, storage billy.Filesystem, id string, benche
 
 		for _, infos := range benches {
 			cmd := execabs.CommandContext(ctx, "go", "test", "-bench",
-				"^\\Q"+infos.Name+"\\E$", "-benchmem", "-run", "^$", ".")
+				"^\\Q"+infos.Name+"\\E$", "-benchmem", "-count", strconv.Itoa(count), "-run", "^$", ".")
 			cmd.Dir = infos.Package
 
 			stdout, err := cmd.StdoutPipe()
@@ -152,27 +153,19 @@ func RunBenches(ctx context.Context, storage billy.Filesystem, id string, benche
 
 			r := benchfmt.NewReader(stdout, "")
 
-			var res *benchfmt.Result
 			for r.Scan() {
 				line := r.Result()
-				switch line := line.(type) {
-				case *benchfmt.Result:
-					res = line
-					// 	// weird dance to set a non-internal config, the API is not meant for that
-					// 	res.SetConfig("git-commit", "qsbdjkqsdnbkqqsd")
-					// 	idx, _ := res.ConfigIndex("git-commit")
-					// 	res.Config[idx].File = true // not internal, meaning it will print in the writer
+				if line, ok := line.(*benchfmt.Result); ok {
+					if !yield(line, nil) {
+						return
+					}
 				}
 
-				err = w.Write(res)
+				err = w.Write(line)
 				if err != nil {
 					yield(nil, err)
 					return
 				}
-			}
-
-			if !yield(res, nil) {
-				return
 			}
 		}
 	})

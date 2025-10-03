@@ -133,7 +133,7 @@ func runAnalyseCompare(ctx context.Context, env *execenv.Env, options analyseCom
 
 	paths := make([]string, len(selection))
 	for i, info := range selection {
-		paths[i] = fmt.Sprintf("%s=%s", info.Id, info.BenchFullPath())
+		paths[i] = fmt.Sprintf("%s=%s", info.HumanName(), info.BenchFullPath())
 	}
 
 	files := benchfmt.Files{Paths: paths, AllowStdin: true, AllowLabels: true}
