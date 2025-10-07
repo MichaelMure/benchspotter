@@ -143,7 +143,7 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 		}
 	}
 
-	id, err := engine.PrepareSession(ctx, env, options.name)
+	id, err := engine.PrepareSession(ctx, env, options.name, selection)
 	if err != nil {
 		return err
 	}

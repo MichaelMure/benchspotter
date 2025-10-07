@@ -1,8 +1,10 @@
 package execenv
 
 import (
+	"context"
 	"os"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
 
@@ -42,6 +44,25 @@ func (e Env) FormSingle(field huh.Field) *huh.Form {
 
 func (e Env) Spinner() *spinner.Spinner {
 	return spinner.New().Output(e.Out.Raw())
+}
+
+func (e Env) Viewport(ctx context.Context) (ViewportWriter, func() error) {
+	v := &viewportModel{}
+
+	p := tea.NewProgram(v,
+		tea.WithContext(ctx),
+		tea.WithInput(e.In.Raw()),
+		tea.WithOutput(e.Out.Raw()),
+		tea.WithAltScreen(),
+		tea.WithMouseCellMotion(),
+	)
+
+	v.program = p
+
+	return v, func() error {
+		_, err := p.Run()
+		return err
+	}
 }
 
 type Style struct {

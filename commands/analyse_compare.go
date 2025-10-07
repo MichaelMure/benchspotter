@@ -61,7 +61,7 @@ func runAnalyseCompare(ctx context.Context, env *execenv.Env, options analyseCom
 	// at revision v0.0.0-20250909190841-7e13e04d9366/
 
 	var err error
-	var selection []engine.SessionInfo
+	var selection []*engine.SessionInfo
 
 	if len(options.sessions) == 0 {
 		const recallKey = "analyse_compare_sessions"
@@ -119,21 +119,12 @@ func runAnalyseCompare(ctx context.Context, env *execenv.Env, options analyseCom
 	if options.confidence < 0 || options.confidence > 1 {
 		return fmt.Errorf("-confidence must be in range [0, 1]")
 	}
-	var format func(t *benchtab.Tables) error
-	switch options.format {
-	default:
-		return fmt.Errorf("-format must be text or csv")
-	case "text":
-		format = func(t *benchtab.Tables) error { return t.ToText(env.Out, false) }
-	case "csv":
-		format = func(t *benchtab.Tables) error { return t.ToCSV(env.Out, env.Err) }
-	}
 
 	stat := benchtab.NewBuilder(tableBy, rowBy, colBy, residue)
 
 	paths := make([]string, len(selection))
 	for i, info := range selection {
-		paths[i] = fmt.Sprintf("%s=%s", info.HumanName(), info.BenchFullPath())
+		paths[i] = fmt.Sprintf("%s=%s", info.HumanName, info.BenchFullPath())
 	}
 
 	files := benchfmt.Files{Paths: paths, AllowStdin: true, AllowLabels: true}
@@ -164,5 +155,11 @@ func runAnalyseCompare(ctx context.Context, env *execenv.Env, options analyseCom
 		Thresholds: &options.thresholds,
 		Units:      files.Units(),
 	})
-	return format(tables)
+
+	viewport, runFn := env.Viewport(ctx)
+	err = tables.ToText(viewport, false)
+	if err != nil {
+		return err
+	}
+	return runFn()
 }
