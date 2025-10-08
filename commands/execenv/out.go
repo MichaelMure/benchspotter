@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/muesli/termenv"
 	"golang.org/x/term"
 )
 
@@ -38,20 +39,26 @@ type Out interface {
 	Reset()
 }
 
+var _ Out = &out{}
+
 type out struct {
-	io.Writer
+	out *termenv.Output
 }
 
 func (o out) Printf(format string, a ...interface{}) {
-	_, _ = fmt.Fprintf(o, format, a...)
+	_, _ = fmt.Fprintf(o.out, format, a...)
+}
+
+func (o out) Write(p []byte) (n int, err error) {
+	return o.out.Write(p)
 }
 
 func (o out) Print(a ...interface{}) {
-	_, _ = fmt.Fprint(o, a...)
+	_, _ = fmt.Fprint(o.out, a...)
 }
 
 func (o out) Println(a ...interface{}) {
-	_, _ = fmt.Fprintln(o, a...)
+	_, _ = fmt.Fprintln(o.out, a...)
 }
 
 func (o out) PrintJSON(v interface{}) error {
@@ -64,7 +71,7 @@ func (o out) PrintJSON(v interface{}) error {
 }
 
 func (o out) IsTerminal() bool {
-	if f, ok := o.Writer.(*os.File); ok {
+	if f, ok := o.out.Writer().(*os.File); ok {
 		return isTerminal(f)
 	}
 	return false
@@ -81,7 +88,7 @@ func (o out) Width() int {
 }
 
 func (o out) Raw() io.Writer {
-	return o.Writer
+	return o.out.Writer()
 }
 
 func (o out) String() string {

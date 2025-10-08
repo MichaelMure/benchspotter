@@ -119,8 +119,25 @@ func (repo *Repository) Cmd(ctx context.Context, name string, args ...string) *e
 	return cmd
 }
 
-// GetRecall returns the "recall" storage for a better UX in a command.
-func (repo *Repository) GetRecall(name string) []string {
+// GetRecall returns a single value from the "recall" storage for a better UX
+// in a command.
+func (repo *Repository) GetRecall(name string) string {
+	data, err := util.ReadFile(repo.storage, filepath.Join(recallDir, name))
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+// SetRecall stores a single value in a "recall" storage for a better UX
+// in a command.
+func (repo *Repository) SetRecall(name string, value string) error {
+	return util.WriteFile(repo.storage, filepath.Join(recallDir, name), []byte(value), 0644)
+}
+
+// GetRecalls returns multiple values from the "recall" storage for a better UX
+// in a command.
+func (repo *Repository) GetRecalls(name string) []string {
 	data, err := util.ReadFile(repo.storage, filepath.Join(recallDir, name))
 	if err != nil {
 		return nil
@@ -128,8 +145,9 @@ func (repo *Repository) GetRecall(name string) []string {
 	return strings.Split(string(data), "\n")
 }
 
-// SetRecall stores a "recall" storage for a better UX in a command.
-func (repo *Repository) SetRecall(name string, values iter.Seq[string]) error {
+// SetRecalls stores multiple values in a "recall" storage for a better UX
+// in a command.
+func (repo *Repository) SetRecalls(name string, values iter.Seq[string]) error {
 	var data strings.Builder
 	first := true
 	for str := range values {

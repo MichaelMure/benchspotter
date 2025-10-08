@@ -20,6 +20,7 @@ import (
 
 const sessionDir = "sessions"
 const metaFilename = "meta.json"
+const GitDiffFilename = "git.diff"
 
 // sessionMeta is a metadata record in the session folder
 type sessionMeta struct {
@@ -49,7 +50,7 @@ func PrepareSession(ctx context.Context, env *execenv.Env, name string, benches 
 }
 
 func recordDiffIfAvailable(ctx context.Context, env *execenv.Env, id string) error {
-	filename := filepath.Join(sessionDir, id, "git.diff")
+	filename := filepath.Join(sessionDir, id, GitDiffFilename)
 	diffFile, err := env.Repo.Storage().Create(filename)
 	if err != nil {
 		return fmt.Errorf("failed to create diff file: %w", err)
@@ -113,13 +114,16 @@ func (c *CountingWriter) Write(p []byte) (int, error) {
 
 type SessionInfo struct {
 	Id        string
-	uid       uuid.UUID
 	Name      string
 	HumanName string
 	Root      string // root of the storage
 	Path      string // path in storage
 	Time      time.Time
 	Benches   []string
+	GitCommit string
+
+	uid uuid.UUID
+	fs  billy.Filesystem
 }
 
 func LocateSessions(fs billy.Filesystem) ([]*SessionInfo, error) {
@@ -154,13 +158,16 @@ func LocateSessions(fs billy.Filesystem) ([]*SessionInfo, error) {
 			int64(binary.BigEndian.Uint16(uid[4:6]))
 
 		res[i] = &SessionInfo{
-			Id:      dir.Name(),
-			uid:     uid,
-			Name:    meta.Name,
-			Root:    fs.Root(),
-			Path:    filepath.Join(sessionDir, dir.Name()),
-			Time:    time.UnixMilli(timestampMilli),
-			Benches: meta.Benches,
+			Id:        dir.Name(),
+			Name:      meta.Name,
+			Root:      fs.Root(),
+			Path:      filepath.Join(sessionDir, dir.Name()),
+			Time:      time.UnixMilli(timestampMilli),
+			Benches:   meta.Benches,
+			GitCommit: meta.GitCommit,
+
+			uid: uid,
+			fs:  fs,
 		}
 	}
 
@@ -232,4 +239,13 @@ func (s SessionInfo) BenchPath() string {
 
 func (s SessionInfo) BenchFullPath() string {
 	return filepath.Join(s.Root, s.Path, benchFilename)
+}
+
+func (s SessionInfo) HasGitDiff() bool {
+	_, err := s.fs.Stat(filepath.Join(s.Path, GitDiffFilename))
+	return err == nil
+}
+
+func (s SessionInfo) OpenFile(name string) (billy.File, error) {
+	return s.fs.Open(filepath.Join(s.Path, name))
 }

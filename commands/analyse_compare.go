@@ -65,14 +65,14 @@ func runAnalyseCompare(ctx context.Context, env *execenv.Env, options analyseCom
 
 	if len(options.sessions) == 0 {
 		const recallKey = "analyse_compare_sessions"
-		preSelected := env.Repo.GetRecall(recallKey)
+		preSelected := env.Repo.GetRecalls(recallKey)
 
 		selection, err = inputs.SelectSessions(ctx, env, preSelected)
 		if err != nil {
 			return err
 		}
 
-		err = env.Repo.SetRecall(recallKey, func(yield func(string) bool) {
+		err = env.Repo.SetRecalls(recallKey, func(yield func(string) bool) {
 			for _, info := range selection {
 				if !yield(info.Id) {
 					return
@@ -157,7 +157,8 @@ func runAnalyseCompare(ctx context.Context, env *execenv.Env, options analyseCom
 	})
 
 	viewport, runFn := env.Viewport(ctx)
-	err = tables.ToText(viewport, false)
+	// the "color" argument actually does nothing!
+	err = tables.ToText(viewport, true)
 	if err != nil {
 		return err
 	}

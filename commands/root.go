@@ -38,6 +38,7 @@ A typical session is as follow:
 
 	addCmdWithGroup(newBenchCommand(env), mainGroup)
 	addCmdWithGroup(newAnalyzeCommand(env), mainGroup)
+	addCmdWithGroup(newShowCommand(env), mainGroup)
 
 	addCmdWithGroup(newVersionCommand(env), utilitiesGroup)
 	cmd.SetHelpCommandGroupID(utilitiesGroup)

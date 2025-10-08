@@ -68,7 +68,7 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 		}
 
 		const recallKey = "bench_benchmarks"
-		preSelected := env.Repo.GetRecall(recallKey)
+		preSelected := env.Repo.GetRecalls(recallKey)
 
 		err = env.FormSingle(huh.NewMultiSelect[engine.BenchInfo]().
 			Title("Select benchmarks").
@@ -87,7 +87,7 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 			return err
 		}
 
-		err = env.Repo.SetRecall(recallKey, func(yield func(string) bool) {
+		err = env.Repo.SetRecalls(recallKey, func(yield func(string) bool) {
 			for _, info := range selection {
 				if !yield(info.Name) {
 					return

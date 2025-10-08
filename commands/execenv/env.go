@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
+	"github.com/muesli/termenv"
 
 	"benchspotter/repository"
 )
@@ -24,8 +25,8 @@ func NewEnv() *Env {
 	return &Env{
 		Repo:  nil,
 		In:    in{Reader: os.Stdin},
-		Out:   out{Writer: os.Stdout},
-		Err:   out{Writer: os.Stderr},
+		Out:   out{out: termenv.NewOutput(os.Stdout)},
+		Err:   out{out: termenv.NewOutput(os.Stderr)},
 		Style: Style{huh.ThemeCharm()},
 	}
 }

@@ -10,7 +10,7 @@ func newAnalyzeCommand(env *execenv.Env) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "analyze",
 		Aliases: []string{"analyse"},
-		Short:   "Analyse results in various ways",
+		Short:   "Analyse benchmarking results",
 	}
 
 	cmd.AddCommand(newAnalyseCompareCommand(env))
