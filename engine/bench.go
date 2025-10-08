@@ -155,16 +155,17 @@ func RunBenches(ctx context.Context, storage billy.Filesystem, id string, benche
 
 			for r.Scan() {
 				line := r.Result()
-				if line, ok := line.(*benchfmt.Result); ok {
-					if !yield(line, nil) {
-						return
-					}
-				}
 
 				err = w.Write(line)
 				if err != nil {
 					yield(nil, err)
 					return
+				}
+
+				if line, ok := line.(*benchfmt.Result); ok {
+					if !yield(line, nil) {
+						return
+					}
 				}
 			}
 		}
