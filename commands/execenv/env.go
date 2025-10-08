@@ -49,7 +49,7 @@ func (e Env) Spinner() *spinner.Spinner {
 func (e Env) Viewport(ctx context.Context) (ViewportWriter, func() error) {
 	v := &viewportModel{}
 
-	p := tea.NewProgram(v,
+	v.program = tea.NewProgram(v,
 		tea.WithContext(ctx),
 		tea.WithInput(e.In.Raw()),
 		tea.WithOutput(e.Out.Raw()),
@@ -57,10 +57,8 @@ func (e Env) Viewport(ctx context.Context) (ViewportWriter, func() error) {
 		tea.WithMouseCellMotion(),
 	)
 
-	v.program = p
-
 	return v, func() error {
-		_, err := p.Run()
+		_, err := v.program.Run()
 		return err
 	}
 }

@@ -9,11 +9,11 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/google/uuid"
-	"golang.org/x/sys/execabs"
 
 	"benchspotter/commands/execenv"
 )
@@ -23,8 +23,9 @@ const metaFilename = "meta.json"
 
 // sessionMeta is a metadata record in the session folder
 type sessionMeta struct {
-	Name    string   `json:"name,omitempty"`
-	Benches []string `json:"benchs,omitempty"`
+	Name      string   `json:"name,omitempty"`
+	Benches   []string `json:"benchs,omitempty"`
+	GitCommit string   `json:"git_commit,omitempty"`
 }
 
 func PrepareSession(ctx context.Context, env *execenv.Env, name string, benches []BenchInfo) (string, error) {
@@ -39,7 +40,7 @@ func PrepareSession(ctx context.Context, env *execenv.Env, name string, benches 
 		return "", err
 	}
 
-	err = recordMeta(env, id, name, benches)
+	err = recordMeta(ctx, env, id, name, benches)
 	if err != nil {
 		return "", err
 	}
@@ -54,7 +55,7 @@ func recordDiffIfAvailable(ctx context.Context, env *execenv.Env, id string) err
 		return fmt.Errorf("failed to create diff file: %w", err)
 	}
 
-	cmd := execabs.CommandContext(ctx, "git", "diff")
+	cmd := env.Repo.Cmd(ctx, "git", "diff")
 	cmd.Stdout = &CountingWriter{writer: diffFile}
 	err = cmd.Run()
 	_ = diffFile.Close()
@@ -64,7 +65,7 @@ func recordDiffIfAvailable(ctx context.Context, env *execenv.Env, id string) err
 	return nil
 }
 
-func recordMeta(env *execenv.Env, id string, name string, benches []BenchInfo) error {
+func recordMeta(ctx context.Context, env *execenv.Env, id string, name string, benches []BenchInfo) error {
 	filename := filepath.Join(sessionDir, id, metaFilename)
 	f, err := env.Repo.Storage().Create(filename)
 	if err != nil {
@@ -72,19 +73,31 @@ func recordMeta(env *execenv.Env, id string, name string, benches []BenchInfo) e
 	}
 	defer f.Close()
 
-	benchesStr := make([]string, len(benches))
+	meta := sessionMeta{Name: name}
+
+	meta.Benches = make([]string, len(benches))
 	for i, bench := range benches {
-		benchesStr[i] = bench.Name
+		meta.Benches[i] = bench.Name
 	}
 
-	err = json.NewEncoder(f).Encode(&sessionMeta{
-		Name:    name,
-		Benches: benchesStr,
-	})
+	if commit, err := getCommitIfAvailable(ctx, env); err == nil {
+		meta.GitCommit = commit
+	}
+
+	err = json.NewEncoder(f).Encode(meta)
 	if err != nil {
 		return fmt.Errorf("failed to encode meta file: %w", err)
 	}
 	return nil
+}
+
+func getCommitIfAvailable(ctx context.Context, env *execenv.Env) (string, error) {
+	cmd := env.Repo.Cmd(ctx, "git", "rev-parse", "HEAD")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 type CountingWriter struct {
@@ -177,33 +190,37 @@ func generateNames(res []*SessionInfo) error {
 		return "-" + hex.EncodeToString(bytes[:length/2])
 	}
 
-	var success bool
-	for suffixLen := 0; suffixLen <= 128; suffixLen++ {
-		allNames := make(map[string]struct{}, len(res))
-		success = true
-		for i, info := range res {
-			if len(info.Name) == 0 {
-				res[i].HumanName = fmt.Sprintf(`%s%s`,
-					info.Time.Format("06-Jan-02"),
-					uidToSuffix(info.uid, suffixLen),
-				)
-			} else {
-				res[i].HumanName = fmt.Sprintf(`"%s"%s`,
-					info.Name, uidToSuffix(info.uid, suffixLen),
-				)
-			}
-			if _, ok := allNames[info.HumanName]; ok {
-				success = false
-				break
-			}
-			allNames[info.HumanName] = struct{}{}
+	var allNames = make(map[string]int, len(res))
+	for i, info := range res {
+		name := info.Name
+		if len(name) == 0 {
+			name = info.Time.Format("06-Jan-02")
 		}
-		if success {
-			break
-		}
+		allNames[name] = allNames[name] + 1
+		res[i].HumanName = name
 	}
-	if !success {
-		return fmt.Errorf("failed to generate unique names")
+
+	// add suffix where necessary
+	suffixLen := 1
+	for len(allNames) < len(res) {
+		for i, info := range res {
+			name := info.Name
+			if len(name) == 0 {
+				name = info.Time.Format("06-Jan-02")
+			}
+			if allNames[name] > 1 {
+				name = name + uidToSuffix(info.uid, suffixLen)
+			}
+			res[i].HumanName = name
+		}
+		allNames = make(map[string]int, len(res))
+		for _, info := range res {
+			allNames[info.HumanName] = allNames[info.HumanName] + 1
+		}
+		suffixLen++
+		if suffixLen > 128 {
+			return fmt.Errorf("failed to generate unique names")
+		}
 	}
 
 	return nil

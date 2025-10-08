@@ -1,9 +1,11 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"iter"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -15,7 +17,7 @@ import (
 
 const recallDir = "recall"
 
-// Repository is an abstracted access to sources and BenchSpotter data in a project.
+// Repository is an abstracted access to sources and BenchSpotter's data in a project.
 type Repository struct {
 	sources billy.Filesystem
 	storage billy.Filesystem
@@ -109,6 +111,12 @@ func (repo *Repository) Sources() billy.Filesystem {
 // Storage returns the storage space dedicated to benchspotter
 func (repo *Repository) Storage() billy.Filesystem {
 	return repo.storage
+}
+
+func (repo *Repository) Cmd(ctx context.Context, name string, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Dir = repo.sources.Root()
+	return cmd
 }
 
 // GetRecall returns the "recall" storage for a better UX in a command.
