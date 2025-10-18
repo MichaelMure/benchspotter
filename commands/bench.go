@@ -19,7 +19,7 @@ import (
 )
 
 type benchOptions struct {
-	profiles   []profile
+	profiles   []engine.Profile
 	benchmarks []string
 	name       string
 	count      int
@@ -109,7 +109,7 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 	}
 
 	var selection []engine.BenchInfo
-	if slices.Contains(options.profiles, engine.ProfileBench) && len(options.benchmarks) == 0 {
+	if len(options.benchmarks) == 0 {
 		const recallKey = "bench_benchmarks"
 		preSelected := env.Repo.GetRecalls(recallKey)
 
@@ -212,7 +212,59 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 	}
 
 	if slices.Contains(options.profiles, engine.ProfileCPU) {
+		it := engine.RunProfile(ctx, env.Repo.Storage(), id, selection, engine.ProfileCPU)
+		for _, info := range selection {
+			start := time.Now()
+			err = env.Spinner().Title("CPU " + info.Name).ActionWithErr(func(ctx context.Context) error {
+				return it()
+			}).Run()
+			if err != nil {
+				return err
+			}
+			env.Out.Printf("> CPU profile for %s done in %v\n", info.Name, time.Since(start).Truncate(100*time.Millisecond))
+		}
+	}
 
+	if slices.Contains(options.profiles, engine.ProfileMem) {
+		it := engine.RunProfile(ctx, env.Repo.Storage(), id, selection, engine.ProfileMem)
+		for _, info := range selection {
+			start := time.Now()
+			err = env.Spinner().Title("Memory " + info.Name).ActionWithErr(func(ctx context.Context) error {
+				return it()
+			}).Run()
+			if err != nil {
+				return err
+			}
+			env.Out.Printf("> Memory profile for %s done in %v\n", info.Name, time.Since(start).Truncate(100*time.Millisecond))
+		}
+	}
+
+	if slices.Contains(options.profiles, engine.ProfileMutex) {
+		it := engine.RunProfile(ctx, env.Repo.Storage(), id, selection, engine.ProfileMutex)
+		for _, info := range selection {
+			start := time.Now()
+			err = env.Spinner().Title("Mutex " + info.Name).ActionWithErr(func(ctx context.Context) error {
+				return it()
+			}).Run()
+			if err != nil {
+				return err
+			}
+			env.Out.Printf("> Mutex profile for %s done in %v\n", info.Name, time.Since(start).Truncate(100*time.Millisecond))
+		}
+	}
+
+	if slices.Contains(options.profiles, engine.ProfileBlock) {
+		it := engine.RunProfile(ctx, env.Repo.Storage(), id, selection, engine.ProfileBlock)
+		for _, info := range selection {
+			start := time.Now()
+			err = env.Spinner().Title("Block " + info.Name).ActionWithErr(func(ctx context.Context) error {
+				return it()
+			}).Run()
+			if err != nil {
+				return err
+			}
+			env.Out.Printf("> Block profile for %s done in %v\n", info.Name, time.Since(start).Truncate(100*time.Millisecond))
+		}
 	}
 
 	return nil

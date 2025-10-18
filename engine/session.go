@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -128,6 +129,9 @@ type SessionInfo struct {
 
 func LocateSessions(fs billy.Filesystem) ([]*SessionInfo, error) {
 	dirs, err := fs.ReadDir(sessionDir)
+	if os.IsNotExist(err) {
+		return nil, fmt.Errorf("no sessions found, use the `bench` command to create one")
+	}
 	if err != nil {
 		return nil, err
 	}
