@@ -10,16 +10,35 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
+	"github.com/thediveo/enumflag/v2"
 	"golang.org/x/perf/benchfmt"
 
 	"benchspotter/commands/execenv"
+	"benchspotter/commands/inputs"
 	"benchspotter/engine"
 )
 
 type benchOptions struct {
+	profiles   []profile
 	benchmarks []string
 	name       string
 	count      int
+}
+
+var profileIds = map[engine.Profile][]string{
+	engine.ProfileBench: {"bench"},
+	engine.ProfileCPU:   {"cpu"},
+	engine.ProfileMem:   {"mem"},
+	engine.ProfileMutex: {"mutex"},
+	engine.ProfileBlock: {"block"},
+}
+
+var profileHelp = map[engine.Profile]string{
+	engine.ProfileBench: "Run benchmarks",
+	engine.ProfileCPU:   "Run CPU profiling",
+	engine.ProfileMem:   "Run memory profiling",
+	engine.ProfileMutex: "Run mutex profiling",
+	engine.ProfileBlock: "Run blocking profiling",
 }
 
 // unsetStringMarker is a value marking a string not being set in a string flag.
@@ -40,6 +59,13 @@ func newBenchCommand(env *execenv.Env) *cobra.Command {
 
 	flags := cmd.Flags()
 
+	profileEnum := enumflag.NewSlice(&options.profiles, "profile", profileIds, enumflag.EnumCaseInsensitive)
+	flags.VarP(profileEnum, "profile", "p", "Profiling mode(s) to run")
+	err := profileEnum.RegisterCompletion(cmd, "profile", profileHelp)
+	if err != nil {
+		panic(err)
+	}
+
 	flags.StringSliceVarP(&options.benchmarks, "benchmarks", "b", []string{}, "Benchmarks to run")
 	flags.StringVarP(&options.name, "name", "n", unsetStringMarker, "A name for the benchmark session, for the user to record what is being tested")
 	flags.IntVarP(&options.count, "count", "c", -1, "Run benchmarks `n` times")
@@ -48,41 +74,46 @@ func newBenchCommand(env *execenv.Env) *cobra.Command {
 }
 
 func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error {
-	var selection []engine.BenchInfo
+	var err error
 
-	if len(options.benchmarks) == 0 {
-		var benchs []engine.BenchInfo
+	if len(options.profiles) == 0 {
+		const recallKey = "bench_profiles"
+		preSelected := env.Repo.GetRecalls(recallKey)
+		selected := func(p engine.Profile) bool { return slices.Contains(preSelected, strconv.Itoa(int(p))) }
 
-		err := env.Spinner().Title("Finding benchmarks").
-			ActionWithErr(func(ctx context.Context) error {
-				var err error
-				benchs, err = engine.LocateBenchmarks(ctx, env.Repo.Sources())
-				return err
-			}).Context(ctx).Run()
+		err = env.FormSingle(huh.NewMultiSelect[engine.Profile]().
+			Title("Benchmarking profile(s)").
+			Options(
+				huh.NewOption("Benchmark", engine.ProfileBench).Selected(selected(engine.ProfileBench)),
+				huh.NewOption("CPU", engine.ProfileCPU).Selected(selected(engine.ProfileCPU)),
+				huh.NewOption("Memory", engine.ProfileMem).Selected(selected(engine.ProfileMem)),
+				huh.NewOption("Mutex", engine.ProfileMutex).Selected(selected(engine.ProfileMutex)),
+				huh.NewOption("Blocking", engine.ProfileBlock).Selected(selected(engine.ProfileBlock)),
+			).
+			Value(&options.profiles)).
+			RunWithContext(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to discover benchmarks: %w", err)
+			return err
 		}
 
-		if len(benchs) == 0 {
-			return fmt.Errorf("no benchmarks found")
+		err = env.Repo.SetRecalls(recallKey, func(yield func(string) bool) {
+			for _, p := range options.profiles {
+				if !yield(strconv.Itoa(int(p))) {
+					return
+				}
+			}
+		})
+		if err != nil {
+			return err
 		}
+	}
 
+	var selection []engine.BenchInfo
+	if slices.Contains(options.profiles, engine.ProfileBench) && len(options.benchmarks) == 0 {
 		const recallKey = "bench_benchmarks"
 		preSelected := env.Repo.GetRecalls(recallKey)
 
-		err = env.FormSingle(huh.NewMultiSelect[engine.BenchInfo]().
-			Title("Select benchmarks").
-			OptionsFunc(func() []huh.Option[engine.BenchInfo] {
-				opts := make([]huh.Option[engine.BenchInfo], len(benchs))
-				for i, info := range benchs {
-					line := info.Name + env.Style.TonedDown(" - "+info.Package)
-					opts[i] = huh.NewOption(line, info).
-						Selected(slices.Contains(preSelected, info.Name))
-				}
-				return opts
-			}, nil).
-			Value(&selection)).
-			RunWithContext(ctx)
+		selection, err = inputs.SelectBenchmarks(ctx, env, preSelected)
 		if err != nil {
 			return err
 		}
@@ -97,10 +128,12 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 		if err != nil {
 			return err
 		}
+	} else {
+		// TODO: fill "selection"
 	}
 
 	if options.name == unsetStringMarker {
-		err := env.FormSingle(huh.NewInput().
+		err = env.FormSingle(huh.NewInput().
 			Title("Name of the session (optional)").
 			Validate(func(s string) error {
 				if !utf8.ValidString(s) {
@@ -115,9 +148,9 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 		}
 	}
 
-	if options.count == -1 {
+	if slices.Contains(options.profiles, engine.ProfileBench) && options.count == -1 {
 		var value string
-		err := env.FormSingle(huh.NewInput().
+		err = env.FormSingle(huh.NewInput().
 			Title("Run benchmarks `n` times").
 			Placeholder("1").
 			Validate(func(s string) error {
@@ -148,32 +181,38 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 		return err
 	}
 
-	it := engine.RunBenches(ctx, env.Repo.Storage(), id, selection, options.count)
-	for _, info := range selection {
-		for range options.count {
-			start := time.Now()
-			var res *benchfmt.Result
-			err = env.Spinner().Title(info.Name).ActionWithErr(func(ctx context.Context) error {
-				res, err = it()
-				return err
-			}).Run()
-			if err != nil {
-				return err
-			}
+	if slices.Contains(options.profiles, engine.ProfileBench) {
+		it := engine.RunBenches(ctx, env.Repo.Storage(), id, selection, options.count)
+		for _, info := range selection {
+			for range options.count {
+				start := time.Now()
+				var res *benchfmt.Result
+				err = env.Spinner().Title(info.Name).ActionWithErr(func(ctx context.Context) error {
+					res, err = it()
+					return err
+				}).Run()
+				if err != nil {
+					return err
+				}
 
-			env.Out.Printf("> Benchmark%s (", res.Name)
-			for i, value := range res.Values {
-				if i > 0 {
-					env.Out.Print(" | ")
+				env.Out.Printf("> Benchmark%s (", res.Name)
+				for i, value := range res.Values {
+					if i > 0 {
+						env.Out.Print(" | ")
+					}
+					if value.OrigUnit != "" {
+						env.Out.Printf("%v %s", value.OrigValue, value.OrigUnit)
+					} else {
+						env.Out.Printf("%v %s", value.Value, value.Unit)
+					}
 				}
-				if value.OrigUnit != "" {
-					env.Out.Printf("%v %s", value.OrigValue, value.OrigUnit)
-				} else {
-					env.Out.Printf("%v %s", value.Value, value.Unit)
-				}
+				env.Out.Printf(") done in %v\n", time.Since(start).Truncate(100*time.Millisecond))
 			}
-			env.Out.Printf(") done in %v\n", time.Since(start).Truncate(100*time.Millisecond))
 		}
+	}
+
+	if slices.Contains(options.profiles, engine.ProfileCPU) {
+
 	}
 
 	return nil
