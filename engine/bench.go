@@ -24,6 +24,19 @@ type BenchInfo struct {
 	Package string
 }
 
+func (i BenchInfo) Regex() string {
+	var res strings.Builder
+	for i, segment := range strings.Split(i.Name, "/") {
+		if i > 0 {
+			res.WriteString(`/`)
+		}
+		res.WriteString(`^\Q`)
+		res.WriteString(segment)
+		res.WriteString(`\E$`)
+	}
+	return res.String()
+}
+
 func LocateBenchmarks(ctx context.Context, sources billy.Filesystem) ([]BenchInfo, error) {
 	// TODO: this doesn't support dot import of "testing"
 
@@ -69,23 +82,30 @@ func LocateBenchmarks(ctx context.Context, sources billy.Filesystem) ([]BenchInf
 			if fn.Type.Params.NumFields() != 1 {
 				return true
 			}
-
-			param := fn.Type.Params.List[0]
-			if starExpr, ok := param.Type.(*ast.StarExpr); ok {
-				if selectorExpr, ok := starExpr.X.(*ast.SelectorExpr); ok {
-					if pkgIdent, ok := selectorExpr.X.(*ast.Ident); ok {
-						if actualPackage, ok := importMap[pkgIdent.Name]; ok {
-							if actualPackage == "testing" && selectorExpr.Sel.Name == "B" {
-								res = append(res, BenchInfo{
-									Name:    fn.Name.Name,
-									Package: filepath.Dir(path),
-								})
-							}
-						}
-					}
-				}
+			param1 := fn.Type.Params.List[0]
+			if !isTestingBParam(param1.Type, importMap) {
+				return true
 			}
-			return true
+
+			// Now, hunt for sub-benchmarks.
+			// First, we need the name of the *testing.B parameter.
+			// If unnamed (ie, BenchmarkXX(*testing.B), we can stop as there won't be any sub-benchmarks.
+			if len(param1.Names) == 0 || fn.Body == nil {
+				return false
+			}
+			testingVarName := param1.Names[0].Name
+
+			// Record the top-level benchmark, but only if there is no .Run() sub call.
+			// Recursively find all sub-benchmarks.
+			if !collectSubBenchmarks(&res, filepath.Dir(path), fn.Name.Name, testingVarName, fn.Body, importMap) {
+				res = append(res, BenchInfo{
+					Name:    fn.Name.Name,
+					Package: filepath.Dir(path),
+				})
+			}
+
+			// Stop traversing the AST.
+			return false
 		})
 		return nil
 	})
@@ -124,6 +144,96 @@ func buildImportMap(file *ast.File) map[string]string {
 	return importMap
 }
 
+// isTestingBParam checks whether the given parameter type is *testing.B
+func isTestingBParam(paramType ast.Expr, importMap map[string]string) bool {
+	starExpr, ok := paramType.(*ast.StarExpr)
+	if !ok {
+		return false
+	}
+	selectorExpr, ok := starExpr.X.(*ast.SelectorExpr)
+	if !ok {
+		return false
+	}
+	pkgIdent, ok := selectorExpr.X.(*ast.Ident)
+	if !ok {
+		return false
+	}
+	actualPackage, ok := importMap[pkgIdent.Name]
+	if !ok {
+		return false
+	}
+	return actualPackage == "testing" && selectorExpr.Sel.Name == "B"
+}
+
+// collectSubBenchmarks recursively finds all sub-benchmarks in the given function body.
+// It returns true if a sub-benchmark was found, false otherwise.
+func collectSubBenchmarks(dst *[]BenchInfo, pkgDir, prefix, testingVarName string, node ast.Node, importMap map[string]string) (found bool) {
+	ast.Inspect(node, func(n ast.Node) bool {
+		// Search for b.Run(...)
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		sel, ok := call.Fun.(*ast.SelectorExpr)
+		if !ok {
+			return true
+		}
+		xIdent, ok := sel.X.(*ast.Ident)
+		if !ok || xIdent.Name != testingVarName {
+			return true
+		}
+		if sel.Sel == nil || sel.Sel.Name != "Run" {
+			return true
+		}
+
+		// Expect 2 parameters: b.Run("name", func(b *testing.B) { ... })
+		if len(call.Args) < 2 {
+			return true
+		}
+
+		// Expect the first parameter to be a string literal: the name of the sub-benchmark.
+		nameLit, ok := call.Args[0].(*ast.BasicLit)
+		if !ok || nameLit.Kind != token.STRING {
+			return true // dynamic names can't be determined here
+		}
+		subName, err := strconv.Unquote(nameLit.Value)
+		if err != nil || subName == "" {
+			return true
+		}
+
+		// Expect the second parameter to be a function literal: the sub-benchmark body.
+		fnLit, ok := call.Args[1].(*ast.FuncLit)
+		if !ok || fnLit.Type == nil || fnLit.Type.Params == nil || fnLit.Type.Params.NumFields() != 1 {
+			return true
+		}
+		subParam := fnLit.Type.Params.List[0]
+		if !isTestingBParam(subParam.Type, importMap) {
+			return true
+		}
+
+		// Record the sub-benchmark, but only if there is no .Run() sub call.
+		found = true
+		fullName := prefix + "/" + subName
+
+		// Recurse into the sub-benchmark body to find nested b.Run calls.
+		if len(subParam.Names) == 0 || fnLit.Body == nil {
+			return false
+		}
+		testingVarName = subParam.Names[0].Name
+
+		if !collectSubBenchmarks(dst, pkgDir, fullName, testingVarName, fnLit.Body, importMap) {
+			*dst = append(*dst, BenchInfo{
+				Name:    fullName,
+				Package: pkgDir,
+			})
+		}
+
+		// Stop traversing the AST.
+		return false
+	})
+	return
+}
+
 func RunBenches(ctx context.Context, storage billy.Filesystem, id string, benches []BenchInfo, count int) func() (*benchfmt.Result, error) {
 	next, _ := iter.Pull2(func(yield func(*benchfmt.Result, error) bool) {
 		out, err := storage.Create(filepath.Join(sessionDir, id, benchFilename))
@@ -135,8 +245,9 @@ func RunBenches(ctx context.Context, storage billy.Filesystem, id string, benche
 		w := benchfmt.NewWriter(out)
 
 		for _, infos := range benches {
-			cmd := execabs.CommandContext(ctx, "go", "test", "-bench",
-				"^\\Q"+infos.Name+"\\E$", "-benchmem", "-count", strconv.Itoa(count), "-run", "^$", ".")
+			cmd := execabs.CommandContext(ctx, "go", "test",
+				"-bench", infos.Regex(),
+				"-benchmem", "-count", strconv.Itoa(count), "-run", "^$", ".")
 			cmd.Dir = infos.Package
 
 			stdout, err := cmd.StdoutPipe()

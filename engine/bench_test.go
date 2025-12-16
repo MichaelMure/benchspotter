@@ -19,5 +19,6 @@ func TestLocateBenchmarks(t *testing.T) {
 		{"BenchmarkBoz", "internal/anotherpackage"},
 		{"BenchmarkFoo", "internal"},
 		{"BenchmarkBar", "internal"},
+		{"BenchmarkBaz/foo/bar", "internal"},
 	}, benchs)
 }

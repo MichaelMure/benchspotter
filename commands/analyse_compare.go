@@ -56,6 +56,9 @@ func newAnalyseCompareCommand(env *execenv.Env) *cobra.Command {
 	return cmd
 }
 
+// TODO: ask for profile (bench, cpu, mem ...)
+// TODO: add "go tool pprof -base=before.prof after.prof"
+
 func runAnalyseCompare(ctx context.Context, env *execenv.Env, options analyseCompareOptions) error {
 	// Note: largely taken from golang.org/x/perf/cmd/benchstat/main.go
 	// at revision v0.0.0-20250909190841-7e13e04d9366/
@@ -70,6 +73,9 @@ func runAnalyseCompare(ctx context.Context, env *execenv.Env, options analyseCom
 		selection, err = inputs.SelectSessions(ctx, env, preSelected)
 		if err != nil {
 			return err
+		}
+		if len(selection) == 0 {
+			return fmt.Errorf("no sessions selected")
 		}
 
 		err = env.Repo.SetRecalls(recallKey, func(yield func(string) bool) {

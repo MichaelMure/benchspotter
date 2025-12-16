@@ -51,8 +51,9 @@ func RunProfile(ctx context.Context, storage billy.Filesystem, id string, benche
 			}
 			outFilename := storage.Join(storage.Root(), subDir, filename)
 
-			cmd := execabs.CommandContext(ctx, "go", "test", "-bench",
-				"^\\Q"+infos.Name+"\\E$", option+"="+outFilename,
+			cmd := execabs.CommandContext(ctx, "go", "test",
+				"-bench", infos.Regex(),
+				option+"="+outFilename,
 				"-run", "^$", ".")
 			cmd.Dir = infos.Package
 
