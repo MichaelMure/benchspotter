@@ -14,6 +14,7 @@ func newAnalyzeCommand(env *execenv.Env) *cobra.Command {
 	}
 
 	cmd.AddCommand(newAnalyseCompareCommand(env))
+	cmd.AddCommand(newAnalyseAllocCommand(env))
 
 	return cmd
 }

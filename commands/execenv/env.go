@@ -31,6 +31,7 @@ func NewEnv() *Env {
 	}
 }
 
+// Form creates a huh form with multiple widgets
 func (e Env) Form(groups ...*huh.Group) *huh.Form {
 	return huh.NewForm(groups...).
 		WithInput(e.In.Raw()).
@@ -38,15 +39,18 @@ func (e Env) Form(groups ...*huh.Group) *huh.Form {
 		WithTheme(e.Style.Theme)
 }
 
+// FormSingle creates a huh form with a single widget
 func (e Env) FormSingle(field huh.Field) *huh.Form {
 	group := huh.NewGroup(field)
 	return e.Form(group).WithShowHelp(false)
 }
 
+// Spinner creates a new spinner for the Env configuration
 func (e Env) Spinner() *spinner.Spinner {
 	return spinner.New().Output(e.Out.Raw())
 }
 
+// Viewport creates a new viewport for the Env configuration
 func (e Env) Viewport(ctx context.Context) (ViewportWriter, func() error) {
 	v := &viewportModel{}
 

@@ -20,6 +20,15 @@ const (
 	ProfileBlock
 )
 
+type Sample string
+
+const (
+	SampleInuseSpace   Sample = "inuse_space"
+	SampleInuseObjects        = "inuse_objects"
+	SampleAllocSpace          = "alloc_space"
+	SampleAllocObjects        = "alloc_objects"
+)
+
 var replacer = strings.NewReplacer(
 	"/", "ᚋ",
 	".", "ᚗ",
@@ -71,3 +80,9 @@ func RunProfile(ctx context.Context, storage billy.Filesystem, id string, benche
 		return err
 	}
 }
+
+// func AllocList(ctx context.Context, out io.Writer, storage billy.Filesystem, id string, sample Sample) error {
+// 	cmd := execabs.CommandContext(ctx, "go", "tool", "pprof", "-alloc_"+string(sample), storage.Join(sessionDir, id, "mem"), "foo.profile")
+// }
+
+// go tool pprof -alloc_space -list 'github.com/MichaelMure/go-iblite/package/package.KVTableFromReader' foo.profile
