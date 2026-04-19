@@ -2,6 +2,7 @@ package execenv
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 
@@ -48,6 +49,30 @@ func (e Env) FormSingle(field huh.Field) *huh.Form {
 
 func (e Env) Spinner() *spinner.Spinner {
 	return spinner.New().Output(e.Out.Raw())
+}
+
+// ViewportWithKeys runs m as an interactive TUI viewport. In non-terminal mode
+// it renders once and writes directly to Out. Flags should set the initial
+// model state for headless use.
+func (e Env) ViewportWithKeys(ctx context.Context, m InteractiveModel) func() error {
+	if !e.Out.IsTerminal() {
+		return func() error {
+			_, err := fmt.Fprint(e.Out, m.Render())
+			return err
+		}
+	}
+	v := &interactiveViewportModel{model: m}
+	program := tea.NewProgram(v,
+		tea.WithContext(ctx),
+		tea.WithInput(e.In.Raw()),
+		tea.WithOutput(e.Out.Raw()),
+		tea.WithAltScreen(),
+		tea.WithMouseCellMotion(),
+	)
+	return func() error {
+		_, err := program.Run()
+		return err
+	}
 }
 
 func (e Env) Viewport(ctx context.Context) (ViewportWriter, func() error) {

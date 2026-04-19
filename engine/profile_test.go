@@ -166,6 +166,6 @@ func TestPickValueIndex(t *testing.T) {
 
 	for _, tc := range cases {
 		prof := &profile.Profile{SampleType: tc.sampleTypes}
-		assert.Equal(t, tc.wantIdx, pickValueIndex(prof, tc.profileType))
+		assert.Equal(t, tc.wantIdx, PickValueIndex(prof, tc.profileType))
 	}
 }

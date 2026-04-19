@@ -16,16 +16,6 @@ import (
 	"golang.org/x/sys/execabs"
 )
 
-type Profile int
-
-const (
-	ProfileBench Profile = iota
-	ProfileCPU
-	ProfileMem
-	ProfileMutex
-	ProfileBlock
-)
-
 var replacer = strings.NewReplacer(
 	"/", "ᚋ",
 	".", "ᚗ",
@@ -109,6 +99,47 @@ func ProfileDir(p Profile) string {
 	}
 }
 
+// ProfileBenchSummary summarises a single benchmark's profile for display.
+// For CPU, Block and Mutex, Primary holds nanoseconds. For Mem, Primary holds
+// inuse_space bytes and AllocBytes holds alloc_space bytes.
+type ProfileBenchSummary struct {
+	Name       string
+	Primary    int64
+	AllocBytes int64 // Mem only
+}
+
+// ListProfileBenchmarkSummaries is like ListProfileBenchmarks but also reads
+// each profile to compute a quick total for display in interactive selectors.
+func ListProfileBenchmarkSummaries(fs billy.Filesystem, sessionPath string, p Profile) ([]ProfileBenchSummary, error) {
+	names, err := ListProfileBenchmarks(fs, sessionPath, p)
+	if err != nil {
+		return nil, err
+	}
+	summaries := make([]ProfileBenchSummary, len(names))
+	for i, name := range names {
+		prof, err := readProfile(fs, sessionPath, p, name)
+		if err != nil {
+			return nil, err
+		}
+		s := ProfileBenchSummary{Name: name, Primary: sumProfileValues(prof, PickValueIndex(prof, p))}
+		if p == ProfileMem {
+			s.AllocBytes = sumProfileValues(prof, MemMetricIndex(prof, MetricAllocSpace))
+		}
+		summaries[i] = s
+	}
+	return summaries, nil
+}
+
+func sumProfileValues(prof *profile.Profile, idx int) int64 {
+	var total int64
+	for _, s := range prof.Sample {
+		if len(s.Value) > idx {
+			total += s.Value[idx]
+		}
+	}
+	return total
+}
+
 // ListProfileBenchmarks returns the benchmark names that have profiles stored
 // for the given session and profile type.
 func ListProfileBenchmarks(fs billy.Filesystem, sessionPath string, p Profile) ([]string, error) {
@@ -139,7 +170,14 @@ func ReadProfileFunctions(fs billy.Filesystem, sessionPath string, p Profile, be
 	if err != nil {
 		return nil, err
 	}
-	return profileToFuncs(prof, p), nil
+	return AggregateFuncs(prof, PickValueIndex(prof, p), SortFlat), nil
+}
+
+// ReadParsedProfile parses the pprof file for the given session, profile type,
+// and benchmark, returning the raw profile for custom aggregation with
+// AggregateFuncs and MemMetricIndex / PickValueIndex.
+func ReadParsedProfile(fs billy.Filesystem, sessionPath string, p Profile, bench string) (*profile.Profile, error) {
+	return readProfile(fs, sessionPath, p, bench)
 }
 
 // ReadProfileRaw parses the pprof file for the given session, profile type, and
@@ -193,17 +231,16 @@ func readProfile(fs billy.Filesystem, sessionPath string, p Profile, bench strin
 	return nil, fmt.Errorf("no %s profile found for benchmark %q in this session", ProfileDir(p), bench)
 }
 
-// profileToFuncs aggregates pprof samples into per-function flat/cumulative
-// totals. Flat counts a function only when it appears at the top of the call
-// stack (i.e. it was on-CPU or holding the lock at sample time). Cumulative
-// counts it whenever it appears anywhere in the stack, deduplicated per sample.
-// Percentages are relative to the total value across all samples.
-// Results are sorted by flat descending, then cumulative descending.
+// AggregateFuncs aggregates pprof samples into per-function flat/cumulative
+// totals using the given value index. Flat counts a function only when it
+// appears at the top of the call stack (i.e. it was on-CPU or holding the lock
+// at sample time). Cumulative counts it whenever it appears anywhere in the
+// stack, deduplicated per sample. Percentages are relative to the total value
+// across all samples.
 //
 // This reimplements the core of github.com/google/pprof/internal/report, which
 // is not importable outside the pprof module.
-func profileToFuncs(prof *profile.Profile, p Profile) []ProfileFunc {
-	valueIdx := pickValueIndex(prof, p)
+func AggregateFuncs(prof *profile.Profile, valueIdx int, order SortOrder) []ProfileFunc {
 
 	type entry struct {
 		name string
@@ -265,17 +302,42 @@ func profileToFuncs(prof *profile.Profile, p Profile) []ProfileFunc {
 		})
 	}
 
-	sort.Slice(result, func(i, j int) bool {
-		if result[i].Flat != result[j].Flat {
+	switch order {
+	case SortCumulative:
+		sort.Slice(result, func(i, j int) bool {
+			if result[i].Cumulative != result[j].Cumulative {
+				return result[i].Cumulative > result[j].Cumulative
+			}
 			return result[i].Flat > result[j].Flat
-		}
-		return result[i].Cumulative > result[j].Cumulative
-	})
+		})
+	case SortName:
+		sort.Slice(result, func(i, j int) bool {
+			return result[i].Name < result[j].Name
+		})
+	default: // SortFlat
+		sort.Slice(result, func(i, j int) bool {
+			if result[i].Flat != result[j].Flat {
+				return result[i].Flat > result[j].Flat
+			}
+			return result[i].Cumulative > result[j].Cumulative
+		})
+	}
 
 	return result
 }
 
-// pickValueIndex returns the index into prof.SampleType whose Type we want to
+// MemMetricIndex returns the SampleType index for the given MemMetric, or 0
+// if not found.
+func MemMetricIndex(prof *profile.Profile, m MemMetric) int {
+	for i, st := range prof.SampleType {
+		if st.Type == m.String() {
+			return i
+		}
+	}
+	return 0
+}
+
+// PickValueIndex returns the index into prof.SampleType whose Type we want to
 // aggregate. A pprof file stores multiple parallel value columns per sample;
 // which column is meaningful depends on the profile type:
 //
@@ -284,10 +346,10 @@ func profileToFuncs(prof *profile.Profile, p Profile) []ProfileFunc {
 //	Block/Mutex: [contentions/count, delay/nanoseconds]                                → delay
 //
 // Falls back to index 0 if the preferred type is not found.
-func pickValueIndex(prof *profile.Profile, p Profile) int {
+func PickValueIndex(prof *profile.Profile, p Profile) int {
 	preferred := map[Profile]string{
 		ProfileCPU:   "cpu",
-		ProfileMem:   "inuse_space",
+		ProfileMem:   MetricInuseSpace.String(),
 		ProfileBlock: "delay",
 		ProfileMutex: "delay",
 	}

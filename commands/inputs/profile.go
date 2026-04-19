@@ -8,17 +8,23 @@ import (
 	"benchspotter/commands/execenv"
 )
 
+// BenchOption is a benchmark entry for display in the profile bench selector.
+type BenchOption struct {
+	Name  string // returned as the selection
+	Label string // displayed in the prompt
+}
+
 // SelectProfileBench prompts the user to choose a benchmark from the available profiles.
-func SelectProfileBench(ctx context.Context, env *execenv.Env, benches []string, preSelect string) (string, error) {
-	opts := make([]huh.Option[string], len(benches))
-	for i, b := range benches {
-		opts[i] = huh.NewOption(b, b).Selected(b == preSelect)
+func SelectProfileBench(ctx context.Context, env *execenv.Env, opts []BenchOption, preSelect string) (string, error) {
+	hopts := make([]huh.Option[string], len(opts))
+	for i, o := range opts {
+		hopts[i] = huh.NewOption(o.Label, o.Name).Selected(o.Name == preSelect)
 	}
 
 	var selection string
 	err := env.FormSingle(huh.NewSelect[string]().
 		Title("Select benchmark").
-		Options(opts...).
+		Options(hopts...).
 		Value(&selection)).
 		RunWithContext(ctx)
 	if err != nil {
