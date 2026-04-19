@@ -77,13 +77,16 @@ func RunProfile(ctx context.Context, storage billy.Filesystem, id string, benche
 
 type ProfileFunc struct {
 	Name       string
+	File       string // source file (absolute path from pprof data)
+	StartLine  int64  // function definition line (1-based)
 	Flat       time.Duration
 	Cumulative time.Duration
 	FlatPct    float64
 	CumPct     float64
 }
 
-// ProfileDir returns the storage subdirectory for a given profile type.
+// ProfileDir returns the storage subdirectory for a pprof profile type.
+// Panics for ProfileBench and ProfileEscape, which are not pprof profiles.
 func ProfileDir(p Profile) string {
 	switch p {
 	case ProfileCPU:
@@ -243,9 +246,11 @@ func readProfile(fs billy.Filesystem, sessionPath string, p Profile, bench strin
 func AggregateFuncs(prof *profile.Profile, valueIdx int, order SortOrder) []ProfileFunc {
 
 	type entry struct {
-		name string
-		flat int64
-		cum  int64
+		name      string
+		file      string
+		startLine int64
+		flat      int64
+		cum       int64
 	}
 	byFunc := make(map[string]*entry)
 
@@ -262,7 +267,7 @@ func AggregateFuncs(prof *profile.Profile, valueIdx int, order SortOrder) []Prof
 				name := line.Function.Name
 				e := byFunc[name]
 				if e == nil {
-					e = &entry{name: name}
+					e = &entry{name: name, file: line.Function.Filename, startLine: line.Function.StartLine}
 					byFunc[name] = e
 				}
 				e.flat += v
@@ -295,6 +300,8 @@ func AggregateFuncs(prof *profile.Profile, valueIdx int, order SortOrder) []Prof
 		}
 		result = append(result, ProfileFunc{
 			Name:       e.name,
+			File:       e.file,
+			StartLine:  e.startLine,
 			Flat:       time.Duration(e.flat),
 			Cumulative: time.Duration(e.cum),
 			FlatPct:    flatPct,

@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -27,12 +30,17 @@ var memMetricIds = map[engine.MemMetric][]string{
 // profileViewModel implements execenv.InteractiveModel for all profile types.
 // For mem profiles, [m] cycles through the four available metrics.
 // [s] cycles through sort orders for all profile types.
+// [a] toggles source line annotations (when sourcesRoot is set).
 type profileViewModel struct {
 	prof        *profile.Profile
 	profileType engine.Profile
 	metric      engine.MemMetric // only meaningful for ProfileMem
 	sort        engine.SortOrder
 	top         int
+	// source annotation
+	sourcesRoot string
+	sourceCache map[string][]byte // relPath → file content (nil = not found)
+	annotate    bool
 }
 
 func (m *profileViewModel) Render() string {
@@ -43,14 +51,57 @@ func (m *profileViewModel) Render() string {
 		valueIdx = engine.PickValueIndex(m.prof, m.profileType)
 	}
 	funcs := engine.AggregateFuncs(m.prof, valueIdx, m.sort)
-	return renderProfileTable(funcs, m.top, m.fmtValue(), m.sort)
+	var getSource func(string, int64) []string
+	if m.annotate && m.sourcesRoot != "" {
+		getSource = m.getSourceLines
+	}
+	return renderProfileTable(funcs, m.top, m.fmtValue(), m.sort, getSource)
+}
+
+// getSourceLines returns up to 3 source lines starting at startLine for the
+// given absolute file path, reading from disk relative to sourcesRoot.
+func (m *profileViewModel) getSourceLines(absFile string, startLine int64) []string {
+	rel, err := filepath.Rel(m.sourcesRoot, absFile)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return nil
+	}
+	content, seen := m.sourceCache[rel]
+	if !seen {
+		content, _ = os.ReadFile(filepath.Join(m.sourcesRoot, rel))
+		m.sourceCache[rel] = content // nil if read failed — skip next time
+	}
+	if content == nil {
+		return nil
+	}
+	lines := bytes.Split(content, []byte("\n"))
+	start := int(startLine) - 1
+	if start < 0 || start >= len(lines) {
+		return nil
+	}
+	end := start + 3
+	if end > len(lines) {
+		end = len(lines)
+	}
+	result := make([]string, end-start)
+	for i, l := range lines[start:end] {
+		result[i] = strings.TrimRight(string(l), "\r")
+	}
+	return result
 }
 
 func (m *profileViewModel) Status() string {
-	if m.profileType == engine.ProfileMem {
-		return fmt.Sprintf("[s] sort: %s    [m] metric: %s    [q] quit", m.sort, m.metric)
+	annotateHint := ""
+	if m.sourcesRoot != "" {
+		if m.annotate {
+			annotateHint = "    [a] source: on"
+		} else {
+			annotateHint = "    [a] source: off"
+		}
 	}
-	return fmt.Sprintf("[s] sort: %s    [q] quit", m.sort)
+	if m.profileType == engine.ProfileMem {
+		return fmt.Sprintf("[s] sort: %s    [m] metric: %s%s    [q] quit", m.sort, m.metric, annotateHint)
+	}
+	return fmt.Sprintf("[s] sort: %s%s    [q] quit", m.sort, annotateHint)
 }
 
 func (m *profileViewModel) HandleKey(key string) bool {
@@ -61,6 +112,11 @@ func (m *profileViewModel) HandleKey(key string) bool {
 	case "m":
 		if m.profileType == engine.ProfileMem {
 			m.metric = m.metric.Next()
+			return true
+		}
+	case "a":
+		if m.sourcesRoot != "" {
+			m.annotate = !m.annotate
 			return true
 		}
 	}
@@ -219,6 +275,8 @@ func runShowProfile(ctx context.Context, env *execenv.Env, options showProfileOp
 		}
 		type jsonFunc struct {
 			Name    string  `json:"name"`
+			File    string  `json:"file,omitempty"`
+			Line    int64   `json:"line,omitempty"`
 			Flat    int64   `json:"flat_ns"`
 			Cum     int64   `json:"cum_ns"`
 			FlatPct float64 `json:"flat_pct"`
@@ -229,6 +287,8 @@ func runShowProfile(ctx context.Context, env *execenv.Env, options showProfileOp
 		for i, f := range funcs[:top] {
 			out[i] = jsonFunc{
 				Name:    f.Name,
+				File:    f.File,
+				Line:    f.StartLine,
 				Flat:    int64(f.Flat),
 				Cum:     int64(f.Cumulative),
 				FlatPct: f.FlatPct,
@@ -248,6 +308,8 @@ func runShowProfile(ctx context.Context, env *execenv.Env, options showProfileOp
 			metric:      options.metric,
 			sort:        options.sort,
 			top:         options.top,
+			sourcesRoot: env.Repo.Sources().Root(),
+			sourceCache: make(map[string][]byte),
 		}
 		return env.ViewportWithKeys(ctx, model)()
 
@@ -256,7 +318,7 @@ func runShowProfile(ctx context.Context, env *execenv.Env, options showProfileOp
 	}
 }
 
-func renderProfileTable(funcs []engine.ProfileFunc, top int, fmtValue func(time.Duration) string, order engine.SortOrder) string {
+func renderProfileTable(funcs []engine.ProfileFunc, top int, fmtValue func(time.Duration) string, order engine.SortOrder, getSource func(file string, startLine int64) []string) string {
 	top = min(top, len(funcs))
 	var buf bytes.Buffer
 	w := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
@@ -284,7 +346,41 @@ func renderProfileTable(funcs []engine.ProfileFunc, top int, fmtValue func(time.
 		)
 	}
 	_ = w.Flush()
-	return buf.String()
+
+	if getSource == nil {
+		return buf.String()
+	}
+
+	// Post-process: insert source annotation lines after each function row.
+	tableLines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
+	// Determine indentation for the FUNCTION column from the header.
+	funcColStart := strings.Index(tableLines[0], "FUNCTION")
+	if funcColStart < 0 {
+		funcColStart = 0
+	}
+	indent := strings.Repeat(" ", funcColStart)
+
+	var out strings.Builder
+	out.WriteString(tableLines[0])
+	out.WriteByte('\n')
+	for i, f := range funcs[:top] {
+		if i+1 < len(tableLines) {
+			out.WriteString(tableLines[i+1])
+			out.WriteByte('\n')
+		}
+		if f.File == "" || f.StartLine <= 0 {
+			continue
+		}
+		srcLines := getSource(f.File, f.StartLine)
+		if len(srcLines) == 0 {
+			continue
+		}
+		fmt.Fprintf(&out, "%s%s:%s\n", indent, f.File, strconv.FormatInt(f.StartLine, 10))
+		for _, l := range srcLines {
+			fmt.Fprintf(&out, "%s│ %s\n", indent, l)
+		}
+	}
+	return out.String()
 }
 
 func formatBenchSummary(s engine.ProfileBenchSummary, p engine.Profile) string {

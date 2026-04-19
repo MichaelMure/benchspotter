@@ -26,19 +26,21 @@ type benchOptions struct {
 }
 
 var profileIds = map[engine.Profile][]string{
-	engine.ProfileBench: {"bench"},
-	engine.ProfileCPU:   {"cpu"},
-	engine.ProfileMem:   {"mem"},
-	engine.ProfileMutex: {"mutex"},
-	engine.ProfileBlock: {"block"},
+	engine.ProfileBench:  {"bench"},
+	engine.ProfileCPU:    {"cpu"},
+	engine.ProfileMem:    {"mem"},
+	engine.ProfileMutex:  {"mutex"},
+	engine.ProfileBlock:  {"block"},
+	engine.ProfileEscape: {"escape"},
 }
 
 var profileHelp = map[engine.Profile]string{
-	engine.ProfileBench: "Run benchmarks",
-	engine.ProfileCPU:   "Run CPU profiling",
-	engine.ProfileMem:   "Run memory profiling",
-	engine.ProfileMutex: "Run mutex profiling",
-	engine.ProfileBlock: "Run blocking profiling",
+	engine.ProfileBench:  "Run benchmarks",
+	engine.ProfileCPU:    "Run CPU profiling",
+	engine.ProfileMem:    "Run memory profiling",
+	engine.ProfileMutex:  "Run mutex profiling",
+	engine.ProfileBlock:  "Run blocking profiling",
+	engine.ProfileEscape: "Capture escape analysis",
 }
 
 // unsetStringMarker is a value marking a string not being set in a string flag.
@@ -89,6 +91,7 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 				huh.NewOption("Memory", engine.ProfileMem).Selected(selected(engine.ProfileMem)),
 				huh.NewOption("Mutex", engine.ProfileMutex).Selected(selected(engine.ProfileMutex)),
 				huh.NewOption("Blocking", engine.ProfileBlock).Selected(selected(engine.ProfileBlock)),
+				huh.NewOption("Escape analysis", engine.ProfileEscape).Selected(selected(engine.ProfileEscape)),
 			).
 			Value(&options.profiles)).
 			RunWithContext(ctx)
@@ -234,7 +237,7 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 			start := time.Now()
 			err = env.Spinner().Title("CPU " + info.Name).ActionWithErr(func(ctx context.Context) error {
 				return it()
-			}).Run()
+			}).Context(ctx).Run()
 			if err != nil {
 				return err
 			}
@@ -248,7 +251,7 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 			start := time.Now()
 			err = env.Spinner().Title("Memory " + info.Name).ActionWithErr(func(ctx context.Context) error {
 				return it()
-			}).Run()
+			}).Context(ctx).Run()
 			if err != nil {
 				return err
 			}
@@ -262,7 +265,7 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 			start := time.Now()
 			err = env.Spinner().Title("Mutex " + info.Name).ActionWithErr(func(ctx context.Context) error {
 				return it()
-			}).Run()
+			}).Context(ctx).Run()
 			if err != nil {
 				return err
 			}
@@ -276,12 +279,23 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 			start := time.Now()
 			err = env.Spinner().Title("Block " + info.Name).ActionWithErr(func(ctx context.Context) error {
 				return it()
-			}).Run()
+			}).Context(ctx).Run()
 			if err != nil {
 				return err
 			}
 			env.Out.Printf("> Block profile for %s done in %v\n", info.Name, time.Since(start).Truncate(100*time.Millisecond))
 		}
+	}
+
+	if slices.Contains(options.profiles, engine.ProfileEscape) {
+		start := time.Now()
+		err = env.Spinner().Title("Escape analysis").ActionWithErr(func(ctx context.Context) error {
+			return engine.RecordEscape(ctx, env.Repo.Sources().Root(), env.Repo.Storage(), id)
+		}).Context(ctx).Run()
+		if err != nil {
+			return err
+		}
+		env.Out.Printf("> Escape analysis done in %v\n", time.Since(start).Truncate(100*time.Millisecond))
 	}
 
 	return nil

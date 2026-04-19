@@ -260,6 +260,10 @@ func (s SessionInfo) HasBench() bool {
 }
 
 func (s SessionInfo) HasProfile(p Profile) bool {
+	if p == ProfileEscape {
+		_, err := s.fs.Stat(filepath.Join(s.Path, EscapeFilename))
+		return err == nil
+	}
 	dir := filepath.Join(s.Path, ProfileDir(p))
 	entries, err := s.fs.ReadDir(dir)
 	return err == nil && len(entries) > 0

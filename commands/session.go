@@ -75,7 +75,7 @@ func runSessionLs(ctx context.Context, env *execenv.Env, tag string) error {
 	switch env.Format {
 	case execenv.FormatText:
 		w := tabwriter.NewWriter(env.Out, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "NAME\tTIME\tCOMMIT\tBENCH\tCPU\tMEM\tBLOCK\tMUTEX\tBENCHMARKS\tTAGS")
+		fmt.Fprintln(w, "NAME\tTIME\tCOMMIT\tBENCH\tCPU\tMEM\tBLOCK\tMUTEX\tESCAPE\tBENCHMARKS\tTAGS")
 		for _, s := range sessions {
 			commit := ""
 			if s.GitCommit != "" {
@@ -90,7 +90,7 @@ func runSessionLs(ctx context.Context, env *execenv.Env, tag string) error {
 				}
 				return "-"
 			}
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%s\n",
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%s\n",
 				s.HumanName,
 				s.Time.Format("2006-01-02 15:04"),
 				commit,
@@ -99,6 +99,7 @@ func runSessionLs(ctx context.Context, env *execenv.Env, tag string) error {
 				check(s.HasProfile(engine.ProfileMem)),
 				check(s.HasProfile(engine.ProfileBlock)),
 				check(s.HasProfile(engine.ProfileMutex)),
+				check(s.HasProfile(engine.ProfileEscape)),
 				len(s.Benches),
 				strings.Join(s.Tags, ", "),
 			)
@@ -141,12 +142,14 @@ func runSessionLs(ctx context.Context, env *execenv.Env, tag string) error {
 }
 
 func sessionProfiles(s *engine.SessionInfo) []string {
-	all := []engine.Profile{engine.ProfileCPU, engine.ProfileMem, engine.ProfileBlock, engine.ProfileMutex}
 	var out []string
-	for _, p := range all {
+	for _, p := range []engine.Profile{engine.ProfileCPU, engine.ProfileMem, engine.ProfileBlock, engine.ProfileMutex} {
 		if s.HasProfile(p) {
 			out = append(out, engine.ProfileDir(p))
 		}
+	}
+	if s.HasProfile(engine.ProfileEscape) {
+		out = append(out, "escape")
 	}
 	return out
 }

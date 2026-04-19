@@ -8,6 +8,7 @@ const (
 	ProfileMem
 	ProfileMutex
 	ProfileBlock
+	ProfileEscape
 )
 
 // MemMetric selects which pprof SampleType to aggregate for a mem profile.

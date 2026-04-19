@@ -18,6 +18,7 @@ func newShowCommand(env *execenv.Env) *cobra.Command {
 		newShowMemCommand(env),
 		newShowBlockCommand(env),
 		newShowMutexCommand(env),
+		newShowEscapeCommand(env),
 	)
 
 	return cmd
