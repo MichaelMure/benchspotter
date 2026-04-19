@@ -58,10 +58,20 @@ func runShowDiffCommand(ctx context.Context, env *execenv.Env, options showDiffO
 		if err != nil {
 			return err
 		}
-	}
-
-	if selection == nil {
-		return fmt.Errorf("no session selected")
+	} else {
+		sessions, err := engine.LocateSessions(env.Repo.Storage())
+		if err != nil {
+			return err
+		}
+		for _, s := range sessions {
+			if s.Id == options.session {
+				selection = s
+				break
+			}
+		}
+		if selection == nil {
+			return fmt.Errorf("session %q not found", options.session)
+		}
 	}
 	if !selection.HasGitDiff() {
 		return fmt.Errorf("this session doesn't have a git diff")
@@ -88,11 +98,6 @@ func runShowDiffCommand(ctx context.Context, env *execenv.Env, options showDiffO
 	}
 
 	viewport, runFn := env.Viewport(ctx)
-	_, err = io.Copy(viewport, f)
-	if err != nil {
-		return err
-	}
-
 	err = formatter.Format(viewport, style, it)
 	if err != nil {
 		return err

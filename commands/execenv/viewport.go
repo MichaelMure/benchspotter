@@ -96,3 +96,14 @@ func (v *viewportModel) Write(p []byte) (int, error) {
 	}
 	return n, nil
 }
+
+// plainViewport is used when stdout is not a terminal: content is buffered and
+// flushed directly to Out by the runFn returned from Viewport().
+type plainViewport struct {
+	bytes.Buffer
+}
+
+func (p *plainViewport) SetContent(content string) {
+	p.Buffer.Reset()
+	p.Buffer.WriteString(content)
+}

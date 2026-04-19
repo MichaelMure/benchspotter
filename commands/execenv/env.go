@@ -2,6 +2,7 @@ package execenv
 
 import (
 	"context"
+	"io"
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -48,6 +49,14 @@ func (e Env) Spinner() *spinner.Spinner {
 }
 
 func (e Env) Viewport(ctx context.Context) (ViewportWriter, func() error) {
+	if !e.Out.IsTerminal() {
+		p := &plainViewport{}
+		return p, func() error {
+			_, err := io.Copy(e.Out, &p.Buffer)
+			return err
+		}
+	}
+
 	v := &viewportModel{}
 
 	v.program = tea.NewProgram(v,

@@ -5,6 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+
+	"github.com/charmbracelet/huh"
+
+	"benchspotter/repository"
 )
 
 var _ In = &TestIn{}
@@ -62,31 +66,12 @@ func (te *TestOut) Raw() io.Writer {
 	return te.Buffer
 }
 
-/*func NewTestEnv(t *testing.T) *Env {
-	t.Helper()
-	return newTestEnv(t, false)
-}
-
-func NewTestEnvTerminal(t *testing.T) *Env {
-	t.Helper()
-	return newTestEnv(t, true)
-}
-*/
-/*func newTestEnv(t *testing.T, isTerminal bool) *Env {
-	repo := repository.CreateGoGitTestRepo(t, false)
-
-	backend, err := cache.NewRepoCacheNoEvents(repo)
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		backend.Close()
-	})
-
+func NewTestEnv(repo *repository.Repository) *Env {
 	return &Env{
-		Repo:    repo,
-		In:      &TestIn{Buffer: &bytes.Buffer{}, forceIsTerminal: isTerminal},
-		Out:     &TestOut{Buffer: &bytes.Buffer{}, forceIsTerminal: isTerminal},
-		Err:     &TestOut{Buffer: &bytes.Buffer{}, forceIsTerminal: isTerminal},
+		Repo:  repo,
+		In:    &TestIn{Buffer: &bytes.Buffer{}},
+		Out:   &TestOut{Buffer: &bytes.Buffer{}},
+		Err:   &TestOut{Buffer: &bytes.Buffer{}},
+		Style: Style{Theme: huh.ThemeCharm()},
 	}
 }
-*/

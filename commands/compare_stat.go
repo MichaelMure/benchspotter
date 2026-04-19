@@ -85,6 +85,22 @@ func runCompareStat(ctx context.Context, env *execenv.Env, options compareStatOp
 		if err != nil {
 			return err
 		}
+	} else {
+		all, err := engine.LocateSessions(env.Repo.Storage())
+		if err != nil {
+			return err
+		}
+		for _, id := range options.sessions {
+			for _, s := range all {
+				if s.Id == id {
+					selection = append(selection, s)
+					break
+				}
+			}
+		}
+		if len(selection) == 0 {
+			return fmt.Errorf("no matching sessions found")
+		}
 	}
 
 	filter, err := benchproc.NewFilter(options.filter)
