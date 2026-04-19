@@ -15,20 +15,22 @@ import (
 
 // Env is the environment of a command
 type Env struct {
-	Repo  *repository.Repository
-	In    In
-	Out   Out
-	Err   Out
-	Style Style
+	Repo   *repository.Repository
+	In     In
+	Out    Out
+	Err    Out
+	Style  Style
+	Format Format
 }
 
 func NewEnv() *Env {
 	return &Env{
-		Repo:  nil,
-		In:    in{Reader: os.Stdin},
-		Out:   out{out: termenv.NewOutput(os.Stdout)},
-		Err:   out{out: termenv.NewOutput(os.Stderr)},
-		Style: Style{huh.ThemeCharm()},
+		Repo:   nil,
+		In:     in{Reader: os.Stdin},
+		Out:    out{out: termenv.NewOutput(os.Stdout)},
+		Err:    out{out: termenv.NewOutput(os.Stderr)},
+		Style:  Style{huh.ThemeCharm()},
+		Format: FormatText,
 	}
 }
 

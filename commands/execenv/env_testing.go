@@ -68,10 +68,11 @@ func (te *TestOut) Raw() io.Writer {
 
 func NewTestEnv(repo *repository.Repository) *Env {
 	return &Env{
-		Repo:  repo,
-		In:    &TestIn{Buffer: &bytes.Buffer{}},
-		Out:   &TestOut{Buffer: &bytes.Buffer{}},
-		Err:   &TestOut{Buffer: &bytes.Buffer{}},
-		Style: Style{Theme: huh.ThemeCharm()},
+		Repo:   repo,
+		In:     &TestIn{Buffer: &bytes.Buffer{}},
+		Out:    &TestOut{Buffer: &bytes.Buffer{}},
+		Err:    &TestOut{Buffer: &bytes.Buffer{}},
+		Style:  Style{Theme: huh.ThemeCharm()},
+		Format: FormatText,
 	}
 }

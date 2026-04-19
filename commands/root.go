@@ -2,6 +2,7 @@ package commands
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/thediveo/enumflag/v2"
 
 	"benchspotter/commands/execenv"
 )
@@ -35,6 +36,10 @@ A typical session is as follow:
 	}
 
 	env := execenv.NewEnv()
+
+	formatFlag := enumflag.New(&env.Format, "format", execenv.FormatIds, enumflag.EnumCaseInsensitive)
+	cmd.PersistentFlags().VarP(formatFlag, "format", "f", "output format (not all formats supported by every command)")
+	_ = formatFlag.RegisterCompletion(cmd, "format", execenv.FormatHelp)
 
 	addCmdWithGroup(newBenchCommand(env), mainGroup)
 	addCmdWithGroup(newSessionCommand(env), mainGroup)

@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"encoding/json"
 	"path/filepath"
 	"testing"
@@ -24,7 +23,7 @@ func TestSessionLs(t *testing.T) {
 
 	env := execenv.NewTestEnv(repository.New(memfs.New(), storage))
 
-	err := runSessionLs(context.Background(), env)
+	err := runSessionLs(t.Context(), env)
 	require.NoError(t, err)
 
 	out := env.Out.String()
@@ -33,8 +32,26 @@ func TestSessionLs(t *testing.T) {
 	assert.Contains(t, out, "BenchmarkFoo, BenchmarkBar")
 	assert.Contains(t, out, "BenchmarkBaz")
 	assert.Contains(t, out, "abc1234")
-	assert.Contains(t, out, "xyz9876±") // has git diff
+	assert.Contains(t, out, "xyz9876±")    // has git diff
 	assert.NotContains(t, out, "abc1234±") // no diff, no marker
+}
+
+func TestSessionLsJSON(t *testing.T) {
+	storage := memfs.New()
+	createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "abc1234def5678abc1234def5678abc1234def56", true)
+
+	env := execenv.NewTestEnv(repository.New(memfs.New(), storage))
+	env.Format = execenv.FormatJSON
+
+	err := runSessionLs(t.Context(), env)
+	require.NoError(t, err)
+
+	out := env.Out.String()
+	assert.Contains(t, out, `"human_name"`)
+	assert.Contains(t, out, `"my-session"`)
+	assert.Contains(t, out, `"has_diff": true`)
+	assert.Contains(t, out, `"BenchmarkFoo"`)
+	assert.Contains(t, out, `"abc1234def5678abc1234def5678abc1234def56"`)
 }
 
 // createTestSession writes a minimal session into the given storage filesystem

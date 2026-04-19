@@ -3,6 +3,8 @@ package commands
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/perf/benchfmt"
@@ -24,7 +26,6 @@ type compareStatOptions struct {
 	ignore     string
 	filter     string
 	confidence float64
-	format     string
 }
 
 func newCompareStatCommand(env *execenv.Env) *cobra.Command {
@@ -51,7 +52,6 @@ func newCompareStatCommand(env *execenv.Env) *cobra.Command {
 	flags.Float64Var(&options.thresholds.CompareAlpha, "alpha",
 		options.thresholds.CompareAlpha, "consider change significant if p < `α`")
 	flags.Float64Var(&options.confidence, "confidence", 0.95, "confidence `level` for ranges")
-	flags.StringVar(&options.format, "format", "text", "print results in `format`:\n  text - plain text\n  csv  - comma-separated values (warnings will be written to stderr)\n")
 
 	return cmd
 }
@@ -166,16 +166,89 @@ func runCompareStat(ctx context.Context, env *execenv.Env, options compareStatOp
 		return err
 	}
 
-	tables := stat.ToTables(benchtab.TableOpts{
+	tableOpts := benchtab.TableOpts{
 		Confidence: options.confidence,
 		Thresholds: &options.thresholds,
 		Units:      files.Units(),
-	})
-
-	viewport, runFn := env.Viewport(ctx)
-	err = tables.ToText(viewport, true)
-	if err != nil {
-		return err
 	}
-	return runFn()
+
+	switch env.Format {
+	case execenv.FormatText:
+		tables := stat.ToTables(tableOpts)
+		viewport, runFn := env.Viewport(ctx)
+		if err := tables.ToText(viewport, true); err != nil {
+			return err
+		}
+		return runFn()
+	case execenv.FormatJSON:
+		tables := stat.ToTables(tableOpts)
+		return env.Out.PrintJSON(compareStatToJSON(tables))
+	case execenv.FormatRaw:
+		for _, info := range selection {
+			fmt.Fprintf(env.Out, "file: %s\n", info.HumanName)
+			f, err := os.Open(info.BenchFullPath())
+			if err != nil {
+				return err
+			}
+			_, copyErr := io.Copy(env.Out, f)
+			_ = f.Close()
+			if copyErr != nil {
+				return copyErr
+			}
+		}
+		return nil
+	default:
+		return fmt.Errorf("unsupported format %v for compare stat (text, json, raw)", env.Format)
+	}
+}
+
+type compareStatJSONTable struct {
+	Unit       string                     `json:"unit"`
+	Benchmarks []compareStatJSONBenchmark `json:"benchmarks"`
+}
+
+type compareStatJSONBenchmark struct {
+	Name     string                   `json:"name"`
+	Sessions []compareStatJSONSession `json:"sessions"`
+}
+
+type compareStatJSONSession struct {
+	Name   string  `json:"name"`
+	Center float64 `json:"center"`
+	Range  string  `json:"range,omitempty"`
+	Delta  string  `json:"delta,omitempty"`
+	Stats  string  `json:"stats,omitempty"`
+}
+
+func compareStatToJSON(tables *benchtab.Tables) []compareStatJSONTable {
+	result := make([]compareStatJSONTable, len(tables.Tables))
+	for i, t := range tables.Tables {
+		jTable := compareStatJSONTable{
+			Unit: t.Unit,
+		}
+		for _, row := range t.Rows {
+			jBench := compareStatJSONBenchmark{
+				Name: row.StringValues(),
+			}
+			for _, col := range t.Cols {
+				cell, ok := t.Cells[benchtab.TableKey{Row: row, Col: col}]
+				if !ok {
+					continue
+				}
+				jSess := compareStatJSONSession{
+					Name:   col.StringValues(),
+					Center: cell.Summary.Center,
+					Range:  cell.Summary.PctRangeString(),
+				}
+				if cell.Baseline != nil {
+					jSess.Delta = cell.Comparison.FormatDelta(cell.Baseline.Summary.Center, cell.Summary.Center)
+					jSess.Stats = cell.Comparison.String()
+				}
+				jBench.Sessions = append(jBench.Sessions, jSess)
+			}
+			jTable.Benchmarks = append(jTable.Benchmarks, jBench)
+		}
+		result[i] = jTable
+	}
+	return result
 }

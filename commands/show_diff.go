@@ -89,19 +89,35 @@ func runShowDiffCommand(ctx context.Context, env *execenv.Env, options showDiffO
 		return err
 	}
 
-	lexer := cmp.Or(lexers.Get("diff"), lexers.Fallback)
-	formatter := formatters.TTY16m
-	style := cmp.Or(styles.Get("monokai"), styles.Fallback)
-	it, err := lexer.Tokenise(nil, string(diff))
-	if err != nil {
+	switch env.Format {
+	case execenv.FormatText:
+		lexer := cmp.Or(lexers.Get("diff"), lexers.Fallback)
+		formatter := formatters.TTY16m
+		style := cmp.Or(styles.Get("monokai"), styles.Fallback)
+		it, err := lexer.Tokenise(nil, string(diff))
+		if err != nil {
+			return err
+		}
+		viewport, runFn := env.Viewport(ctx)
+		if err := formatter.Format(viewport, style, it); err != nil {
+			return err
+		}
+		return runFn()
+	case execenv.FormatRaw:
+		_, err = env.Out.Write(diff)
 		return err
+	case execenv.FormatJSON:
+		type showDiffJSON struct {
+			SessionID   string `json:"session_id"`
+			SessionName string `json:"session_name"`
+			Diff        string `json:"diff"`
+		}
+		return env.Out.PrintJSON(showDiffJSON{
+			SessionID:   selection.Id,
+			SessionName: selection.HumanName,
+			Diff:        string(diff),
+		})
+	default:
+		return fmt.Errorf("unsupported format %v for show diff (text, json, raw)", env.Format)
 	}
-
-	viewport, runFn := env.Viewport(ctx)
-	err = formatter.Format(viewport, style, it)
-	if err != nil {
-		return err
-	}
-
-	return runFn()
 }

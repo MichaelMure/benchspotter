@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -51,25 +52,52 @@ func runSessionLs(ctx context.Context, env *execenv.Env) error {
 		return err
 	}
 
-	w := tabwriter.NewWriter(env.Out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "NAME\tTIME\tCOMMIT\tBENCHMARKS")
-	for _, s := range sessions {
-		commit := ""
-		if s.GitCommit != "" {
-			commit = s.GitCommit[:7]
-			if s.HasGitDiff() {
-				commit += "±"
+	switch env.Format {
+	case execenv.FormatText:
+		w := tabwriter.NewWriter(env.Out, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(w, "NAME\tTIME\tCOMMIT\tBENCHMARKS")
+		for _, s := range sessions {
+			commit := ""
+			if s.GitCommit != "" {
+				commit = s.GitCommit[:7]
+				if s.HasGitDiff() {
+					commit += "±"
+				}
+			}
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+				s.HumanName,
+				s.Time.Format("2006-01-02 15:04"),
+				commit,
+				strings.Join(s.Benches, ", "),
+			)
+		}
+		return w.Flush()
+	case execenv.FormatJSON:
+		type sessionJSON struct {
+			ID         string    `json:"id"`
+			Name       string    `json:"name,omitempty"`
+			HumanName  string    `json:"human_name"`
+			Time       time.Time `json:"time"`
+			Commit     string    `json:"commit,omitempty"`
+			HasDiff    bool      `json:"has_diff"`
+			Benchmarks []string  `json:"benchmarks"`
+		}
+		out := make([]sessionJSON, len(sessions))
+		for i, s := range sessions {
+			out[i] = sessionJSON{
+				ID:         s.Id,
+				Name:       s.Name,
+				HumanName:  s.HumanName,
+				Time:       s.Time,
+				Commit:     s.GitCommit,
+				HasDiff:    s.HasGitDiff(),
+				Benchmarks: s.Benches,
 			}
 		}
-		benchmarks := strings.Join(s.Benches, ", ")
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
-			s.HumanName,
-			s.Time.Format("2006-01-02 15:04"),
-			commit,
-			benchmarks,
-		)
+		return env.Out.PrintJSON(out)
+	default:
+		return fmt.Errorf("unsupported format %v for session ls (text, json)", env.Format)
 	}
-	return w.Flush()
 }
 
 func newSessionTagCommand(env *execenv.Env) *cobra.Command {
