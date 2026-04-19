@@ -12,7 +12,13 @@ func newShowCommand(env *execenv.Env) *cobra.Command {
 		Short: "Display raw benchmarking results",
 	}
 
-	cmd.AddCommand(newShowDiffCommand(env))
+	cmd.AddCommand(
+		newShowDiffCommand(env),
+		newShowCPUCommand(env),
+		newShowMemCommand(env),
+		newShowBlockCommand(env),
+		newShowMutexCommand(env),
+	)
 
 	return cmd
 }

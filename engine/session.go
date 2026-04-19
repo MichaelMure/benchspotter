@@ -250,6 +250,12 @@ func (s SessionInfo) HasGitDiff() bool {
 	return err == nil
 }
 
+func (s SessionInfo) HasProfile(p Profile) bool {
+	dir := filepath.Join(s.Path, ProfileDir(p))
+	entries, err := s.fs.ReadDir(dir)
+	return err == nil && len(entries) > 0
+}
+
 func (s SessionInfo) OpenFile(name string) (billy.File, error) {
 	return s.fs.Open(filepath.Join(s.Path, name))
 }

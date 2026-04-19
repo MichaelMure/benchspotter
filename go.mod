@@ -10,6 +10,7 @@ require (
 	github.com/charmbracelet/huh v1.0.0
 	github.com/charmbracelet/huh/spinner v0.0.0-20260223110133-9dc45e34a40b
 	github.com/go-git/go-billy/v5 v5.8.0
+	github.com/google/pprof v0.0.0-20260402051712-545e8a4df936
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-isatty v0.0.21
 	github.com/muesli/termenv v0.16.0
