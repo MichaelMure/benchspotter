@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/uuid"
 
 	"benchspotter/commands/execenv"
@@ -28,6 +29,7 @@ type sessionMeta struct {
 	Name      string   `json:"name,omitempty"`
 	Benches   []string `json:"benchs,omitempty"`
 	GitCommit string   `json:"git_commit,omitempty"`
+	Tags      []string `json:"tags,omitempty"`
 }
 
 func PrepareSession(ctx context.Context, env *execenv.Env, name string, benches []BenchInfo) (string, error) {
@@ -122,6 +124,7 @@ type SessionInfo struct {
 	Time      time.Time
 	Benches   []string
 	GitCommit string
+	Tags      []string
 
 	uid uuid.UUID
 	fs  billy.Filesystem
@@ -169,6 +172,7 @@ func LocateSessions(fs billy.Filesystem) ([]*SessionInfo, error) {
 			Time:      time.UnixMilli(timestampMilli),
 			Benches:   meta.Benches,
 			GitCommit: meta.GitCommit,
+			Tags:      meta.Tags,
 
 			uid: uid,
 			fs:  fs,
@@ -263,4 +267,65 @@ func (s SessionInfo) HasProfile(p Profile) bool {
 
 func (s SessionInfo) OpenFile(name string) (billy.File, error) {
 	return s.fs.Open(filepath.Join(s.Path, name))
+}
+
+// TagSession appends tag to the session's meta.json. It is a no-op if the tag
+// is already present.
+func TagSession(fs billy.Filesystem, sessionPath string, tag string) error {
+	return updateMeta(fs, sessionPath, func(meta *sessionMeta) {
+		for _, t := range meta.Tags {
+			if t == tag {
+				return
+			}
+		}
+		meta.Tags = append(meta.Tags, tag)
+	})
+}
+
+// UntagSession removes tag from the session's meta.json. It is a no-op if the
+// tag is not present.
+func UntagSession(fs billy.Filesystem, sessionPath string, tag string) error {
+	return updateMeta(fs, sessionPath, func(meta *sessionMeta) {
+		tags := meta.Tags[:0]
+		for _, t := range meta.Tags {
+			if t != tag {
+				tags = append(tags, t)
+			}
+		}
+		meta.Tags = tags
+	})
+}
+
+// updateMeta reads meta.json, applies fn, then writes it back.
+func updateMeta(fs billy.Filesystem, sessionPath string, fn func(*sessionMeta)) error {
+	metaPath := filepath.Join(sessionPath, metaFilename)
+	f, err := fs.Open(metaPath)
+	if err != nil {
+		return fmt.Errorf("failed to open meta file: %w", err)
+	}
+	meta := &sessionMeta{}
+	if err = json.NewDecoder(f).Decode(meta); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("failed to decode meta file: %w", err)
+	}
+	_ = f.Close()
+
+	fn(meta)
+
+	out, err := fs.Create(metaPath)
+	if err != nil {
+		return fmt.Errorf("failed to write meta file: %w", err)
+	}
+	defer out.Close()
+	return json.NewEncoder(out).Encode(meta)
+}
+
+// RenameSession updates the human-readable name stored in the session's meta.json.
+func RenameSession(fs billy.Filesystem, sessionPath string, name string) error {
+	return updateMeta(fs, sessionPath, func(meta *sessionMeta) { meta.Name = name })
+}
+
+// RemoveSession deletes a session directory and all its contents.
+func RemoveSession(fs billy.Filesystem, sessionPath string) error {
+	return util.RemoveAll(fs, sessionPath)
 }
