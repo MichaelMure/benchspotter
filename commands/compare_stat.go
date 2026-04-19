@@ -15,7 +15,7 @@ import (
 	"benchspotter/engine"
 )
 
-type analyseCompareOptions struct {
+type compareStatOptions struct {
 	sessions   []string
 	thresholds benchmath.Thresholds
 	table      string
@@ -27,17 +27,17 @@ type analyseCompareOptions struct {
 	format     string
 }
 
-func newAnalyseCompareCommand(env *execenv.Env) *cobra.Command {
-	options := analyseCompareOptions{
+func newCompareStatCommand(env *execenv.Env) *cobra.Command {
+	options := compareStatOptions{
 		thresholds: benchmath.DefaultThresholds,
 	}
 
 	cmd := &cobra.Command{
-		Use:     "compare",
+		Use:     "stat",
 		Short:   "Compare benchmark results with x/perf/cmd/benchstat",
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runAnalyseCompare(cmd.Context(), env, options)
+			return runCompareStat(cmd.Context(), env, options)
 		},
 	}
 
@@ -56,10 +56,7 @@ func newAnalyseCompareCommand(env *execenv.Env) *cobra.Command {
 	return cmd
 }
 
-// TODO: ask for profile (bench, cpu, mem ...)
-// TODO: add "go tool pprof -base=before.prof after.prof"
-
-func runAnalyseCompare(ctx context.Context, env *execenv.Env, options analyseCompareOptions) error {
+func runCompareStat(ctx context.Context, env *execenv.Env, options compareStatOptions) error {
 	// Note: largely taken from golang.org/x/perf/cmd/benchstat/main.go
 	// at revision v0.0.0-20250909190841-7e13e04d9366/
 
@@ -67,7 +64,7 @@ func runAnalyseCompare(ctx context.Context, env *execenv.Env, options analyseCom
 	var selection []*engine.SessionInfo
 
 	if len(options.sessions) == 0 {
-		const recallKey = "analyse_compare_sessions"
+		const recallKey = "compare_stat_sessions"
 		preSelected := env.Repo.GetRecalls(recallKey)
 
 		selection, err = inputs.SelectSessions(ctx, env, preSelected)
@@ -137,13 +134,10 @@ func runAnalyseCompare(ctx context.Context, env *execenv.Env, options analyseCom
 	for files.Scan() {
 		switch rec := files.Result(); rec := rec.(type) {
 		case *benchfmt.SyntaxError:
-			// Non-fatal result parse error. Warn
-			// but keep going.
 			fmt.Fprintln(env.Err, rec)
 		case *benchfmt.Result:
 			if ok, err := filter.Apply(rec); !ok {
 				if err != nil {
-					// Print the reason we rejected this result.
 					fmt.Fprintln(env.Err, err)
 				}
 				continue
@@ -163,7 +157,6 @@ func runAnalyseCompare(ctx context.Context, env *execenv.Env, options analyseCom
 	})
 
 	viewport, runFn := env.Viewport(ctx)
-	// the "color" argument actually does nothing!
 	err = tables.ToText(viewport, true)
 	if err != nil {
 		return err

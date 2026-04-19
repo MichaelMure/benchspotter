@@ -37,8 +37,9 @@ A typical session is as follow:
 	env := execenv.NewEnv()
 
 	addCmdWithGroup(newBenchCommand(env), mainGroup)
-	addCmdWithGroup(newAnalyzeCommand(env), mainGroup)
+	addCmdWithGroup(newSessionCommand(env), mainGroup)
 	addCmdWithGroup(newShowCommand(env), mainGroup)
+	addCmdWithGroup(newCompareCommand(env), mainGroup)
 
 	addCmdWithGroup(newVersionCommand(env), utilitiesGroup)
 	cmd.SetHelpCommandGroupID(utilitiesGroup)
