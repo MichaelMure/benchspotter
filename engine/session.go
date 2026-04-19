@@ -250,6 +250,11 @@ func (s SessionInfo) HasGitDiff() bool {
 	return err == nil
 }
 
+func (s SessionInfo) HasBench() bool {
+	_, err := s.fs.Stat(filepath.Join(s.Path, benchFilename))
+	return err == nil
+}
+
 func (s SessionInfo) HasProfile(p Profile) bool {
 	dir := filepath.Join(s.Path, ProfileDir(p))
 	entries, err := s.fs.ReadDir(dir)

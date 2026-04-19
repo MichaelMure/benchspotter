@@ -3,7 +3,6 @@ package commands
 import (
 	"context"
 	"fmt"
-	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -55,7 +54,7 @@ func runSessionLs(ctx context.Context, env *execenv.Env) error {
 	switch env.Format {
 	case execenv.FormatText:
 		w := tabwriter.NewWriter(env.Out, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "NAME\tTIME\tCOMMIT\tBENCHMARKS")
+		fmt.Fprintln(w, "NAME\tTIME\tCOMMIT\tBENCH\tCPU\tMEM\tBLOCK\tMUTEX\tBENCHMARKS")
 		for _, s := range sessions {
 			commit := ""
 			if s.GitCommit != "" {
@@ -64,11 +63,22 @@ func runSessionLs(ctx context.Context, env *execenv.Env) error {
 					commit += "±"
 				}
 			}
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+			check := func(ok bool) string {
+				if ok {
+					return "✓"
+				}
+				return "-"
+			}
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\n",
 				s.HumanName,
 				s.Time.Format("2006-01-02 15:04"),
 				commit,
-				strings.Join(s.Benches, ", "),
+				check(s.HasBench()),
+				check(s.HasProfile(engine.ProfileCPU)),
+				check(s.HasProfile(engine.ProfileMem)),
+				check(s.HasProfile(engine.ProfileBlock)),
+				check(s.HasProfile(engine.ProfileMutex)),
+				len(s.Benches),
 			)
 		}
 		return w.Flush()
@@ -80,6 +90,7 @@ func runSessionLs(ctx context.Context, env *execenv.Env) error {
 			Time       time.Time `json:"time"`
 			Commit     string    `json:"commit,omitempty"`
 			HasDiff    bool      `json:"has_diff"`
+			Profiles   []string  `json:"profiles"`
 			Benchmarks []string  `json:"benchmarks"`
 		}
 		out := make([]sessionJSON, len(sessions))
@@ -91,6 +102,7 @@ func runSessionLs(ctx context.Context, env *execenv.Env) error {
 				Time:       s.Time,
 				Commit:     s.GitCommit,
 				HasDiff:    s.HasGitDiff(),
+				Profiles:   sessionProfiles(s),
 				Benchmarks: s.Benches,
 			}
 		}
@@ -98,6 +110,17 @@ func runSessionLs(ctx context.Context, env *execenv.Env) error {
 	default:
 		return fmt.Errorf("unsupported format %v for session ls (text, json)", env.Format)
 	}
+}
+
+func sessionProfiles(s *engine.SessionInfo) []string {
+	all := []engine.Profile{engine.ProfileCPU, engine.ProfileMem, engine.ProfileBlock, engine.ProfileMutex}
+	var out []string
+	for _, p := range all {
+		if s.HasProfile(p) {
+			out = append(out, engine.ProfileDir(p))
+		}
+	}
+	return out
 }
 
 func newSessionTagCommand(env *execenv.Env) *cobra.Command {
