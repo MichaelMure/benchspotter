@@ -96,9 +96,9 @@ func formatSession(env *execenv.Env, session *engine.SessionInfo) string {
 	var commit string
 	if len(session.GitCommit) > 0 {
 		if session.HasGitDiff() {
-			commit = fmt.Sprintf(" - (⎇  %s)", session.GitCommit[:7])
-		} else {
 			commit = fmt.Sprintf(" - (⎇  %s ±)", session.GitCommit[:7])
+		} else {
+			commit = fmt.Sprintf(" - (⎇  %s)", session.GitCommit[:7])
 		}
 	}
 	return fmt.Sprintf("%s%s%s",

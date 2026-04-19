@@ -135,6 +135,7 @@ func Inputs(rootDir string) (res []InputInfo, err error) {
 					}
 					info.max, err = extractInt(call, 3)
 					if err != nil {
+						return false
 					}
 					res = append(res, info)
 				}

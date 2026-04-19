@@ -53,12 +53,15 @@ func LocateBenchmarks(ctx context.Context, sources billy.Filesystem) ([]BenchInf
 			return err
 		}
 
-		f, err := sources.Open(path)
-		defer func() { _ = f.Close() }()
-
 		if info.IsDir() || !strings.HasSuffix(path, "_test.go") {
 			return nil
 		}
+
+		f, err := sources.Open(path)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = f.Close() }()
 
 		fileAst, err := parser.ParseFile(token.NewFileSet(), "", f, parser.SkipObjectResolution)
 		if err != nil {
@@ -219,9 +222,9 @@ func collectSubBenchmarks(dst *[]BenchInfo, pkgDir, prefix, testingVarName strin
 		if len(subParam.Names) == 0 || fnLit.Body == nil {
 			return false
 		}
-		testingVarName = subParam.Names[0].Name
+		subTestingVarName := subParam.Names[0].Name
 
-		if !collectSubBenchmarks(dst, pkgDir, fullName, testingVarName, fnLit.Body, importMap) {
+		if !collectSubBenchmarks(dst, pkgDir, fullName, subTestingVarName, fnLit.Body, importMap) {
 			*dst = append(*dst, BenchInfo{
 				Name:    fullName,
 				Package: pkgDir,
@@ -278,6 +281,14 @@ func RunBenches(ctx context.Context, storage billy.Filesystem, id string, benche
 						return
 					}
 				}
+			}
+			if err := r.Err(); err != nil {
+				yield(nil, err)
+				return
+			}
+			if err := cmd.Wait(); err != nil {
+				yield(nil, err)
+				return
 			}
 		}
 	})

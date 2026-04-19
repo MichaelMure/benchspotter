@@ -129,7 +129,23 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 			return err
 		}
 	} else {
-		// TODO: fill "selection"
+		var all []engine.BenchInfo
+		err = env.Spinner().Title("Finding benchmarks").ActionWithErr(func(ctx context.Context) error {
+			var locErr error
+			all, locErr = engine.LocateBenchmarks(ctx, env.Repo.Sources())
+			return locErr
+		}).Context(ctx).Run()
+		if err != nil {
+			return err
+		}
+		for _, info := range all {
+			if slices.Contains(options.benchmarks, info.Name) {
+				selection = append(selection, info)
+			}
+		}
+		if len(selection) == 0 {
+			return fmt.Errorf("no benchmarks found matching: %v", options.benchmarks)
+		}
 	}
 
 	if options.name == unsetStringMarker {
@@ -161,7 +177,7 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 				if err != nil {
 					return fmt.Errorf("invalid integer")
 				}
-				return err
+				return nil
 			}).
 			Value(&value)).
 			RunWithContext(ctx)
@@ -183,31 +199,32 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 
 	if slices.Contains(options.profiles, engine.ProfileBench) {
 		it := engine.RunBenches(ctx, env.Repo.Storage(), id, selection, options.count)
-		for _, info := range selection {
-			for range options.count {
-				start := time.Now()
-				var res *benchfmt.Result
-				err = env.Spinner().Title(info.Name).ActionWithErr(func(ctx context.Context) error {
-					res, err = it()
-					return err
-				}).Run()
-				if err != nil {
-					return err
-				}
-
-				env.Out.Printf("> Benchmark%s (", res.Name)
-				for i, value := range res.Values {
-					if i > 0 {
-						env.Out.Print(" | ")
-					}
-					if value.OrigUnit != "" {
-						env.Out.Printf("%v %s", value.OrigValue, value.OrigUnit)
-					} else {
-						env.Out.Printf("%v %s", value.Value, value.Unit)
-					}
-				}
-				env.Out.Printf(") done in %v\n", time.Since(start).Truncate(100*time.Millisecond))
+		for {
+			start := time.Now()
+			var res *benchfmt.Result
+			err = env.Spinner().Title("Running benchmarks...").ActionWithErr(func(ctx context.Context) error {
+				res, err = it()
+				return err
+			}).Run()
+			if err != nil {
+				return err
 			}
+			if res == nil {
+				break
+			}
+
+			env.Out.Printf("> Benchmark%s (", res.Name)
+			for i, value := range res.Values {
+				if i > 0 {
+					env.Out.Print(" | ")
+				}
+				if value.OrigUnit != "" {
+					env.Out.Printf("%v %s", value.OrigValue, value.OrigUnit)
+				} else {
+					env.Out.Printf("%v %s", value.Value, value.Unit)
+				}
+			}
+			env.Out.Printf(") done in %v\n", time.Since(start).Truncate(100*time.Millisecond))
 		}
 	}
 
