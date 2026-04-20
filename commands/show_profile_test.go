@@ -76,7 +76,6 @@ func makeCPUProfile(funcNames []string) *profile.Profile {
 		Function: funcs,
 		Location: locs,
 		Sample: []*profile.Sample{
-			// first func at top of stack (flat), rest in callchain (cum only)
 			{Location: locs, Value: []int64{10, int64(10 * time.Millisecond)}},
 		},
 		TimeNanos:     time.Now().UnixNano(),
@@ -87,114 +86,117 @@ func makeCPUProfile(funcNames []string) *profile.Profile {
 	return p
 }
 
-func TestShowCPUText(t *testing.T) {
-	storage, id := setupProfileSession(t)
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+func TestShowProfile(t *testing.T) {
+	t.Run("cpu", func(t *testing.T) {
+		t.Run("text", func(t *testing.T) {
+			storage, id := setupProfileSession(t)
+			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
 
-	err := runShowProfile(t.Context(), env, showProfileOptions{
-		session:     id,
-		profileType: engine.ProfileCPU,
-		top:         20,
+			err := runShowProfile(t.Context(), env, showProfileOptions{
+				session:     id,
+				profileType: engine.ProfileCPU,
+				top:         20,
+			})
+			require.NoError(t, err)
+
+			out := env.Out.String()
+			assert.Contains(t, out, "FLAT")
+			assert.Contains(t, out, "FUNCTION")
+			assert.Contains(t, out, "HotFunc")
+			assert.Contains(t, out, "mallocgc")
+		})
+
+		t.Run("json", func(t *testing.T) {
+			storage, id := setupProfileSession(t)
+			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+			env.Format = execenv.FormatJSON
+
+			err := runShowProfile(t.Context(), env, showProfileOptions{
+				session:     id,
+				profileType: engine.ProfileCPU,
+				top:         20,
+			})
+			require.NoError(t, err)
+
+			out := env.Out.String()
+			assert.Contains(t, out, `"name"`)
+			assert.Contains(t, out, `"flat_ns"`)
+			assert.Contains(t, out, `"flat_pct"`)
+			assert.Contains(t, out, "HotFunc")
+		})
+
+		t.Run("raw", func(t *testing.T) {
+			storage, id := setupProfileSession(t)
+			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+			env.Format = execenv.FormatRaw
+
+			err := runShowProfile(t.Context(), env, showProfileOptions{
+				session:     id,
+				profileType: engine.ProfileCPU,
+				top:         20,
+			})
+			require.NoError(t, err)
+
+			_, err = profile.ParseData(env.Out.Bytes())
+			assert.NoError(t, err, "raw output should be a valid pprof profile")
+		})
+
+		t.Run("no_profile", func(t *testing.T) {
+			storage := memfs.New()
+			id := createTestSession(t, storage, "no-profiles", []string{"BenchmarkFoo"}, "abc1234", false)
+			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+
+			err := runShowProfile(t.Context(), env, showProfileOptions{
+				session:     id,
+				profileType: engine.ProfileCPU,
+				top:         20,
+			})
+			assert.ErrorContains(t, err, "no cpu profile")
+		})
+
+		t.Run("bench_filter", func(t *testing.T) {
+			storage, id := setupMultiBenchProfileSession(t)
+			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+			env.Format = execenv.FormatJSON
+
+			err := runShowProfile(t.Context(), env, showProfileOptions{
+				session:     id,
+				bench:       "BenchmarkFoo",
+				profileType: engine.ProfileCPU,
+				top:         20,
+			})
+			require.NoError(t, err)
+
+			out := env.Out.String()
+			assert.Contains(t, out, "FooFunc")
+			assert.NotContains(t, out, "BarFunc")
+		})
+
+		t.Run("multi_bench_requires_bench", func(t *testing.T) {
+			storage, id := setupMultiBenchProfileSession(t)
+			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+			env.Format = execenv.FormatJSON
+
+			err := runShowProfile(t.Context(), env, showProfileOptions{
+				session:     id,
+				bench:       "",
+				profileType: engine.ProfileCPU,
+				top:         20,
+			})
+			assert.ErrorContains(t, err, "specify --bench")
+		})
+
+		t.Run("bench_unknown", func(t *testing.T) {
+			storage, id := setupMultiBenchProfileSession(t)
+			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+
+			err := runShowProfile(t.Context(), env, showProfileOptions{
+				session:     id,
+				bench:       "BenchmarkNonExistent",
+				profileType: engine.ProfileCPU,
+				top:         20,
+			})
+			assert.ErrorContains(t, err, "no cpu profile found for benchmark")
+		})
 	})
-	require.NoError(t, err)
-
-	out := env.Out.String()
-	assert.Contains(t, out, "FLAT")
-	assert.Contains(t, out, "FUNCTION")
-	assert.Contains(t, out, "HotFunc")
-	assert.Contains(t, out, "mallocgc")
-}
-
-func TestShowCPUJSON(t *testing.T) {
-	storage, id := setupProfileSession(t)
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
-	env.Format = execenv.FormatJSON
-
-	err := runShowProfile(t.Context(), env, showProfileOptions{
-		session:     id,
-		profileType: engine.ProfileCPU,
-		top:         20,
-	})
-	require.NoError(t, err)
-
-	out := env.Out.String()
-	assert.Contains(t, out, `"name"`)
-	assert.Contains(t, out, `"flat_ns"`)
-	assert.Contains(t, out, `"flat_pct"`)
-	assert.Contains(t, out, "HotFunc")
-}
-
-func TestShowCPURaw(t *testing.T) {
-	storage, id := setupProfileSession(t)
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
-	env.Format = execenv.FormatRaw
-
-	err := runShowProfile(t.Context(), env, showProfileOptions{
-		session:     id,
-		profileType: engine.ProfileCPU,
-		top:         20,
-	})
-	require.NoError(t, err)
-
-	// raw output should be a valid pprof profile
-	_, err = profile.ParseData(env.Out.Bytes())
-	assert.NoError(t, err, "raw output should be a valid pprof profile")
-}
-
-func TestShowCPUNoProfile(t *testing.T) {
-	storage := memfs.New()
-	id := createTestSession(t, storage, "no-profiles", []string{"BenchmarkFoo"}, "abc1234", false)
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
-
-	err := runShowProfile(t.Context(), env, showProfileOptions{
-		session:     id,
-		profileType: engine.ProfileCPU,
-		top:         20,
-	})
-	assert.ErrorContains(t, err, "no cpu profile")
-}
-
-func TestShowCPUBenchFilter(t *testing.T) {
-	storage, id := setupMultiBenchProfileSession(t)
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
-	env.Format = execenv.FormatJSON
-
-	err := runShowProfile(t.Context(), env, showProfileOptions{
-		session:     id,
-		bench:       "BenchmarkFoo",
-		profileType: engine.ProfileCPU,
-		top:         20,
-	})
-	require.NoError(t, err)
-
-	out := env.Out.String()
-	assert.Contains(t, out, "FooFunc")
-	assert.NotContains(t, out, "BarFunc")
-}
-
-func TestShowCPUMultiBenchRequiresBench(t *testing.T) {
-	storage, id := setupMultiBenchProfileSession(t)
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
-	env.Format = execenv.FormatJSON
-
-	err := runShowProfile(t.Context(), env, showProfileOptions{
-		session:     id,
-		bench:       "",
-		profileType: engine.ProfileCPU,
-		top:         20,
-	})
-	assert.ErrorContains(t, err, "specify --bench")
-}
-
-func TestShowCPUBenchUnknown(t *testing.T) {
-	storage, id := setupMultiBenchProfileSession(t)
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
-
-	err := runShowProfile(t.Context(), env, showProfileOptions{
-		session:     id,
-		bench:       "BenchmarkNonExistent",
-		profileType: engine.ProfileCPU,
-		top:         20,
-	})
-	assert.ErrorContains(t, err, "no cpu profile found for benchmark")
 }

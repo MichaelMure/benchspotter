@@ -15,146 +15,141 @@ import (
 	"benchspotter/repository"
 )
 
-func TestSessionLs(t *testing.T) {
-	storage := memfs.New()
+func TestSession(t *testing.T) {
+	t.Run("ls", func(t *testing.T) {
+		t.Run("text", func(t *testing.T) {
+			storage := memfs.New()
+			createTestSession(t, storage, "first-session", []string{"BenchmarkFoo", "BenchmarkBar"}, "abc1234def5678abc1234def5678abc1234def56", false)
+			createTestSession(t, storage, "second-session", []string{"BenchmarkBaz"}, "xyz9876fed5432xyz9876fed5432xyz9876fed54", true)
 
-	createTestSession(t, storage, "first-session", []string{"BenchmarkFoo", "BenchmarkBar"}, "abc1234def5678abc1234def5678abc1234def56", false)
-	createTestSession(t, storage, "second-session", []string{"BenchmarkBaz"}, "xyz9876fed5432xyz9876fed5432xyz9876fed54", true)
+			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+			err := runSessionLs(t.Context(), env, "")
+			require.NoError(t, err)
 
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+			out := env.Out.String()
+			assert.Contains(t, out, "first-session")
+			assert.Contains(t, out, "second-session")
+			assert.Contains(t, out, "abc1234")
+			assert.Contains(t, out, "xyz9876±")    // has git diff
+			assert.NotContains(t, out, "abc1234±") // no diff, no marker
+			assert.Contains(t, out, "2")           // first-session has 2 benchmarks
+			assert.Contains(t, out, "1")           // second-session has 1
+		})
 
-	err := runSessionLs(t.Context(), env, "")
-	require.NoError(t, err)
+		t.Run("profile_indicators", func(t *testing.T) {
+			storage := memfs.New()
+			id := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
+			dir := filepath.Join("sessions", id, "cpu")
+			require.NoError(t, storage.MkdirAll(dir, 0755))
+			f, err := storage.Create(filepath.Join(dir, "ᚗᚗBenchmarkFoo.profile"))
+			require.NoError(t, err)
+			_ = f.Close()
 
-	out := env.Out.String()
-	assert.Contains(t, out, "first-session")
-	assert.Contains(t, out, "second-session")
-	assert.Contains(t, out, "abc1234")
-	assert.Contains(t, out, "xyz9876±")    // has git diff
-	assert.NotContains(t, out, "abc1234±") // no diff, no marker
-	// benchmark count, not names
-	assert.Contains(t, out, "2") // first-session has 2 benchmarks
-	assert.Contains(t, out, "1") // second-session has 1
-}
+			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+			require.NoError(t, runSessionLs(t.Context(), env, ""))
+			assert.Contains(t, env.Out.String(), "✓")
+		})
 
-func TestSessionLs_profileIndicators(t *testing.T) {
-	storage := memfs.New()
+		t.Run("tags", func(t *testing.T) {
+			storage := memfs.New()
+			id := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
+			addTagToSession(t, storage, id, "baseline")
 
-	id := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
-	// add a cpu profile directory with a file
-	dir := filepath.Join("sessions", id, "cpu")
-	require.NoError(t, storage.MkdirAll(dir, 0755))
-	f, err := storage.Create(filepath.Join(dir, "ᚗᚗBenchmarkFoo.profile"))
-	require.NoError(t, err)
-	_ = f.Close()
+			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+			require.NoError(t, runSessionLs(t.Context(), env, ""))
+			assert.Contains(t, env.Out.String(), "baseline")
+		})
 
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
-	require.NoError(t, runSessionLs(t.Context(), env, ""))
+		t.Run("filter_by_tag", func(t *testing.T) {
+			storage := memfs.New()
+			id1 := createTestSession(t, storage, "tagged", []string{"BenchmarkFoo"}, "", false)
+			createTestSession(t, storage, "untagged", []string{"BenchmarkBar"}, "", false)
+			addTagToSession(t, storage, id1, "baseline")
 
-	out := env.Out.String()
-	assert.Contains(t, out, "✓") // cpu present
-}
+			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+			require.NoError(t, runSessionLs(t.Context(), env, "baseline"))
 
-func TestSessionLs_tags(t *testing.T) {
-	storage := memfs.New()
+			out := env.Out.String()
+			assert.Contains(t, out, "tagged")
+			assert.NotContains(t, out, "untagged")
+		})
 
-	id := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
-	addTagToSession(t, storage, id, "baseline")
+		t.Run("json", func(t *testing.T) {
+			storage := memfs.New()
+			id := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "abc1234def5678abc1234def5678abc1234def56", true)
+			addTagToSession(t, storage, id, "baseline")
 
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
-	require.NoError(t, runSessionLs(t.Context(), env, ""))
+			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+			env.Format = execenv.FormatJSON
+			err := runSessionLs(t.Context(), env, "")
+			require.NoError(t, err)
 
-	assert.Contains(t, env.Out.String(), "baseline")
-}
+			out := env.Out.String()
+			assert.Contains(t, out, `"human_name"`)
+			assert.Contains(t, out, `"my-session"`)
+			assert.Contains(t, out, `"has_diff": true`)
+			assert.Contains(t, out, `"BenchmarkFoo"`)
+			assert.Contains(t, out, `"abc1234def5678abc1234def5678abc1234def56"`)
+			assert.Contains(t, out, `"baseline"`)
+		})
+	})
 
-func TestSessionLs_filterByTag(t *testing.T) {
-	storage := memfs.New()
+	t.Run("tag", func(t *testing.T) {
+		storage := memfs.New()
+		id := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
 
-	id1 := createTestSession(t, storage, "tagged", []string{"BenchmarkFoo"}, "", false)
-	createTestSession(t, storage, "untagged", []string{"BenchmarkBar"}, "", false)
-	addTagToSession(t, storage, id1, "baseline")
+		env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+		require.NoError(t, runSessionTag(t.Context(), env, []string{id, "baseline"}))
 
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
-	require.NoError(t, runSessionLs(t.Context(), env, "baseline"))
+		meta := readSessionMeta(t, storage, id)
+		assert.Equal(t, []interface{}{"baseline"}, meta["tags"])
+	})
 
-	out := env.Out.String()
-	assert.Contains(t, out, "tagged")
-	assert.NotContains(t, out, "untagged")
-}
+	t.Run("untag", func(t *testing.T) {
+		storage := memfs.New()
+		id := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
+		addTagToSession(t, storage, id, "baseline")
+		addTagToSession(t, storage, id, "fast")
 
-func TestSessionLsJSON(t *testing.T) {
-	storage := memfs.New()
-	id := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "abc1234def5678abc1234def5678abc1234def56", true)
-	addTagToSession(t, storage, id, "baseline")
+		env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+		require.NoError(t, runSessionUntag(t.Context(), env, []string{id, "baseline"}))
 
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
-	env.Format = execenv.FormatJSON
+		meta := readSessionMeta(t, storage, id)
+		assert.Equal(t, []interface{}{"fast"}, meta["tags"])
+	})
 
-	err := runSessionLs(t.Context(), env, "")
-	require.NoError(t, err)
+	t.Run("rename", func(t *testing.T) {
+		storage := memfs.New()
+		id := createTestSession(t, storage, "old-name", []string{"BenchmarkFoo"}, "", false)
 
-	out := env.Out.String()
-	assert.Contains(t, out, `"human_name"`)
-	assert.Contains(t, out, `"my-session"`)
-	assert.Contains(t, out, `"has_diff": true`)
-	assert.Contains(t, out, `"BenchmarkFoo"`)
-	assert.Contains(t, out, `"abc1234def5678abc1234def5678abc1234def56"`)
-	assert.Contains(t, out, `"baseline"`)
-}
+		env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+		require.NoError(t, runSessionRename(t.Context(), env, []string{id, "new-name"}))
 
-func TestSessionTag(t *testing.T) {
-	storage := memfs.New()
-	id := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
+		meta := readSessionMeta(t, storage, id)
+		assert.Equal(t, "new-name", meta["name"])
+	})
 
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
-	require.NoError(t, runSessionTag(t.Context(), env, []string{id, "baseline"}))
+	t.Run("rm", func(t *testing.T) {
+		t.Run("success", func(t *testing.T) {
+			storage := memfs.New()
+			id := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
 
-	meta := readSessionMeta(t, storage, id)
-	assert.Equal(t, []interface{}{"baseline"}, meta["tags"])
-}
+			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+			require.NoError(t, runSessionRm(t.Context(), env, []string{id}, true))
 
-func TestSessionUntag(t *testing.T) {
-	storage := memfs.New()
-	id := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
-	addTagToSession(t, storage, id, "baseline")
-	addTagToSession(t, storage, id, "fast")
+			_, err := storage.Stat(filepath.Join("sessions", id))
+			assert.Error(t, err)
+		})
 
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
-	require.NoError(t, runSessionUntag(t.Context(), env, []string{id, "baseline"}))
+		t.Run("not_found", func(t *testing.T) {
+			storage := memfs.New()
+			createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
 
-	meta := readSessionMeta(t, storage, id)
-	assert.Equal(t, []interface{}{"fast"}, meta["tags"])
-}
-
-func TestSessionRename(t *testing.T) {
-	storage := memfs.New()
-	id := createTestSession(t, storage, "old-name", []string{"BenchmarkFoo"}, "", false)
-
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
-	require.NoError(t, runSessionRename(t.Context(), env, []string{id, "new-name"}))
-
-	meta := readSessionMeta(t, storage, id)
-	assert.Equal(t, "new-name", meta["name"])
-}
-
-func TestSessionRm(t *testing.T) {
-	storage := memfs.New()
-	id := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
-
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
-	require.NoError(t, runSessionRm(t.Context(), env, []string{id}, true))
-
-	_, err := storage.Stat(filepath.Join("sessions", id))
-	assert.Error(t, err)
-}
-
-func TestSessionRm_notFound(t *testing.T) {
-	storage := memfs.New()
-	createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
-
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
-	err := runSessionRm(t.Context(), env, []string{"00000000-0000-0000-0000-000000000000"}, true)
-	assert.ErrorContains(t, err, "not found")
+			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+			err := runSessionRm(t.Context(), env, []string{"00000000-0000-0000-0000-000000000000"}, true)
+			assert.ErrorContains(t, err, "not found")
+		})
+	})
 }
 
 // createTestSession writes a minimal session into the given storage filesystem

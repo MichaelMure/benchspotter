@@ -36,51 +36,53 @@ func compareStatOpts(id1, id2 string) compareStatOptions {
 	}
 }
 
-func TestCompareStat(t *testing.T) {
-	// benchfmt.Files reads from real disk paths via BenchFullPath(), so storage
-	// must be backed by a real directory rather than memfs.
-	storage, id1, id2 := setupCompareStorage(t)
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+func TestCompareStats(t *testing.T) {
+	t.Run("text", func(t *testing.T) {
+		// benchfmt.Files reads from real disk paths via BenchFullPath(), so storage
+		// must be backed by a real directory rather than memfs.
+		storage, id1, id2 := setupCompareStorage(t)
+		env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
 
-	err := runCompareStat(t.Context(), env, compareStatOpts(id1, id2))
-	require.NoError(t, err)
+		err := runCompareStat(t.Context(), env, compareStatOpts(id1, id2))
+		require.NoError(t, err)
 
-	out := env.Out.String()
-	assert.Contains(t, out, "Foo")
-	assert.Contains(t, out, "before")
-	assert.Contains(t, out, "after")
-}
+		out := env.Out.String()
+		assert.Contains(t, out, "Foo")
+		assert.Contains(t, out, "before")
+		assert.Contains(t, out, "after")
+	})
 
-func TestCompareStatJSON(t *testing.T) {
-	storage, id1, id2 := setupCompareStorage(t)
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
-	env.Format = execenv.FormatJSON
+	t.Run("json", func(t *testing.T) {
+		storage, id1, id2 := setupCompareStorage(t)
+		env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+		env.Format = execenv.FormatJSON
 
-	err := runCompareStat(t.Context(), env, compareStatOpts(id1, id2))
-	require.NoError(t, err)
+		err := runCompareStat(t.Context(), env, compareStatOpts(id1, id2))
+		require.NoError(t, err)
 
-	out := env.Out.String()
-	assert.Contains(t, out, `"unit"`)
-	assert.Contains(t, out, `"benchmarks"`)
-	assert.Contains(t, out, `"Foo`)
-	assert.Contains(t, out, `"before"`)
-	assert.Contains(t, out, `"after"`)
-	assert.Contains(t, out, `"center"`)
-	assert.Contains(t, out, `"delta"`)
-}
+		out := env.Out.String()
+		assert.Contains(t, out, `"unit"`)
+		assert.Contains(t, out, `"benchmarks"`)
+		assert.Contains(t, out, `"Foo`)
+		assert.Contains(t, out, `"before"`)
+		assert.Contains(t, out, `"after"`)
+		assert.Contains(t, out, `"center"`)
+		assert.Contains(t, out, `"delta"`)
+	})
 
-func TestCompareStatRaw(t *testing.T) {
-	storage, id1, id2 := setupCompareStorage(t)
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
-	env.Format = execenv.FormatRaw
+	t.Run("raw", func(t *testing.T) {
+		storage, id1, id2 := setupCompareStorage(t)
+		env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+		env.Format = execenv.FormatRaw
 
-	err := runCompareStat(t.Context(), env, compareStatOpts(id1, id2))
-	require.NoError(t, err)
+		err := runCompareStat(t.Context(), env, compareStatOpts(id1, id2))
+		require.NoError(t, err)
 
-	out := env.Out.String()
-	assert.Contains(t, out, "BenchmarkFoo-8")
-	assert.Contains(t, out, "before")
-	assert.Contains(t, out, "after")
+		out := env.Out.String()
+		assert.Contains(t, out, "BenchmarkFoo-8")
+		assert.Contains(t, out, "before")
+		assert.Contains(t, out, "after")
+	})
 }
 
 func writeBenchResults(t *testing.T, storage billy.Filesystem, id, content string) {

@@ -12,37 +12,39 @@ import (
 )
 
 func TestShowDiff(t *testing.T) {
-	storage := memfs.New()
-	session := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "abc1234def5678abc1234def5678abc1234def56", true)
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+	t.Run("text", func(t *testing.T) {
+		storage := memfs.New()
+		session := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "abc1234def5678abc1234def5678abc1234def56", true)
+		env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
 
-	err := runShowDiffCommand(t.Context(), env, showDiffOptions{session: session})
-	require.NoError(t, err)
-	assert.Contains(t, env.Out.String(), "a change")
-}
+		err := runShowDiffCommand(t.Context(), env, showDiffOptions{session: session})
+		require.NoError(t, err)
+		assert.Contains(t, env.Out.String(), "a change")
+	})
 
-func TestShowDiffRaw(t *testing.T) {
-	storage := memfs.New()
-	session := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "abc1234def5678abc1234def5678abc1234def56", true)
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
-	env.Format = execenv.FormatRaw
+	t.Run("raw", func(t *testing.T) {
+		storage := memfs.New()
+		session := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "abc1234def5678abc1234def5678abc1234def56", true)
+		env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+		env.Format = execenv.FormatRaw
 
-	err := runShowDiffCommand(t.Context(), env, showDiffOptions{session: session})
-	require.NoError(t, err)
-	assert.Equal(t, "diff --git a/foo.go b/foo.go\n+// a change\n", env.Out.String())
-}
+		err := runShowDiffCommand(t.Context(), env, showDiffOptions{session: session})
+		require.NoError(t, err)
+		assert.Equal(t, "diff --git a/foo.go b/foo.go\n+// a change\n", env.Out.String())
+	})
 
-func TestShowDiffJSON(t *testing.T) {
-	storage := memfs.New()
-	session := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "abc1234def5678abc1234def5678abc1234def56", true)
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
-	env.Format = execenv.FormatJSON
+	t.Run("json", func(t *testing.T) {
+		storage := memfs.New()
+		session := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "abc1234def5678abc1234def5678abc1234def56", true)
+		env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+		env.Format = execenv.FormatJSON
 
-	err := runShowDiffCommand(t.Context(), env, showDiffOptions{session: session})
-	require.NoError(t, err)
-	out := env.Out.String()
-	assert.Contains(t, out, `"session_id"`)
-	assert.Contains(t, out, `"my-session"`)
-	assert.Contains(t, out, `"diff"`)
-	assert.Contains(t, out, `a change`)
+		err := runShowDiffCommand(t.Context(), env, showDiffOptions{session: session})
+		require.NoError(t, err)
+		out := env.Out.String()
+		assert.Contains(t, out, `"session_id"`)
+		assert.Contains(t, out, `"my-session"`)
+		assert.Contains(t, out, `"diff"`)
+		assert.Contains(t, out, `a change`)
+	})
 }
