@@ -7,6 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	gogit "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 )
 
 func detectGitPath(path string, depth int) (string, error) {
@@ -92,4 +95,34 @@ func isGitDir(path string) (bool, error) {
 	}
 
 	return true, nil
+}
+
+// GitSource retrieves file content at a specific git commit.
+type GitSource interface {
+	FileAtCommit(commit, relPath string) ([]byte, error)
+}
+
+// goGitSource is the real GitSource backed by a go-git repository.
+type goGitSource struct {
+	repo *gogit.Repository
+}
+
+func (g *goGitSource) FileAtCommit(commit, relPath string) ([]byte, error) {
+	commitObj, err := g.repo.CommitObject(plumbing.NewHash(commit))
+	if err != nil {
+		return nil, fmt.Errorf("commit %s: %w", commit, err)
+	}
+	tree, err := commitObj.Tree()
+	if err != nil {
+		return nil, err
+	}
+	file, err := tree.File(relPath)
+	if err != nil {
+		return nil, err
+	}
+	contents, err := file.Contents()
+	if err != nil {
+		return nil, err
+	}
+	return []byte(contents), nil
 }

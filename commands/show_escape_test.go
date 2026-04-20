@@ -67,7 +67,7 @@ engine/foo.go:30:1: can inline Baz
 	dir := filepath.Join("sessions", sessionID)
 	require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.EscapeFilename), []byte(escapeData), 0644))
 
-	env := execenv.NewTestEnv(repository.New(memfs.New(), storage))
+	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
 	env.Format = execenv.FormatJSON
 
 	err := runShowEscape(t.Context(), env, showEscapeOptions{session: sessionID})
@@ -90,7 +90,7 @@ engine/foo.go:30:1: can inline Baz
 	dir := filepath.Join("sessions", sessionID)
 	require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.EscapeFilename), []byte(escapeData), 0644))
 
-	env := execenv.NewTestEnv(repository.New(memfs.New(), storage))
+	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
 	env.Format = execenv.FormatJSON
 
 	err := runShowEscape(t.Context(), env, showEscapeOptions{session: sessionID, all: true})
@@ -109,7 +109,7 @@ func TestShowEscapeJSON_projectFilter(t *testing.T) {
 	dir := filepath.Join("sessions", sessionID)
 	require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.EscapeFilename), []byte(escapeData), 0644))
 
-	env := execenv.NewTestEnv(repository.New(memfs.New(), storage))
+	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
 	env.Format = execenv.FormatJSON
 
 	// default: project only
@@ -120,18 +120,102 @@ func TestShowEscapeJSON_projectFilter(t *testing.T) {
 	assert.NotContains(t, out, "fmt/format.go")
 
 	// with deps included
-	env2 := execenv.NewTestEnv(repository.New(memfs.New(), storage))
+	env2 := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
 	env2.Format = execenv.FormatJSON
 	err = runShowEscape(t.Context(), env2, showEscapeOptions{session: sessionID, includeDeps: true})
 	require.NoError(t, err)
 	assert.Contains(t, env2.Out.String(), "fmt/format.go")
 }
 
+func TestShowEscapeText_gitSourceLoading(t *testing.T) {
+	const commit = "abc1234def5678abc1234def5678abc1234def56"
+
+	// Simulate a project file at the recorded commit with a known function.
+	gitSrc := repository.MapGitSource{
+		commit + ":engine/foo.go": []byte(`package engine
+
+func BenchmarkFoo(b *testing.B) {
+	var s []byte
+	for i := 0; i < b.N; i++ {
+		s = make([]byte, 1024)
+	}
+	_ = s
+}
+`),
+	}
+
+	storage := memfs.New()
+	sessionID := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, commit, false)
+
+	escapeData := "engine/foo.go:4:7: make([]byte, 1024) escapes to heap\n"
+	dir := filepath.Join("sessions", sessionID)
+	require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.EscapeFilename), []byte(escapeData), 0644))
+
+	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, gitSrc))
+	env.Format = execenv.FormatText
+
+	err := runShowEscape(t.Context(), env, showEscapeOptions{session: sessionID})
+	require.NoError(t, err)
+
+	out := env.Out.String()
+	// Source line from git content should appear.
+	assert.Contains(t, out, "BenchmarkFoo")
+	assert.Contains(t, out, "make([]byte, 1024)")
+	assert.Contains(t, out, "escapes to heap")
+}
+
+func TestShowEscapeText_gitDiffApplied(t *testing.T) {
+	const commit = "abc1234def5678abc1234def5678abc1234def56"
+
+	// Committed version of the file.
+	committedSrc := `package engine
+
+func BenchmarkFoo(b *testing.B) {
+	var s []byte
+	for i := 0; i < b.N; i++ {
+		s = make([]byte, 512)
+	}
+	_ = s
+}
+`
+	// Diff that changes 512 → 1024 (the actual state when benchmarks were run).
+	diff := `diff --git a/engine/foo.go b/engine/foo.go
+--- a/engine/foo.go
++++ b/engine/foo.go
+@@ -6,1 +6,1 @@
+-		s = make([]byte, 512)
++		s = make([]byte, 1024)
+`
+
+	gitSrc := repository.MapGitSource{
+		commit + ":engine/foo.go": []byte(committedSrc),
+	}
+
+	storage := memfs.New()
+	sessionID := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, commit, false)
+
+	dir := filepath.Join("sessions", sessionID)
+	require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.GitDiffFilename), []byte(diff), 0644))
+	escapeData := "engine/foo.go:6:7: make([]byte, 1024) escapes to heap\n"
+	require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.EscapeFilename), []byte(escapeData), 0644))
+
+	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, gitSrc))
+	env.Format = execenv.FormatText
+
+	err := runShowEscape(t.Context(), env, showEscapeOptions{session: sessionID})
+	require.NoError(t, err)
+
+	out := env.Out.String()
+	// After applying the diff, line 6 should show the patched content (1024, not 512).
+	assert.Contains(t, out, "1024")
+	assert.NotContains(t, out, "512")
+}
+
 func TestShowEscape_noEscapeFile(t *testing.T) {
 	storage := memfs.New()
 	sessionID := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
 
-	env := execenv.NewTestEnv(repository.New(memfs.New(), storage))
+	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
 	env.Format = execenv.FormatJSON
 
 	err := runShowEscape(t.Context(), env, showEscapeOptions{session: sessionID})
@@ -142,7 +226,7 @@ func TestShowEscape_sessionNotFound(t *testing.T) {
 	storage := memfs.New()
 	createTestSession(t, storage, "some-session", []string{"BenchmarkFoo"}, "", false)
 
-	env := execenv.NewTestEnv(repository.New(memfs.New(), storage))
+	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
 	env.Format = execenv.FormatJSON
 
 	err := runShowEscape(t.Context(), env, showEscapeOptions{session: "nonexistent-id"})

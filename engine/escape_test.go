@@ -82,7 +82,7 @@ func (t T) Method() {}
 	path := filepath.Join(dir, "p.go")
 	require.NoError(t, os.WriteFile(path, []byte(src), 0644))
 
-	funcs, err := ParseFuncBoundaries(path)
+	funcs, err := ParseFuncBoundaries(path, nil)
 	require.NoError(t, err)
 	require.Len(t, funcs, 3)
 
@@ -102,14 +102,31 @@ func (t T) Method() {}
 }
 
 func TestParseFuncBoundaries_nonGoFile(t *testing.T) {
-	funcs, err := ParseFuncBoundaries("somefile.txt")
+	funcs, err := ParseFuncBoundaries("somefile.txt", nil)
 	assert.NoError(t, err)
 	assert.Nil(t, funcs)
 }
 
 func TestParseFuncBoundaries_notFound(t *testing.T) {
-	_, err := ParseFuncBoundaries("/nonexistent/path/file.go")
+	_, err := ParseFuncBoundaries("/nonexistent/path/file.go", nil)
 	assert.Error(t, err)
+}
+
+func TestParseFuncBoundaries_fromSrc(t *testing.T) {
+	src := []byte(`package p
+
+func Foo() {}
+
+func Bar(x int) int {
+	return x + 1
+}
+`)
+	// filename need not exist on disk when src is provided
+	funcs, err := ParseFuncBoundaries("virtual.go", src)
+	require.NoError(t, err)
+	require.Len(t, funcs, 2)
+	assert.Equal(t, "Foo", funcs[0].Name)
+	assert.Equal(t, "Bar", funcs[1].Name)
 }
 
 func TestFindFunc(t *testing.T) {

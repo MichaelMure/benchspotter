@@ -48,12 +48,17 @@ type FuncBoundary struct {
 
 // ParseFuncBoundaries parses a Go source file and returns the line boundaries
 // of every function declaration. Returns nil (not an error) for non-Go files.
-func ParseFuncBoundaries(filename string) ([]FuncBoundary, error) {
+// If src is non-nil it is used as the file content instead of reading filename.
+func ParseFuncBoundaries(filename string, src []byte) ([]FuncBoundary, error) {
 	if !strings.HasSuffix(filename, ".go") {
 		return nil, nil
 	}
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, filename, nil, parser.SkipObjectResolution)
+	var srcArg any
+	if src != nil {
+		srcArg = src
+	}
+	f, err := parser.ParseFile(fset, filename, srcArg, parser.SkipObjectResolution)
 	if err != nil {
 		return nil, err
 	}

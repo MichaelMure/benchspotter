@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"iter"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-billy/v5/util"
+	gogit "github.com/go-git/go-git/v5"
 	"golang.org/x/sys/execabs"
 )
 
@@ -21,6 +23,7 @@ const recallDir = "recall"
 type Repository struct {
 	sources billy.Filesystem
 	storage billy.Filesystem
+	git     GitSource // nil if not a git repository
 }
 
 // AutoDetect tries to detect the repository root directory. It does, in order:
@@ -79,6 +82,7 @@ func AutoDetect() (*Repository, error) {
 	if repo.storage == nil {
 		repo.storage, _ = repo.sources.Chroot(repoDir)
 	}
+
 	return &repo, repo.init()
 }
 
@@ -101,7 +105,20 @@ func (repo *Repository) init() error {
 		}
 	}
 
+	gitRepo, err := gogit.PlainOpen(repo.sources.Root())
+	if err != nil && !errors.Is(err, gogit.ErrRepositoryNotExists) {
+		return fmt.Errorf("open git repository: %w", err)
+	}
+	repo.git = &goGitSource{repo: gitRepo}
+
 	return nil
+}
+
+// FileAtCommit returns the content of relPath (relative to the sources root)
+// at the given git commit hash. Returns an error if not a git repository or
+// if the commit or path cannot be found.
+func (repo *Repository) FileAtCommit(commit, relPath string) ([]byte, error) {
+	return repo.git.FileAtCommit(commit, relPath)
 }
 
 func (repo *Repository) Sources() billy.Filesystem {

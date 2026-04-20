@@ -89,7 +89,7 @@ func makeCPUProfile(funcNames []string) *profile.Profile {
 
 func TestShowCPUText(t *testing.T) {
 	storage, id := setupProfileSession(t)
-	env := execenv.NewTestEnv(repository.New(memfs.New(), storage))
+	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
 
 	err := runShowProfile(t.Context(), env, showProfileOptions{
 		session:     id,
@@ -107,7 +107,7 @@ func TestShowCPUText(t *testing.T) {
 
 func TestShowCPUJSON(t *testing.T) {
 	storage, id := setupProfileSession(t)
-	env := execenv.NewTestEnv(repository.New(memfs.New(), storage))
+	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
 	env.Format = execenv.FormatJSON
 
 	err := runShowProfile(t.Context(), env, showProfileOptions{
@@ -126,7 +126,7 @@ func TestShowCPUJSON(t *testing.T) {
 
 func TestShowCPURaw(t *testing.T) {
 	storage, id := setupProfileSession(t)
-	env := execenv.NewTestEnv(repository.New(memfs.New(), storage))
+	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
 	env.Format = execenv.FormatRaw
 
 	err := runShowProfile(t.Context(), env, showProfileOptions{
@@ -144,7 +144,7 @@ func TestShowCPURaw(t *testing.T) {
 func TestShowCPUNoProfile(t *testing.T) {
 	storage := memfs.New()
 	id := createTestSession(t, storage, "no-profiles", []string{"BenchmarkFoo"}, "abc1234", false)
-	env := execenv.NewTestEnv(repository.New(memfs.New(), storage))
+	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
 
 	err := runShowProfile(t.Context(), env, showProfileOptions{
 		session:     id,
@@ -156,7 +156,7 @@ func TestShowCPUNoProfile(t *testing.T) {
 
 func TestShowCPUBenchFilter(t *testing.T) {
 	storage, id := setupMultiBenchProfileSession(t)
-	env := execenv.NewTestEnv(repository.New(memfs.New(), storage))
+	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
 	env.Format = execenv.FormatJSON
 
 	err := runShowProfile(t.Context(), env, showProfileOptions{
@@ -174,7 +174,7 @@ func TestShowCPUBenchFilter(t *testing.T) {
 
 func TestShowCPUMultiBenchRequiresBench(t *testing.T) {
 	storage, id := setupMultiBenchProfileSession(t)
-	env := execenv.NewTestEnv(repository.New(memfs.New(), storage))
+	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
 	env.Format = execenv.FormatJSON
 
 	err := runShowProfile(t.Context(), env, showProfileOptions{
@@ -188,7 +188,7 @@ func TestShowCPUMultiBenchRequiresBench(t *testing.T) {
 
 func TestShowCPUBenchUnknown(t *testing.T) {
 	storage, id := setupMultiBenchProfileSession(t)
-	env := execenv.NewTestEnv(repository.New(memfs.New(), storage))
+	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
 
 	err := runShowProfile(t.Context(), env, showProfileOptions{
 		session:     id,

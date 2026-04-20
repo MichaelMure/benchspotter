@@ -5,6 +5,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -19,6 +20,7 @@ import (
 	"benchspotter/commands/execenv"
 	"benchspotter/commands/inputs"
 	"benchspotter/engine"
+	"benchspotter/repository"
 )
 
 type showEscapeOptions struct {
@@ -119,11 +121,22 @@ func runShowEscape(ctx context.Context, env *execenv.Env, options showEscapeOpti
 		return env.Out.PrintJSON(out)
 
 	case execenv.FormatText:
+		var gitDiff []byte
+		if selection.HasGitDiff() {
+			if f, err := selection.OpenFile(engine.GitDiffFilename); err == nil {
+				gitDiff, _ = io.ReadAll(io.LimitReader(f, 10*1024*1024))
+				_ = f.Close()
+			}
+		}
 		model := &escapeViewModel{
 			sites:       sites,
 			sourcesRoot: sourcesRoot,
+			gitCommit:   selection.GitCommit,
+			gitDiff:     gitDiff,
+			git:         env.Repo,
 			showAll:     options.all,
 			projectOnly: !options.includeDeps,
+			rawCache:    make(map[string][]byte),
 			fileCache:   make(map[string][]string),
 			funcCache:   make(map[string][]engine.FuncBoundary),
 		}
@@ -137,10 +150,14 @@ func runShowEscape(ctx context.Context, env *execenv.Env, options showEscapeOpti
 type escapeViewModel struct {
 	sites       []engine.EscapeSite
 	sourcesRoot string
+	gitCommit   string
+	gitDiff     []byte
+	git         repository.GitSource // may be nil
 	showAll     bool
 	projectOnly bool
-	fileCache   map[string][]string              // abs path → lines
-	funcCache   map[string][]engine.FuncBoundary // abs path → func boundaries
+	rawCache    map[string][]byte   // file → raw bytes (committed + diff applied)
+	fileCache   map[string][]string // file → split lines
+	funcCache   map[string][]engine.FuncBoundary
 }
 
 func (m *escapeViewModel) HandleKey(key string) bool {
@@ -405,25 +422,46 @@ func isProjectFile(sourcesRoot, file string) bool {
 	return err == nil && !strings.HasPrefix(rel, "..")
 }
 
+// rawContent returns the source bytes for absFile, preferring the version at
+// the recorded git commit (with the stored diff applied) over the working tree.
+func (m *escapeViewModel) rawContent(absFile string) []byte {
+	if data, ok := m.rawCache[absFile]; ok {
+		return data
+	}
+	var data []byte
+	if m.git != nil && m.gitCommit != "" && isProjectFile(m.sourcesRoot, absFile) {
+		if relPath := m.gitRelPath(absFile); relPath != "" {
+			if raw, err := m.git.FileAtCommit(m.gitCommit, relPath); err == nil {
+				if len(m.gitDiff) > 0 {
+					lines := splitFileContent(raw)
+					lines = engine.ApplyUnifiedDiff(lines, m.gitDiff, relPath)
+					data = []byte(strings.Join(lines, "\n"))
+				} else {
+					data = raw
+				}
+			}
+		}
+	}
+	if data == nil {
+		// fall back to current working tree
+		rel, err := filepath.Rel(m.sourcesRoot, absFile)
+		if err != nil || strings.HasPrefix(rel, "..") {
+			rel = absFile
+		}
+		data, err = os.ReadFile(filepath.Join(m.sourcesRoot, rel))
+		if err != nil {
+			data, _ = os.ReadFile(absFile)
+		}
+	}
+	m.rawCache[absFile] = data
+	return data
+}
+
 func (m *escapeViewModel) fileLines(absFile string) []string {
 	if lines, ok := m.fileCache[absFile]; ok {
 		return lines
 	}
-	rel, err := filepath.Rel(m.sourcesRoot, absFile)
-	if err != nil || strings.HasPrefix(rel, "..") {
-		rel = absFile
-	}
-	data, err := os.ReadFile(filepath.Join(m.sourcesRoot, rel))
-	if err != nil {
-		// try absolute path directly
-		data, err = os.ReadFile(absFile)
-	}
-	var lines []string
-	if err == nil {
-		for _, l := range strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n") {
-			lines = append(lines, l)
-		}
-	}
+	lines := splitFileContent(m.rawContent(absFile))
 	m.fileCache[absFile] = lines
 	return lines
 }
@@ -432,18 +470,46 @@ func (m *escapeViewModel) funcBoundaries(absFile string) []engine.FuncBoundary {
 	if bounds, ok := m.funcCache[absFile]; ok {
 		return bounds
 	}
-	rel, err := filepath.Rel(m.sourcesRoot, absFile)
-	if err != nil || strings.HasPrefix(rel, "..") {
-		rel = absFile
-	}
-	fullPath := filepath.Join(m.sourcesRoot, rel)
-	bounds, _ := engine.ParseFuncBoundaries(fullPath)
-	if bounds == nil {
-		// also try absolute path
-		bounds, _ = engine.ParseFuncBoundaries(absFile)
-	}
+	// Ensure rawCache is populated so we can pass git content to the parser.
+	raw := m.rawContent(absFile)
+	fullPath := m.resolveFullPath(absFile)
+	bounds, _ := engine.ParseFuncBoundaries(fullPath, raw)
 	m.funcCache[absFile] = bounds
 	return bounds
+}
+
+// gitRelPath returns the path of absFile relative to sourcesRoot suitable for
+// git tree lookups, or "" if the file is outside the repo.
+func (m *escapeViewModel) gitRelPath(absFile string) string {
+	if filepath.IsAbs(absFile) {
+		rel, err := filepath.Rel(m.sourcesRoot, absFile)
+		if err != nil || strings.HasPrefix(rel, "..") {
+			return ""
+		}
+		return rel
+	}
+	clean := filepath.Clean(absFile)
+	if strings.HasPrefix(clean, "..") {
+		return ""
+	}
+	return clean
+}
+
+// resolveFullPath returns the absolute filesystem path for absFile.
+func (m *escapeViewModel) resolveFullPath(absFile string) string {
+	if filepath.IsAbs(absFile) {
+		return absFile
+	}
+	return filepath.Join(m.sourcesRoot, filepath.Clean(absFile))
+}
+
+// splitFileContent splits raw file bytes into lines, preserving empty
+// trailing elements so that 1-based line indices stay accurate.
+func splitFileContent(data []byte) []string {
+	if len(data) == 0 {
+		return nil
+	}
+	return strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n")
 }
 
 func (m *escapeViewModel) relPath(file string) string {
