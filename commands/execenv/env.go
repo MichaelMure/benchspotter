@@ -51,6 +51,13 @@ func (e Env) Spinner() *spinner.Spinner {
 	return spinner.New().Output(e.Out.Raw())
 }
 
+// RunModel runs m as a full-screen TUI. It is the caller's responsibility to
+// handle the non-terminal case before calling this.
+func (e Env) RunModel(ctx context.Context, m tea.Model) error {
+	_, err := e.newProgram(ctx, m).Run()
+	return err
+}
+
 func (e Env) Viewport(ctx context.Context) (ViewportWriter, func() error) {
 	if !e.Out.IsTerminal() {
 		p := &plainViewport{}
@@ -61,14 +68,7 @@ func (e Env) Viewport(ctx context.Context) (ViewportWriter, func() error) {
 	}
 
 	v := &viewportModel{}
-
-	v.program = tea.NewProgram(v,
-		tea.WithContext(ctx),
-		tea.WithInput(e.In.Raw()),
-		tea.WithOutput(e.Out.Raw()),
-		tea.WithAltScreen(),
-		tea.WithMouseCellMotion(),
-	)
+	v.program = e.newProgram(ctx, v)
 
 	return v, func() error {
 		_, err := v.program.Run()
@@ -86,16 +86,17 @@ func (e Env) ViewportWithKeys(ctx context.Context, m InteractiveModel) func() er
 			return err
 		}
 	}
-	v := &interactiveViewportModel{model: m}
-	program := tea.NewProgram(v,
+	return func() error {
+		return e.RunModel(ctx, &interactiveViewportModel{model: m})
+	}
+}
+
+func (e Env) newProgram(ctx context.Context, m tea.Model) *tea.Program {
+	return tea.NewProgram(m,
 		tea.WithContext(ctx),
 		tea.WithInput(e.In.Raw()),
 		tea.WithOutput(e.Out.Raw()),
 		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(),
 	)
-	return func() error {
-		_, err := program.Run()
-		return err
-	}
 }

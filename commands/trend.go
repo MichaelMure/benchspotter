@@ -13,6 +13,7 @@ import (
 	"github.com/NimbleMarkets/ntcharts/linechart"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/spf13/cobra"
 
 	"benchspotter/commands/execenv"
@@ -78,17 +79,7 @@ func runTrend(ctx context.Context, env *execenv.Env, opts trendOptions) error {
 		if !env.Out.IsTerminal() {
 			return renderTrendTextPlain(env, data, opts)
 		}
-		// TODO: what can be moved to execenv?
-		m := newTrendModel(data, opts, env.Style)
-		program := tea.NewProgram(m,
-			tea.WithContext(ctx),
-			tea.WithInput(env.In.Raw()),
-			tea.WithOutput(env.Out.Raw()),
-			tea.WithAltScreen(),
-			tea.WithMouseCellMotion(),
-		)
-		_, err := program.Run()
-		return err
+		return env.RunModel(ctx, newTrendModel(data, opts, env.Style))
 	default:
 		return fmt.Errorf("unsupported format %v for trend (text, json)", env.Format)
 	}
@@ -234,7 +225,7 @@ func renderTrendDetailText(env *execenv.Env, data *engine.TrendData, bench strin
 			continue
 		}
 
-		fmt.Fprintf(tw, "%-20s\t%-12s", truncateStr(s.HumanName, 19), s.Time.Format("06-Jan-02"))
+		fmt.Fprintf(tw, "%-20s\t%-12s", ansi.Truncate(s.HumanName, 19, "…"), s.Time.Format("06-Jan-02"))
 		for _, unit := range data.Units {
 			pts := data.Points[bench][unit]
 			if len(pts) == 0 {
@@ -575,7 +566,7 @@ func (m trendViewModel) viewOverview() string {
 			ptMap[p.Session.Id] = p
 		}
 		rows[i] = benchRow{
-			display: truncateStr(strings.TrimPrefix(bench, "Benchmark"), overviewNameW-1),
+			display: ansi.Truncate(strings.TrimPrefix(bench, "Benchmark"), overviewNameW-1, "…"),
 			ptMap:   ptMap,
 		}
 	}
@@ -583,13 +574,12 @@ func (m trendViewModel) viewOverview() string {
 	var sb strings.Builder
 
 	// Title
-	unitHighlight := lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true).Render(unit)
-	sb.WriteString(lipgloss.NewStyle().Bold(true).Render("Trend") + m.style.TonedDown("  unit: ") + unitHighlight + "\n")
+	sb.WriteString(m.style.Bold("Trend") + m.style.TonedDown("  unit: ") + m.style.Accent(unit) + "\n")
 
 	// Header row
 	header := fmt.Sprintf("%-*s", overviewNameW, "benchmark")
 	for _, s := range sessions {
-		col := truncateStr(s.HumanName, overviewColW-2)
+		col := ansi.Truncate(s.HumanName, overviewColW-2, "…")
 		header += fmt.Sprintf("  %-*s", overviewColW-2, col)
 	}
 	sb.WriteString(m.style.TonedDown(header) + "\n")
@@ -682,10 +672,8 @@ func (m trendViewModel) viewDetail() string {
 	// Title line
 	benchDisplay := strings.TrimPrefix(m.bench, "Benchmark")
 	nav := fmt.Sprintf("(%d/%d)", m.cursor+1, len(m.data.BenchNames))
-	unitHighlight := lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true).Render(unit)
-	title := lipgloss.NewStyle().Bold(true).Render(benchDisplay) +
-		"  " + m.style.TonedDown(nav) +
-		m.style.TonedDown("  unit: ") + unitHighlight
+	title := m.style.Bold(benchDisplay) + "  " + m.style.TonedDown(nav) +
+		m.style.TonedDown("  unit: ") + m.style.Accent(unit)
 	sb.WriteString(title + "\n")
 
 	// Chart
@@ -732,7 +720,7 @@ func (m trendViewModel) viewDetail() string {
 
 		sb.WriteString(
 			padRight(fmt.Sprintf("%d", i+1), 3) +
-				"  " + padRight(truncateStr(p.Session.HumanName, 19), 20) +
+				"  " + padRight(ansi.Truncate(p.Session.HumanName, 19, "…"), 20) +
 				"  " + padRight(p.Session.Time.Format("06-Jan-02"), 12) +
 				"  " + padRight(nsVal, 14) +
 				"  " + padRight(bVal, 8) +
@@ -857,12 +845,4 @@ func padRight(s string, width int) string {
 		return s
 	}
 	return s + strings.Repeat(" ", width-vis)
-}
-
-func truncateStr(s string, maxLen int) string {
-	runes := []rune(s)
-	if len(runes) <= maxLen {
-		return s
-	}
-	return string(runes[:maxLen-1]) + "…"
 }
