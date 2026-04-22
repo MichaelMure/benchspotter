@@ -1,0 +1,37 @@
+name: Test
+
+on: [push, pull_request]
+
+jobs:
+  unit:
+    strategy:
+      fail-fast: false
+      matrix:
+        # run against go.mod go version and latest
+        include:
+          - name: go version from go.mod
+            go-version-file: go.mod
+          - name: go version latest
+            go-version: stable
+
+    runs-on: ubuntu-latest
+    name: ${{ matrix.name }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: ${{ matrix.go-version-file || '' }}
+          go-version: ${{ matrix.go-version || '' }}
+
+      - name: Go information
+        run: |
+          go version
+          go env
+
+      - name: Run tests
+        run: go test -v ./...
+
+      - name: Check formatted
+        run: gofmt -l .

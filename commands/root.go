@@ -45,6 +45,7 @@ A typical session is as follow:
 	addCmdWithGroup(newSessionCommand(env), mainGroup)
 	addCmdWithGroup(newShowCommand(env), mainGroup)
 	addCmdWithGroup(newCompareCommand(env), mainGroup)
+	addCmdWithGroup(newTrendCommand(env), mainGroup)
 
 	addCmdWithGroup(newVersionCommand(env), utilitiesGroup)
 	cmd.SetHelpCommandGroupID(utilitiesGroup)

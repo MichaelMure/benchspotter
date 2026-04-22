@@ -3,6 +3,7 @@ module benchspotter
 go 1.25.0
 
 require (
+	github.com/NimbleMarkets/ntcharts v0.5.1
 	github.com/aclements/go-moremath v0.0.0-20241023150245-c8bbc672ef66
 	github.com/alecthomas/chroma v0.10.0
 	github.com/charmbracelet/bubbles v1.0.0
@@ -29,7 +30,6 @@ require (
 require (
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/NimbleMarkets/ntcharts v0.3.1 // indirect
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
@@ -76,5 +76,3 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-tool github.com/NimbleMarkets/ntcharts/cmd/ntcharts-ohlc

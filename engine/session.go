@@ -130,7 +130,10 @@ type SessionInfo struct {
 	fs  billy.Filesystem
 }
 
-func LocateSessions(fs billy.Filesystem) ([]*SessionInfo, error) {
+// LocateSessions reads all sessions from fs, assigns human-readable de-duplicated
+// names, and returns them sorted by creation time (oldest first).
+// Optional tagFilter values restrict results to sessions carrying any of those tags.
+func LocateSessions(fs billy.Filesystem, tagFilter ...string) ([]*SessionInfo, error) {
 	dirs, err := fs.ReadDir(sessionDir)
 	if os.IsNotExist(err) {
 		return nil, fmt.Errorf("no sessions found, use the `bench` command to create one")
@@ -183,6 +186,24 @@ func LocateSessions(fs billy.Filesystem) ([]*SessionInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if len(tagFilter) > 0 {
+		want := make(map[string]struct{}, len(tagFilter))
+		for _, t := range tagFilter {
+			want[t] = struct{}{}
+		}
+		filtered := res[:0]
+		for _, s := range res {
+			for _, t := range s.Tags {
+				if _, ok := want[t]; ok {
+					filtered = append(filtered, s)
+					break
+				}
+			}
+		}
+		res = filtered
+	}
+
 	return res, nil
 }
 
