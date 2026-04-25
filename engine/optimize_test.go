@@ -1,7 +1,7 @@
 package engine
 
 import (
-	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -52,7 +52,7 @@ func TestBestPoint(t *testing.T) {
 	inp := IntType{name: "x", min: 0, max: 10}
 	mkPoint := func(x int, v float64) EvaluatedPoint {
 		return EvaluatedPoint{
-			Candidate: Candidate{{Input: inp, Value: itoa(x)}},
+			Candidate: Candidate{{Input: inp, Value: strconv.Itoa(x)}},
 			Metrics:   map[string]float64{"ns/op": v},
 		}
 	}
@@ -189,32 +189,14 @@ func TestRandomStrategy(t *testing.T) {
 		require.Len(t, c, len(inputs))
 		assert.Contains(t, []string{"true", "false"}, c[0].Value)
 
-		n, err := parseInt(c[1].Value)
+		n, err := strconv.ParseInt(c[1].Value, 10, 64)
 		require.NoError(t, err)
-		assert.GreaterOrEqual(t, n, 1)
-		assert.LessOrEqual(t, n, 100)
+		assert.GreaterOrEqual(t, n, int64(1))
+		assert.LessOrEqual(t, n, int64(100))
 
-		f, err := parseFloat(c[2].Value)
+		f, err := strconv.ParseFloat(c[2].Value, 64)
 		require.NoError(t, err)
 		assert.GreaterOrEqual(t, f, 0.0)
 		assert.Less(t, f, 1.0+1e-9)
 	}
-}
-
-// ── helpers ───────────────────────────────────────────────────────────────────
-
-func itoa(n int) string {
-	return fmt.Sprintf("%d", n)
-}
-
-func parseInt(s string) (int, error) {
-	var n int
-	_, err := fmt.Sscanf(s, "%d", &n)
-	return n, err
-}
-
-func parseFloat(s string) (float64, error) {
-	var f float64
-	_, err := fmt.Sscanf(s, "%g", &f)
-	return f, err
 }

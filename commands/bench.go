@@ -32,6 +32,7 @@ var profileIds = map[engine.Profile][]string{
 	engine.ProfileMutex:  {"mutex"},
 	engine.ProfileBlock:  {"block"},
 	engine.ProfileEscape: {"escape"},
+	engine.ProfileInline: {"inline"},
 }
 
 var profileHelp = map[engine.Profile]string{
@@ -41,6 +42,7 @@ var profileHelp = map[engine.Profile]string{
 	engine.ProfileMutex:  "Run mutex profiling",
 	engine.ProfileBlock:  "Run blocking profiling",
 	engine.ProfileEscape: "Capture escape analysis",
+	engine.ProfileInline: "Capture inlining decisions",
 }
 
 // unsetStringMarker is a value marking a string not being set in a string flag.
@@ -92,6 +94,7 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 				huh.NewOption("Mutex", engine.ProfileMutex).Selected(selected(engine.ProfileMutex)),
 				huh.NewOption("Blocking", engine.ProfileBlock).Selected(selected(engine.ProfileBlock)),
 				huh.NewOption("Escape analysis", engine.ProfileEscape).Selected(selected(engine.ProfileEscape)),
+				huh.NewOption("Inlining decisions", engine.ProfileInline).Selected(selected(engine.ProfileInline)),
 			).
 			Value(&options.profiles)).
 			RunWithContext(ctx)
@@ -287,15 +290,23 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 		}
 	}
 
-	if slices.Contains(options.profiles, engine.ProfileEscape) {
+	wantEscape := slices.Contains(options.profiles, engine.ProfileEscape)
+	wantInline := slices.Contains(options.profiles, engine.ProfileInline)
+	if wantEscape || wantInline {
+		title := "Compiler analysis"
+		if wantEscape && !wantInline {
+			title = "Escape analysis"
+		} else if wantInline && !wantEscape {
+			title = "Inlining decisions"
+		}
 		start := time.Now()
-		err = env.Spinner().Title("Escape analysis").ActionWithErr(func(ctx context.Context) error {
-			return engine.RecordEscape(ctx, env.Repo.Sources().Root(), env.Repo.Storage(), id)
+		err = env.Spinner().Title(title).ActionWithErr(func(ctx context.Context) error {
+			return engine.RecordCompilerAnalysis(ctx, env.Repo.Sources().Root(), env.Repo.Storage(), id, wantEscape, wantInline)
 		}).Context(ctx).Run()
 		if err != nil {
 			return err
 		}
-		env.Out.Printf("> Escape analysis done in %v\n", time.Since(start).Truncate(100*time.Millisecond))
+		env.Out.Printf("> %s done in %v\n", title, time.Since(start).Truncate(100*time.Millisecond))
 	}
 
 	return nil

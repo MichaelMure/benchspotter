@@ -2,6 +2,7 @@ package commands
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/go-git/go-billy/v5/memfs"
@@ -29,7 +30,7 @@ func TestShowEscape(t *testing.T) {
 			{"singleword", "", "singleword", ""},
 		}
 		for _, tc := range cases {
-			p, s, suf := splitSubject(tc.msg)
+			p, s, suf := splitEscapeSubject(tc.msg)
 			assert.Equal(t, tc.prefix, p, "prefix for %q", tc.msg)
 			assert.Equal(t, tc.subject, s, "subject for %q", tc.msg)
 			assert.Equal(t, tc.suffix, suf, "suffix for %q", tc.msg)
@@ -233,4 +234,192 @@ func BenchmarkFoo(b *testing.B) {
 		err := runShowEscape(t.Context(), env, showEscapeOptions{session: "nonexistent-id"})
 		assert.ErrorContains(t, err, `"nonexistent-id" not found`)
 	})
+
+}
+
+func TestFuzzyMatch(t *testing.T) {
+	cases := []struct {
+		query, target string
+		want          bool
+	}{
+		{"", "anything", true},
+		{"", "", true},
+		{"abc", "abc", true},
+		{"abc", "axbxc", true},
+		{"abc", "ABC", true}, // case-insensitive
+		{"abc", "ab", false},
+		{"abc", "acb", false}, // order matters
+		{"foo", "foobar", true},
+		{"bar", "foobar", true},
+		{"baz", "foobar", false},
+		{"eng", "engine/foo.go", true},
+		{"bfoo", "BenchmarkFoo", true},
+	}
+	for _, tc := range cases {
+		assert.Equal(t, tc.want, fuzzyMatch(tc.query, tc.target),
+			"fuzzyMatch(%q, %q)", tc.query, tc.target)
+	}
+}
+
+func TestTruncateLeft(t *testing.T) {
+	cases := []struct {
+		s      string
+		maxLen int
+		want   string
+	}{
+		{"hello", 10, "hello"},
+		{"hello", 5, "hello"},
+		{"hello world", 8, "…o world"},
+		{"hello", 1, "…"},
+		{"αβγδε", 3, "…δε"},
+	}
+	for _, tc := range cases {
+		assert.Equal(t, tc.want, truncateLeft(tc.s, tc.maxLen),
+			"truncateLeft(%q, %d)", tc.s, tc.maxLen)
+	}
+}
+
+func TestSearchState(t *testing.T) {
+	makeBase := func(headers []headerEntry) *sourceViewBase {
+		b := &sourceViewBase{headers: headers}
+		return b
+	}
+
+	t.Run("ctrl_s_enters_search", func(t *testing.T) {
+		b := makeBase(nil)
+		consumed := b.handleSearchKey("ctrl+s")
+		assert.True(t, consumed)
+		assert.True(t, b.searchMode)
+		assert.Equal(t, "", b.searchQuery)
+	})
+
+	t.Run("esc_exits_search", func(t *testing.T) {
+		b := makeBase(nil)
+		b.handleSearchKey("ctrl+s")
+		consumed := b.handleSearchKey("esc")
+		assert.True(t, consumed)
+		assert.False(t, b.searchMode)
+		assert.Equal(t, "", b.searchQuery)
+	})
+
+	t.Run("typing_builds_query", func(t *testing.T) {
+		b := makeBase(nil)
+		b.handleSearchKey("ctrl+s")
+		b.handleSearchKey("f")
+		b.handleSearchKey("o")
+		b.handleSearchKey("o")
+		assert.Equal(t, "foo", b.searchQuery)
+	})
+
+	t.Run("backspace_removes_char", func(t *testing.T) {
+		b := makeBase(nil)
+		b.handleSearchKey("ctrl+s")
+		b.handleSearchKey("f")
+		b.handleSearchKey("o")
+		b.handleSearchKey("backspace")
+		assert.Equal(t, "f", b.searchQuery)
+	})
+
+	t.Run("non_search_key_not_consumed", func(t *testing.T) {
+		b := makeBase(nil)
+		consumed := b.handleSearchKey("a")
+		assert.False(t, consumed)
+		assert.False(t, b.searchMode)
+	})
+
+	t.Run("status_line_empty_when_inactive", func(t *testing.T) {
+		b := makeBase(nil)
+		assert.Equal(t, "", b.searchStatusLine())
+	})
+
+	t.Run("status_line_no_query", func(t *testing.T) {
+		b := makeBase(nil)
+		b.handleSearchKey("ctrl+s")
+		s := b.searchStatusLine()
+		assert.Contains(t, s, "search:")
+		assert.NotContains(t, s, "no match")
+		assert.NotContains(t, s, "/")
+	})
+
+	t.Run("status_line_no_match", func(t *testing.T) {
+		headers := []headerEntry{
+			{file: "engine/foo.go", fn: "BenchmarkFoo"},
+		}
+		b := makeBase(headers)
+		b.handleSearchKey("ctrl+s")
+		b.handleSearchKey("z")
+		b.handleSearchKey("z")
+		b.handleSearchKey("z")
+		s := b.searchStatusLine()
+		assert.Contains(t, s, "no match")
+	})
+
+	t.Run("status_line_shows_match_count", func(t *testing.T) {
+		headers := []headerEntry{
+			{file: "engine/foo.go", fn: "BenchmarkFoo"},
+			{file: "engine/bar.go", fn: "BenchmarkBar"},
+		}
+		b := makeBase(headers)
+		b.handleSearchKey("ctrl+s")
+		b.handleSearchKey("e") // matches both (engine/)
+		s := b.searchStatusLine()
+		assert.Contains(t, s, "1/2")
+	})
+}
+
+func TestCountBadgeInTextOutput(t *testing.T) {
+	const commit = "abc1234def5678abc1234def5678abc1234def56"
+	gitSrc := repository.MapGitSource{
+		commit + ":engine/foo.go": []byte(`package engine
+
+func BenchmarkFoo(b *testing.B) {
+	var s []byte
+	s = make([]byte, 1024)
+	t := new(int)
+	_ = s
+	_ = t
+}
+`),
+	}
+	storage := memfs.New()
+	sessionID := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, commit, false)
+
+	escapeData := "engine/foo.go:5:7: make([]byte, 1024) escapes to heap\nengine/foo.go:6:7: new(int) escapes to heap\n"
+	dir := filepath.Join("sessions", sessionID)
+	require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.EscapeFilename), []byte(escapeData), 0644))
+
+	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, gitSrc))
+	env.Format = execenv.FormatText
+
+	err := runShowEscape(t.Context(), env, showEscapeOptions{session: sessionID})
+	require.NoError(t, err)
+
+	out := env.Out.String()
+	// Two sites in same function → badge should say (2)
+	assert.Contains(t, out, "(2)")
+}
+
+func TestFlowChainRendering(t *testing.T) {
+	site := engine.EscapeSite{
+		File:      "engine/foo.go",
+		Line:      5,
+		Col:       7,
+		Message:   "x escapes to heap",
+		FlowChain: []string{"flow: from parameter to heap", "flow: assigned to interface"},
+	}
+
+	model := &escapeViewModel{
+		sourceViewBase: sourceViewBase{rawCache: make(map[string][]byte)},
+	}
+
+	var sb strings.Builder
+	model.showFlow = false
+	model.renderEscapeAnnotations(&sb, []engine.EscapeSite{site})
+	assert.NotContains(t, sb.String(), "flow: from parameter")
+
+	sb.Reset()
+	model.showFlow = true
+	model.renderEscapeAnnotations(&sb, []engine.EscapeSite{site})
+	assert.Contains(t, sb.String(), "flow: from parameter")
+	assert.Contains(t, sb.String(), "flow: assigned to interface")
 }

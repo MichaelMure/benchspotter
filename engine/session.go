@@ -281,13 +281,18 @@ func (s SessionInfo) HasBench() bool {
 }
 
 func (s SessionInfo) HasProfile(p Profile) bool {
-	if p == ProfileEscape {
+	switch p {
+	case ProfileEscape:
 		_, err := s.fs.Stat(filepath.Join(s.Path, EscapeFilename))
 		return err == nil
+	case ProfileInline:
+		_, err := s.fs.Stat(filepath.Join(s.Path, InlineFilename))
+		return err == nil
+	default:
+		dir := filepath.Join(s.Path, ProfileDir(p))
+		entries, err := s.fs.ReadDir(dir)
+		return err == nil && len(entries) > 0
 	}
-	dir := filepath.Join(s.Path, ProfileDir(p))
-	entries, err := s.fs.ReadDir(dir)
-	return err == nil && len(entries) > 0
 }
 
 func (s SessionInfo) OpenFile(name string) (billy.File, error) {

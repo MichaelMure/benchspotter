@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 var _ tea.Model = &viewportModel{}
@@ -117,12 +118,54 @@ type InteractiveModel interface {
 	HandleKey(key string) bool
 }
 
+// YOffsetAdjuster may optionally be implemented by an InteractiveModel to
+// preserve a meaningful scroll position when content changes after a key press.
+// oldContent and newContent are the full rendered strings before and after;
+// oldOffset is the viewport's YOffset and viewportHeight is its visible line
+// count before the change. The returned value becomes the new YOffset.
+type YOffsetAdjuster interface {
+	AdjustYOffset(oldContent, newContent string, oldOffset, viewportHeight int) int
+}
+
+// YOffsetSetter may optionally be implemented by an InteractiveModel to
+// receive the current viewport position before Status() is called each frame,
+// allowing the status bar to reflect the current scroll position (e.g. breadcrumb).
+type YOffsetSetter interface {
+	SetCurrentYOffset(yOffset, viewportHeight int)
+}
+
+// JumpRequester may optionally be implemented by an InteractiveModel to
+// request a specific scroll position after a key press that does not change
+// content (e.g. jumping between groups).
+type JumpRequester interface {
+	ConsumeJumpOffset() (int, bool)
+}
+
+// ModalModel may optionally be implemented by an InteractiveModel to signal
+// that it is in a transient modal state (e.g. a search prompt) where Esc
+// should be forwarded to the model rather than quitting the application.
+type ModalModel interface {
+	IsModal() bool
+}
+
+// SidebarProvider may optionally be implemented by an InteractiveModel to
+// supply a fixed-width left panel. SidebarWidth returns the desired total
+// sidebar width (including its divider column) for the given terminal width,
+// or 0 to hide it. RenderSidebar must produce exactly height lines each
+// visually width characters wide.
+type SidebarProvider interface {
+	SidebarWidth(totalWidth int) int
+	RenderSidebar(width, height int) string
+}
+
 var _ tea.Model = &interactiveViewportModel{}
 
 type interactiveViewportModel struct {
-	model    InteractiveModel
-	viewport viewport.Model
-	ready    bool
+	model        InteractiveModel
+	viewport     viewport.Model
+	ready        bool
+	lastContent  string
+	sidebarWidth int
 }
 
 func (v *interactiveViewportModel) Init() tea.Cmd { return nil }
@@ -131,21 +174,44 @@ func (v *interactiveViewportModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		k := msg.String()
-		if k == "ctrl+c" || k == "q" || k == "esc" {
+		if k == "ctrl+c" || k == "q" {
 			return v, tea.Quit
 		}
+		if k == "esc" {
+			if mm, ok := v.model.(ModalModel); !ok || !mm.IsModal() {
+				return v, tea.Quit
+			}
+		}
 		if v.model.HandleKey(k) {
-			v.viewport.SetContent(v.model.Render())
+			oldContent := v.lastContent
+			oldOffset := v.viewport.YOffset
+			newContent := v.model.Render()
+			v.lastContent = newContent
+			v.viewport.SetContent(newContent)
+			if adj, ok := v.model.(YOffsetAdjuster); ok {
+				v.viewport.SetYOffset(adj.AdjustYOffset(oldContent, newContent, oldOffset, v.viewport.Height))
+			}
 			return v, nil
 		}
+		if jr, ok := v.model.(JumpRequester); ok {
+			if offset, ok := jr.ConsumeJumpOffset(); ok {
+				v.viewport.SetYOffset(offset)
+				return v, nil
+			}
+		}
 	case tea.WindowSizeMsg:
+		if sp, ok := v.model.(SidebarProvider); ok {
+			v.sidebarWidth = sp.SidebarWidth(msg.Width)
+		}
+		vpWidth := msg.Width - v.sidebarWidth
 		// Reserve one line for the status footer.
 		if !v.ready {
-			v.viewport = viewport.New(msg.Width, msg.Height-1)
-			v.viewport.SetContent(v.model.Render())
+			v.viewport = viewport.New(vpWidth, msg.Height-1)
+			v.lastContent = v.model.Render()
+			v.viewport.SetContent(v.lastContent)
 			v.ready = true
 		} else {
-			v.viewport.Width = msg.Width
+			v.viewport.Width = vpWidth
 			v.viewport.Height = msg.Height - 1
 		}
 	}
@@ -158,5 +224,13 @@ func (v *interactiveViewportModel) View() string {
 	if !v.ready {
 		return "\n  Initializing..."
 	}
-	return v.viewport.View() + "\n" + v.model.Status()
+	if setter, ok := v.model.(YOffsetSetter); ok {
+		setter.SetCurrentYOffset(v.viewport.YOffset, v.viewport.Height)
+	}
+	main := v.viewport.View()
+	if sp, ok := v.model.(SidebarProvider); ok && v.sidebarWidth > 0 {
+		sidebar := sp.RenderSidebar(v.sidebarWidth, v.viewport.Height)
+		main = lipgloss.JoinHorizontal(lipgloss.Top, sidebar, main)
+	}
+	return main + "\n" + v.model.Status()
 }

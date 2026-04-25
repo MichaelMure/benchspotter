@@ -14,17 +14,17 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
-	"golang.org/x/sys/execabs"
 )
 
 const EscapeFilename = "escape.txt"
 
 // EscapeSite is one line from the escape analysis output.
 type EscapeSite struct {
-	File    string // absolute path as emitted by the compiler
-	Line    int
-	Col     int
-	Message string // everything after "file:line:col: "
+	File      string // absolute path as emitted by the compiler
+	Line      int
+	Col       int
+	Message   string   // everything after "file:line:col: "
+	FlowChain []string // data-flow explanation lines from -m=2 (nil for -m output)
 }
 
 // IsHeapEscape reports whether the message describes a value escaping to the heap.
@@ -89,25 +89,10 @@ func FindFunc(funcs []FuncBoundary, line int) *FuncBoundary {
 	return nil
 }
 
-// RecordEscape runs go build with escape-analysis flags in the sources root,
-// captures stderr, and writes the result to the session directory.
+// RecordEscape captures escape analysis for a session.
+// It delegates to RecordCompilerAnalysis with wantEscape=true.
 func RecordEscape(ctx context.Context, sourcesRoot string, storage billy.Filesystem, sessionID string) error {
-	dir := filepath.Join(sessionDir, sessionID)
-	if err := storage.MkdirAll(dir, 0755); err != nil {
-		return err
-	}
-
-	var buf bytes.Buffer
-	cmd := execabs.CommandContext(ctx, "go", "build", "-gcflags=./...=-m", "./...")
-	cmd.Dir = sourcesRoot
-	cmd.Stderr = &buf
-
-	_ = cmd.Run() // non-zero exit is fine (build errors go to stderr too)
-
-	if buf.Len() == 0 {
-		return nil
-	}
-	return util.WriteFile(storage, filepath.Join(dir, EscapeFilename), buf.Bytes(), 0644)
+	return RecordCompilerAnalysis(ctx, sourcesRoot, storage, sessionID, true, false)
 }
 
 // ReadEscapeAnalysis reads and parses the saved escape analysis for a session.
@@ -125,9 +110,19 @@ var escapeLineRe = regexp.MustCompile(`^(.+):(\d+):(\d+): (.+)$`)
 // Duplicate lines (same file:line:col:message) are silently dropped — the
 // compiler can emit the same diagnostic twice when multiple build targets
 // share the same package.
+//
+// With -m=2, the compiler emits verbose flow-chain blocks before each summary
+// line. These are attached to the corresponding EscapeSite as FlowChain.
+// -m output (no flow chains) is handled transparently.
 func ParseEscapeOutput(data []byte) []EscapeSite {
 	var sites []EscapeSite
 	seen := make(map[string]struct{})
+	// pendingFlow accumulates flow-chain lines keyed by "file:line:col".
+	// Verbose blocks may appear in a different order than their summary lines,
+	// so we collect all blocks first and attach on the matching summary.
+	pendingFlow := make(map[string][]string)
+	var currentFlowKey string
+
 	scanner := bufio.NewScanner(bytes.NewReader(data))
 	for scanner.Scan() {
 		raw := scanner.Text()
@@ -135,19 +130,42 @@ func ParseEscapeOutput(data []byte) []EscapeSite {
 		if m == nil {
 			continue
 		}
-		if _, dup := seen[raw]; dup {
-			continue
+		file, lineStr, colStr, msg := m[1], m[2], m[3], m[4]
+
+		switch {
+		case strings.HasPrefix(msg, " "):
+			// Continuation line: flow step or from-clause, indented by the compiler.
+			if currentFlowKey != "" {
+				pendingFlow[currentFlowKey] = append(pendingFlow[currentFlowKey], strings.TrimSpace(msg))
+			}
+		case strings.HasSuffix(msg, ":"):
+			// Verbose block header: e.g. '"x" escapes to heap in Foo:'
+			// Ends with ":" because the compiler appends " in FuncName:" or
+			// " for FuncName with derefs=N:". Start accumulating for this site.
+			currentFlowKey = file + ":" + lineStr + ":" + colStr
+		default:
+			// Normal summary line — may follow a verbose block for the same location.
+			currentFlowKey = ""
+			if _, dup := seen[raw]; dup {
+				continue
+			}
+			seen[raw] = struct{}{}
+			var lineNum, colNum int
+			fmt.Sscanf(lineStr, "%d", &lineNum)
+			fmt.Sscanf(colStr, "%d", &colNum)
+			key := file + ":" + lineStr + ":" + colStr
+			site := EscapeSite{
+				File:    file,
+				Line:    lineNum,
+				Col:     colNum,
+				Message: msg,
+			}
+			if flows := pendingFlow[key]; len(flows) > 0 {
+				site.FlowChain = flows
+				delete(pendingFlow, key)
+			}
+			sites = append(sites, site)
 		}
-		seen[raw] = struct{}{}
-		var lineNum, colNum int
-		fmt.Sscanf(m[2], "%d", &lineNum)
-		fmt.Sscanf(m[3], "%d", &colNum)
-		sites = append(sites, EscapeSite{
-			File:    m[1],
-			Line:    lineNum,
-			Col:     colNum,
-			Message: m[4],
-		})
 	}
 	return sites
 }

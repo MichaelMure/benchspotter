@@ -1,26 +1,18 @@
 package commands
 
 import (
-	"bytes"
-	"cmp"
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
-	"github.com/alecthomas/chroma/formatters"
-	"github.com/alecthomas/chroma/lexers"
-	"github.com/alecthomas/chroma/styles"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
 	"benchspotter/commands/execenv"
 	"benchspotter/commands/inputs"
 	"benchspotter/engine"
-	"benchspotter/repository"
 )
 
 type showEscapeOptions struct {
@@ -94,12 +86,13 @@ func runShowEscape(ctx context.Context, env *execenv.Env, options showEscapeOpti
 	switch env.Format {
 	case execenv.FormatJSON:
 		type jsonSite struct {
-			File         string `json:"file"`
-			Line         int    `json:"line"`
-			Col          int    `json:"col"`
-			Message      string `json:"message"`
-			HeapEscape   bool   `json:"heap_escape"`
-			LeakingParam bool   `json:"leaking_param"`
+			File         string   `json:"file"`
+			Line         int      `json:"line"`
+			Col          int      `json:"col"`
+			Message      string   `json:"message"`
+			HeapEscape   bool     `json:"heap_escape"`
+			LeakingParam bool     `json:"leaking_param"`
+			FlowChain    []string `json:"flow_chain,omitempty"`
 		}
 		out := make([]jsonSite, 0, len(sites))
 		for _, s := range sites {
@@ -116,6 +109,7 @@ func runShowEscape(ctx context.Context, env *execenv.Env, options showEscapeOpti
 				Message:      s.Message,
 				HeapEscape:   s.IsHeapEscape(),
 				LeakingParam: s.IsLeakingParam(),
+				FlowChain:    s.FlowChain,
 			})
 		}
 		return env.Out.PrintJSON(out)
@@ -129,16 +123,18 @@ func runShowEscape(ctx context.Context, env *execenv.Env, options showEscapeOpti
 			}
 		}
 		model := &escapeViewModel{
+			sourceViewBase: sourceViewBase{
+				sourcesRoot: sourcesRoot,
+				gitCommit:   selection.GitCommit,
+				gitDiff:     gitDiff,
+				git:         env.Repo,
+				rawCache:    make(map[string][]byte),
+				fileCache:   make(map[string][]string),
+				funcCache:   make(map[string][]engine.FuncBoundary),
+			},
 			sites:       sites,
-			sourcesRoot: sourcesRoot,
-			gitCommit:   selection.GitCommit,
-			gitDiff:     gitDiff,
-			git:         env.Repo,
 			showAll:     options.all,
 			projectOnly: !options.includeDeps,
-			rawCache:    make(map[string][]byte),
-			fileCache:   make(map[string][]string),
-			funcCache:   make(map[string][]engine.FuncBoundary),
 		}
 		return env.ViewportWithKeys(ctx, model)()
 
@@ -148,19 +144,17 @@ func runShowEscape(ctx context.Context, env *execenv.Env, options showEscapeOpti
 }
 
 type escapeViewModel struct {
+	sourceViewBase
 	sites       []engine.EscapeSite
-	sourcesRoot string
-	gitCommit   string
-	gitDiff     []byte
-	git         repository.GitSource // may be nil
 	showAll     bool
 	projectOnly bool
-	rawCache    map[string][]byte   // file → raw bytes (committed + diff applied)
-	fileCache   map[string][]string // file → split lines
-	funcCache   map[string][]engine.FuncBoundary
+	showFlow    bool
 }
 
 func (m *escapeViewModel) HandleKey(key string) bool {
+	if m.handleSearchKey(key) {
+		return false
+	}
 	switch key {
 	case "a":
 		m.showAll = !m.showAll
@@ -168,11 +162,21 @@ func (m *escapeViewModel) HandleKey(key string) bool {
 	case "p":
 		m.projectOnly = !m.projectOnly
 		return true
+	case "f":
+		m.showFlow = !m.showFlow
+		return true
+	case "tab":
+		m.jumpNext()
+	case "shift+tab":
+		m.jumpPrev()
 	}
 	return false
 }
 
 func (m *escapeViewModel) Status() string {
+	if s := m.searchStatusLine(); s != "" {
+		return s
+	}
 	filter := "heap + leaking params"
 	if m.showAll {
 		filter = "all notes"
@@ -181,16 +185,21 @@ func (m *escapeViewModel) Status() string {
 	if !m.projectOnly {
 		scope = "all (incl. deps)"
 	}
-	return fmt.Sprintf("[a] filter: %s    [p] scope: %s    [q] quit", filter, scope)
+	flow := "off"
+	if m.showFlow {
+		flow = "on"
+	}
+	return fmt.Sprintf("[a] filter: %s    [p] scope: %s    [f] flow: %s    [⇥] next  [⇤] prev    [ctrl+s] search    [q] quit", filter, scope, flow)
 }
 
 func (m *escapeViewModel) Render() string {
 	visible := m.filteredSites()
 	if len(visible) == 0 {
+		m.headers = nil
 		if m.showAll && !m.projectOnly {
 			return "(no escape analysis output)\n"
 		}
-		hints := []string{}
+		var hints []string
 		if !m.showAll {
 			hints = append(hints, "[a] to show all compiler notes")
 		}
@@ -204,46 +213,20 @@ func (m *escapeViewModel) Render() string {
 		return msg + ")\n"
 	}
 
-	// Group sites by (file, func). Preserve order of first appearance.
-	type funcKey struct{ file, fn string }
-	type funcGroup struct {
-		key   funcKey
-		bound *engine.FuncBoundary // nil = not in a known function
-		sites []engine.EscapeSite
-	}
-	var groups []funcGroup
-	groupIdx := make(map[funcKey]int)
+	groups := buildGroups(&m.sourceViewBase, visible,
+		func(s engine.EscapeSite) string { return s.File },
+		func(s engine.EscapeSite) int    { return s.Line },
+	)
 
-	for _, s := range visible {
-		bounds := m.funcBoundaries(s.File)
-		fn := engine.FindFunc(bounds, s.Line)
-		var key funcKey
-		if fn != nil {
-			key = funcKey{s.File, fn.Name}
-		} else {
-			key = funcKey{s.File, ""}
+	m.headers = make([]headerEntry, len(groups))
+	for i, g := range groups {
+		m.headers[i] = headerEntry{
+			file:  m.relPath(g.key.file),
+			fn:    g.key.fn,
+			count: len(g.sites),
 		}
-		i, ok := groupIdx[key]
-		if !ok {
-			i = len(groups)
-			groups = append(groups, funcGroup{key: key, bound: fn})
-			groupIdx[key] = i
-		}
-		groups[i].sites = append(groups[i].sites, s)
 	}
 
-	// Sort groups: by file then function start line (or name for unknown).
-	sort.Slice(groups, func(i, j int) bool {
-		if groups[i].key.file != groups[j].key.file {
-			return groups[i].key.file < groups[j].key.file
-		}
-		if groups[i].bound != nil && groups[j].bound != nil {
-			return groups[i].bound.StartLine < groups[j].bound.StartLine
-		}
-		return groups[i].key.fn < groups[j].key.fn
-	})
-
-	// Summary.
 	heapCount := 0
 	for _, s := range visible {
 		if s.IsHeapEscape() {
@@ -258,143 +241,68 @@ func (m *escapeViewModel) Render() string {
 	}
 
 	for _, g := range groups {
-		// Section header: "── file · func Name ───────..."
-		dispFile := m.relPath(g.key.file)
 		sb.WriteByte('\n')
-		var title string
-		if g.key.fn != "" {
-			title = fmt.Sprintf(" %s · func %s ", dispFile, g.key.fn)
-		} else {
-			title = fmt.Sprintf(" %s ", dispFile)
-		}
-		const lineWidth = 72
-		left := 2
-		right := lineWidth - left - len(title)
-		if right < 2 {
-			right = 2
-		}
-		fmt.Fprintf(&sb, "%s%s%s\n", strings.Repeat("─", left), title, strings.Repeat("─", right))
+		m.writeGroupHeader(&sb, m.relPath(g.key.file), g.key.fn, len(g.sites))
 		sb.WriteByte('\n')
-
 		if g.bound != nil {
-			m.renderFunction(&sb, g.key.file, g.bound, g.sites)
+			m.renderEscapeFunction(&sb, g.key.file, g.bound, g.sites)
 		} else {
-			m.renderContext(&sb, g.key.file, g.sites)
+			m.renderEscapeContext(&sb, g.key.file, g.sites)
 		}
 	}
 
-	return sb.String()
+	content := sb.String()
+	m.updateHeaderLines(content)
+	return content
 }
 
-// renderFunction writes the full body of bound with escape annotations inline.
-func (m *escapeViewModel) renderFunction(sb *strings.Builder, absFile string, bound *engine.FuncBoundary, sites []engine.EscapeSite) {
-	lines := m.fileLines(absFile)
-	if len(lines) == 0 {
-		for _, s := range sites {
-			fmt.Fprintf(sb, "  %4d  %s\n", s.Line, s.Message)
-		}
-		return
-	}
-
-	// Build per-line annotation map.
-	annotations := make(map[int][]engine.EscapeSite) // 1-based line → sites
-	for _, s := range sites {
-		annotations[s.Line] = append(annotations[s.Line], s)
-	}
-
-	start := bound.StartLine
-	end := bound.EndLine
-	if end > len(lines) {
-		end = len(lines)
-	}
-	if start > end {
-		start = end
-	}
-	if start < 1 {
-		start = 1
-	}
-
-	// Expand tabs before highlighting so visual columns are predictable.
-	raw := make([]string, end-start+1)
-	for i, l := range lines[start-1 : end] {
-		raw[i] = expandTabs(l, 4)
-	}
-	highlighted := highlightGoLines(raw)
-
-	annotIndentStr := strings.Repeat(" ", annotIndent)
-	for i, hl := range highlighted {
-		lineNo := start + i
-		fmt.Fprintf(sb, "  %4d  %s\n", lineNo, hl)
-		if sites := annotations[lineNo]; len(sites) > 0 {
-			fmt.Fprintf(sb, "%s%s\n", annotIndentStr, annotSeparator(sites))
-			for _, s := range sites {
-				fmt.Fprintf(sb, "%s%s\n", annotIndentStr, annotationStyle(s))
-			}
-		}
-	}
-}
-
-// renderContext shows ±contextLines source lines around each site (for var blocks,
-// init expressions, and other non-function escape sites).
-func (m *escapeViewModel) renderContext(sb *strings.Builder, absFile string, sites []engine.EscapeSite) {
-	const ctx = 4
-	lines := m.fileLines(absFile)
-	annotIndentStr := strings.Repeat(" ", annotIndent)
-
-	// Build per-line annotation map.
+func (m *escapeViewModel) renderEscapeFunction(sb *strings.Builder, absFile string, bound *engine.FuncBoundary, sites []engine.EscapeSite) {
 	annotations := make(map[int][]engine.EscapeSite)
 	for _, s := range sites {
 		annotations[s.Line] = append(annotations[s.Line], s)
 	}
-
-	// Collect the union of line ranges to display, merging overlapping windows.
-	type span struct{ start, end int }
-	var spans []span
-	for _, s := range sites {
-		lo := s.Line - ctx
-		if lo < 1 {
-			lo = 1
-		}
-		hi := s.Line + ctx
-		if len(lines) > 0 && hi > len(lines) {
-			hi = len(lines)
-		}
-		if lo > hi {
-			lo = hi // site line is past EOF
-		}
-		if len(spans) > 0 && lo <= spans[len(spans)-1].end+1 {
-			if hi > spans[len(spans)-1].end {
-				spans[len(spans)-1].end = hi
+	m.renderFunctionBody(sb, absFile, bound,
+		func(sb *strings.Builder) {
+			for _, s := range sites {
+				fmt.Fprintf(sb, "  %4d  %s\n", s.Line, s.Message)
 			}
-		} else {
-			spans = append(spans, span{lo, hi})
-		}
-	}
+		},
+		func(sb *strings.Builder, lineNo int) {
+			m.renderEscapeAnnotations(sb, annotations[lineNo])
+		},
+	)
+}
 
-	if len(lines) == 0 {
-		for _, s := range sites {
-			fmt.Fprintf(sb, "  %4d  %s\n", s.Line, s.Message)
-		}
+func (m *escapeViewModel) renderEscapeContext(sb *strings.Builder, absFile string, sites []engine.EscapeSite) {
+	annotations := make(map[int][]engine.EscapeSite)
+	lineNums := make([]int, len(sites))
+	for i, s := range sites {
+		annotations[s.Line] = append(annotations[s.Line], s)
+		lineNums[i] = s.Line
+	}
+	m.renderContextLines(sb, absFile, lineNums,
+		func(sb *strings.Builder) {
+			for _, s := range sites {
+				fmt.Fprintf(sb, "  %4d  %s\n", s.Line, s.Message)
+			}
+		},
+		func(sb *strings.Builder, lineNo int) {
+			m.renderEscapeAnnotations(sb, annotations[lineNo])
+		},
+	)
+}
+
+func (m *escapeViewModel) renderEscapeAnnotations(sb *strings.Builder, sites []engine.EscapeSite) {
+	if len(sites) == 0 {
 		return
 	}
-
-	for i, sp := range spans {
-		if i > 0 {
-			fmt.Fprintf(sb, "  %4s  …\n", "")
-		}
-		raw := make([]string, sp.end-sp.start+1)
-		for j, l := range lines[sp.start-1 : sp.end] {
-			raw[j] = expandTabs(l, 4)
-		}
-		highlighted := highlightGoLines(raw)
-		for j, hl := range highlighted {
-			lineNo := sp.start + j
-			fmt.Fprintf(sb, "  %4d  %s\n", lineNo, hl)
-			if sitesOnLine := annotations[lineNo]; len(sitesOnLine) > 0 {
-				fmt.Fprintf(sb, "%s%s\n", annotIndentStr, annotSeparator(sitesOnLine))
-				for _, s := range sitesOnLine {
-					fmt.Fprintf(sb, "%s%s\n", annotIndentStr, annotationStyle(s))
-				}
+	indent := strings.Repeat(" ", annotIndent)
+	fmt.Fprintf(sb, "%s%s\n", indent, escapeAnnotSeparator(sites))
+	for _, s := range sites {
+		fmt.Fprintf(sb, "%s%s\n", indent, escapeAnnotationStyle(s))
+		if m.showFlow {
+			for _, f := range s.FlowChain {
+				fmt.Fprintf(sb, "%s  %s\n", indent, flowLineStyle.Render(f))
 			}
 		}
 	}
@@ -413,129 +321,22 @@ func (m *escapeViewModel) filteredSites() []engine.EscapeSite {
 	return out
 }
 
-func isProjectFile(sourcesRoot, file string) bool {
-	if !filepath.IsAbs(file) {
-		// relative paths are emitted relative to sourcesRoot; paths starting with ".." are outside
-		return !strings.HasPrefix(filepath.Clean(file), "..")
-	}
-	rel, err := filepath.Rel(sourcesRoot, file)
-	return err == nil && !strings.HasPrefix(rel, "..")
-}
-
-// rawContent returns the source bytes for absFile, preferring the version at
-// the recorded git commit (with the stored diff applied) over the working tree.
-func (m *escapeViewModel) rawContent(absFile string) []byte {
-	if data, ok := m.rawCache[absFile]; ok {
-		return data
-	}
-	var data []byte
-	if m.git != nil && m.gitCommit != "" && isProjectFile(m.sourcesRoot, absFile) {
-		if relPath := m.gitRelPath(absFile); relPath != "" {
-			if raw, err := m.git.FileAtCommit(m.gitCommit, relPath); err == nil {
-				if len(m.gitDiff) > 0 {
-					lines := splitFileContent(raw)
-					lines = engine.ApplyUnifiedDiff(lines, m.gitDiff, relPath)
-					data = []byte(strings.Join(lines, "\n"))
-				} else {
-					data = raw
-				}
-			}
-		}
-	}
-	if data == nil {
-		// fall back to current working tree
-		rel, err := filepath.Rel(m.sourcesRoot, absFile)
-		if err != nil || strings.HasPrefix(rel, "..") {
-			rel = absFile
-		}
-		data, err = os.ReadFile(filepath.Join(m.sourcesRoot, rel))
-		if err != nil {
-			data, _ = os.ReadFile(absFile)
-		}
-	}
-	m.rawCache[absFile] = data
-	return data
-}
-
-func (m *escapeViewModel) fileLines(absFile string) []string {
-	if lines, ok := m.fileCache[absFile]; ok {
-		return lines
-	}
-	lines := splitFileContent(m.rawContent(absFile))
-	m.fileCache[absFile] = lines
-	return lines
-}
-
-func (m *escapeViewModel) funcBoundaries(absFile string) []engine.FuncBoundary {
-	if bounds, ok := m.funcCache[absFile]; ok {
-		return bounds
-	}
-	// Ensure rawCache is populated so we can pass git content to the parser.
-	raw := m.rawContent(absFile)
-	fullPath := m.resolveFullPath(absFile)
-	bounds, _ := engine.ParseFuncBoundaries(fullPath, raw)
-	m.funcCache[absFile] = bounds
-	return bounds
-}
-
-// gitRelPath returns the path of absFile relative to sourcesRoot suitable for
-// git tree lookups, or "" if the file is outside the repo.
-func (m *escapeViewModel) gitRelPath(absFile string) string {
-	if filepath.IsAbs(absFile) {
-		rel, err := filepath.Rel(m.sourcesRoot, absFile)
-		if err != nil || strings.HasPrefix(rel, "..") {
-			return ""
-		}
-		return rel
-	}
-	clean := filepath.Clean(absFile)
-	if strings.HasPrefix(clean, "..") {
-		return ""
-	}
-	return clean
-}
-
-// resolveFullPath returns the absolute filesystem path for absFile.
-func (m *escapeViewModel) resolveFullPath(absFile string) string {
-	if filepath.IsAbs(absFile) {
-		return absFile
-	}
-	return filepath.Join(m.sourcesRoot, filepath.Clean(absFile))
-}
-
-// splitFileContent splits raw file bytes into lines, preserving empty
-// trailing elements so that 1-based line indices stay accurate.
-func splitFileContent(data []byte) []string {
-	if len(data) == 0 {
-		return nil
-	}
-	return strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n")
-}
-
-func (m *escapeViewModel) relPath(file string) string {
-	if !filepath.IsAbs(file) {
-		return filepath.Clean(file)
-	}
-	rel, err := filepath.Rel(m.sourcesRoot, file)
-	if err != nil || strings.HasPrefix(rel, "..") {
-		return file
-	}
-	return rel
-}
+// ── Escape-specific annotation rendering ─────────────────────────────────────
 
 var (
 	heapEscapeStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("214")) // orange
 	leakingParamStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("81"))  // cyan
 	otherNoteStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("245")) // dim gray
+	flowLineStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("239")) // darker gray
+	subjectStyle      = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255"))
 )
-
-const annotSepWidth = 36
 
 // "  NNNN  " prefix = 8 chars; annotations indent 2 more.
 const lineNumWidth = 8
 const annotIndent = lineNumWidth + 2
+const annotSepWidth = 36
 
-func annotSeparator(sites []engine.EscapeSite) string {
+func escapeAnnotSeparator(sites []engine.EscapeSite) string {
 	base := otherNoteStyle
 	for _, s := range sites {
 		if s.IsHeapEscape() {
@@ -549,27 +350,8 @@ func annotSeparator(sites []engine.EscapeSite) string {
 	return base.Render(strings.Repeat("─", annotSepWidth))
 }
 
-// expandTabs replaces tab characters with spaces aligned to tabWidth stops.
-func expandTabs(s string, tabWidth int) string {
-	var b strings.Builder
-	col := 0
-	for _, ch := range s {
-		if ch == '\t' {
-			spaces := tabWidth - col%tabWidth
-			b.WriteString(strings.Repeat(" ", spaces))
-			col += spaces
-		} else {
-			b.WriteRune(ch)
-			col++
-		}
-	}
-	return b.String()
-}
-
-var subjectStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255")) // bright white
-
-func annotationStyle(s engine.EscapeSite) string {
-	prefix, subject, suffix := splitSubject(s.Message)
+func escapeAnnotationStyle(s engine.EscapeSite) string {
+	prefix, subject, suffix := splitEscapeSubject(s.Message)
 	var base lipgloss.Style
 	switch {
 	case s.IsHeapEscape():
@@ -582,62 +364,26 @@ func annotationStyle(s engine.EscapeSite) string {
 	return "↑ " + base.Render(prefix) + subjectStyle.Render(subject) + base.Render(suffix)
 }
 
-// splitSubject splits a compiler escape message into (prefix, subject, suffix)
-// so the subject (variable/expression name) can be bolded independently.
-//
-//	"data escapes to heap"     → ("", "data", " escapes to heap")
-//	"moved to heap: result"    → ("moved to heap: ", "result", "")
-//	"leaking param: buf"       → ("leaking param: ", "buf", "")
-func splitSubject(msg string) (prefix, subject, suffix string) {
-	// "X escapes to heap"
+func splitEscapeSubject(msg string) (prefix, subject, suffix string) {
 	if i := strings.Index(msg, " escapes to heap"); i > 0 {
 		return "", msg[:i], msg[i:]
 	}
-	// "moved to heap: X" or "leaking param[...]: X"
 	if strings.HasPrefix(msg, "moved to heap: ") || strings.HasPrefix(msg, "leaking param") {
 		if i := strings.LastIndex(msg, ": "); i >= 0 {
 			return msg[:i+2], msg[i+2:], ""
 		}
 	}
-	// fallback: bold first word
 	if i := strings.Index(msg, " "); i > 0 {
 		return "", msg[:i], msg[i:]
 	}
 	return "", msg, ""
 }
 
-// highlightGoLines syntax-highlights a slice of Go source lines using chroma
-// and returns one highlighted string per input line. Falls back to the original
-// lines if highlighting fails (e.g. not a terminal).
-func highlightGoLines(lines []string) []string {
-	if len(lines) == 0 {
-		return lines
+// isProjectFile reports whether file is within the project (not a dep or stdlib).
+func isProjectFile(sourcesRoot, file string) bool {
+	if !filepath.IsAbs(file) {
+		return !strings.HasPrefix(filepath.Clean(file), "..")
 	}
-	source := strings.Join(lines, "\n")
-	lexer := cmp.Or(lexers.Get("go"), lexers.Fallback)
-	style := cmp.Or(styles.Get("monokai"), styles.Fallback)
-
-	var buf bytes.Buffer
-	it, err := lexer.Tokenise(nil, source)
-	if err != nil {
-		return lines
-	}
-	if err := formatters.TTY16m.Format(&buf, style, it); err != nil {
-		return lines
-	}
-
-	// chroma emits a trailing newline; split and trim the extra empty entry.
-	out := strings.Split(buf.String(), "\n")
-	if len(out) > len(lines) {
-		out = out[:len(lines)]
-	}
-	// Ensure each line ends with a reset so open color codes don't bleed into
-	// whatever is rendered after (e.g. line numbers on the next row).
-	const reset = "\x1b[0m"
-	for i, l := range out {
-		if !strings.HasSuffix(l, reset) {
-			out[i] = l + reset
-		}
-	}
-	return out
+	rel, err := filepath.Rel(sourcesRoot, file)
+	return err == nil && !strings.HasPrefix(rel, "..")
 }
