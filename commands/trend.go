@@ -3,16 +3,18 @@ package commands
 import (
 	"context"
 	"fmt"
+	"image/color"
 	"math"
 	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/compat"
 	"github.com/NimbleMarkets/ntcharts/canvas"
 	"github.com/NimbleMarkets/ntcharts/linechart"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/spf13/cobra"
 
@@ -309,7 +311,7 @@ func (m trendViewModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m = m.clampScroll() // also clamps colOff
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		k := msg.String()
 		if k == "ctrl+c" || k == "q" {
 			return m, tea.Quit
@@ -526,21 +528,23 @@ func (m trendViewModel) rebuildChart() trendViewModel {
 	return m
 }
 
-func (m trendViewModel) View() string {
+func (m trendViewModel) View() tea.View {
+	var content string
 	if !m.ready {
-		return "\n  Initializing..."
+		content = "\n  Initializing..."
+	} else if len(m.data.Units) == 0 {
+		content = "  No benchmark data available."
+	} else {
+		switch m.mode {
+		case trendModeOverview:
+			content = m.viewOverview()
+		case trendModeDetail:
+			content = m.viewDetail()
+		}
 	}
-	if len(m.data.Units) == 0 {
-		return "  No benchmark data available."
-	}
-	switch m.mode {
-	case trendModeOverview:
-		return m.viewOverview()
-	case trendModeDetail:
-		return m.viewDetail()
-	default:
-		return ""
-	}
+	view := tea.NewView(content)
+	view.AltScreen = true
+	return view
 }
 
 func (m trendViewModel) viewOverview() string {
@@ -593,9 +597,9 @@ func (m trendViewModel) viewOverview() string {
 		end = len(rows)
 	}
 
-	selBg := lipgloss.AdaptiveColor{Light: "254", Dark: "238"}
+	selBg := compat.AdaptiveColor{Light: lipgloss.Color("254"), Dark: lipgloss.Color("238")}
 
-	withBg := func(text string, bg lipgloss.TerminalColor) string {
+	withBg := func(text string, bg color.Color) string {
 		return lipgloss.NewStyle().Background(bg).Render(text)
 	}
 
@@ -603,7 +607,7 @@ func (m trendViewModel) viewOverview() string {
 		row := rows[i]
 		selected := i == m.cursor
 
-		defaultBg := func() lipgloss.TerminalColor {
+		defaultBg := func() color.Color {
 			if selected {
 				return selBg
 			}
@@ -800,26 +804,26 @@ func trendArrow(curr, prev float64) string {
 }
 
 // trendCellBg returns a background color for a cell based on the curr/prev ratio.
-func trendCellBg(ratio float64) (lipgloss.TerminalColor, bool) {
+func trendCellBg(ratio float64) (color.Color, bool) {
 	switch {
 	case ratio > 1.10:
-		return lipgloss.AdaptiveColor{Light: "224", Dark: "88"}, true
+		return compat.AdaptiveColor{Light: lipgloss.Color("224"), Dark: lipgloss.Color("88")}, true
 	case ratio > 1.02:
-		return lipgloss.AdaptiveColor{Light: "217", Dark: "52"}, true
+		return compat.AdaptiveColor{Light: lipgloss.Color("217"), Dark: lipgloss.Color("52")}, true
 	case ratio < 0.90:
-		return lipgloss.AdaptiveColor{Light: "120", Dark: "28"}, true
+		return compat.AdaptiveColor{Light: lipgloss.Color("120"), Dark: lipgloss.Color("28")}, true
 	case ratio < 0.98:
-		return lipgloss.AdaptiveColor{Light: "157", Dark: "22"}, true
+		return compat.AdaptiveColor{Light: lipgloss.Color("157"), Dark: lipgloss.Color("22")}, true
 	}
 	return lipgloss.NoColor{}, false
 }
 
-func coloredArrow(curr, prev float64, bg ...lipgloss.TerminalColor) string {
+func coloredArrow(curr, prev float64, bg ...color.Color) string {
 	if prev == 0 {
 		return ""
 	}
 	ratio := curr / prev
-	var bgColor lipgloss.TerminalColor = lipgloss.NoColor{}
+	var bgColor color.Color = lipgloss.NoColor{}
 	if len(bg) > 0 {
 		bgColor = bg[0]
 	}

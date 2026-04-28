@@ -9,15 +9,17 @@ import (
 	"sort"
 	"strings"
 
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/compat"
 	"github.com/NimbleMarkets/ntcharts/canvas"
 	"github.com/NimbleMarkets/ntcharts/linechart"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/spf13/cobra"
 
 	"benchspotter/commands/execenv"
+	"benchspotter/commands/inputs"
 	"benchspotter/engine"
 )
 
@@ -79,10 +81,10 @@ func runOptimize(ctx context.Context, env *execenv.Env, opts optimizeOptions) er
 	// Select parameters.
 	var selectedInputs []engine.InputInfo
 	if len(opts.params) > 0 {
-		for _, inp := range allInputs {
+		for _, input := range allInputs {
 			for _, p := range opts.params {
-				if inp.Name() == p {
-					selectedInputs = append(selectedInputs, inp)
+				if input.Name() == p {
+					selectedInputs = append(selectedInputs, input)
 					break
 				}
 			}
@@ -98,11 +100,11 @@ func runOptimize(ctx context.Context, env *execenv.Env, opts optimizeOptions) er
 			Title("Select parameters to optimize").
 			OptionsFunc(func() []huh.Option[engine.InputInfo] {
 				options := make([]huh.Option[engine.InputInfo], len(allInputs))
-				for i, inp := range allInputs {
-					label := inp.Name() + " " + inp.Label() +
-						env.Style.TonedDown(" — "+inp.Package())
-					options[i] = huh.NewOption(label, inp).
-						Selected(slices.Contains(preSelected, inp.Name()))
+				for i, input := range allInputs {
+					label := input.Name() + " " + input.Label() +
+						env.Style.TonedDown(" — "+input.Package())
+					options[i] = huh.NewOption(label, input).
+						Selected(slices.Contains(preSelected, input.Name()))
 				}
 				return options
 			}, nil).
@@ -143,47 +145,44 @@ func runOptimize(ctx context.Context, env *execenv.Env, opts optimizeOptions) er
 			return fmt.Errorf("benchmark %q not found", opts.bench)
 		}
 	} else {
-		bench, err = selectSingleBenchmark(ctx, env)
+		const recallKey = "optimize_bench"
+		bench, err = inputs.SelectBenchmark(ctx, env, env.Repo.GetRecall(recallKey))
 		if err != nil {
 			return err
 		}
+		_ = env.Repo.SetRecall(recallKey, bench.Name)
 	}
 
 	// Select strategy.
 	if opts.strategy == "" {
 		const recallKey = "optimize_strategy"
-		preSelected := env.Repo.GetRecalls(recallKey)
-		var strat string
-		if len(preSelected) > 0 {
-			strat = preSelected[0]
-		}
-		options := make([]huh.Option[string], len(engine.StrategyDefs))
-		for i, def := range engine.StrategyDefs {
-			label := strings.ToUpper(def.Key[:1]) + def.Key[1:] + " – " + def.Description
-			options[i] = huh.NewOption(label, def.Key)
-		}
+		strat := env.Repo.GetRecall(recallKey)
 		err = env.FormSingle(huh.NewSelect[string]().
 			Title("Optimization strategy").
-			Options(options...).
+			OptionsFunc(func() []huh.Option[string] {
+				options := make([]huh.Option[string], len(engine.StrategyDefs))
+				for i, def := range engine.StrategyDefs {
+					label := strings.ToUpper(def.Key[:1]) + def.Key[1:] + " – " + def.Description
+					options[i] = huh.NewOption(label, def.Key)
+				}
+				return options
+			}, nil).
 			Value(&strat)).
 			RunWithContext(ctx)
 		if err != nil {
 			return err
 		}
 		opts.strategy = strat
-		_ = env.Repo.SetRecalls(recallKey, func(yield func(string) bool) {
-			yield(strat)
-		})
+		_ = env.Repo.SetRecall(recallKey, strat)
 	}
 
 	// Select metric.
 	if opts.metric == "" {
 		const recallKey = "optimize_metric"
-		preSelected := env.Repo.GetRecalls(recallKey)
 		selected := engine.MetricNsPerOp
-		if len(preSelected) > 0 {
+		if recalled := env.Repo.GetRecall(recallKey); recalled != "" {
 			for _, m := range engine.KnownBenchMetrics {
-				if m.String() == preSelected[0] {
+				if m.String() == recalled {
 					selected = m
 					break
 				}
@@ -204,9 +203,7 @@ func runOptimize(ctx context.Context, env *execenv.Env, opts optimizeOptions) er
 			return err
 		}
 		opts.metric = selected.String()
-		_ = env.Repo.SetRecalls(recallKey, func(yield func(string) bool) {
-			yield(opts.metric)
-		})
+		_ = env.Repo.SetRecall(recallKey, opts.metric)
 	}
 
 	strategy := buildOptimizeStrategy(opts, selectedInputs)
@@ -236,48 +233,6 @@ func runOptimize(ctx context.Context, env *execenv.Env, opts optimizeOptions) er
 	default:
 		return fmt.Errorf("unsupported format for optimize (text only)")
 	}
-}
-
-func selectSingleBenchmark(ctx context.Context, env *execenv.Env) (engine.BenchInfo, error) {
-	var benchs []engine.BenchInfo
-	err := env.Spinner().Title("Finding benchmarks").
-		ActionWithErr(func(ctx context.Context) error {
-			var err error
-			benchs, err = engine.LocateBenchmarks(ctx, env.Repo.Sources())
-			return err
-		}).Context(ctx).Run()
-	if err != nil {
-		return engine.BenchInfo{}, err
-	}
-	if len(benchs) == 0 {
-		return engine.BenchInfo{}, fmt.Errorf("no benchmarks found")
-	}
-
-	const recallKey = "optimize_bench"
-	preSelected := env.Repo.GetRecalls(recallKey)
-
-	var selected engine.BenchInfo
-	err = env.FormSingle(huh.NewSelect[engine.BenchInfo]().
-		Title("Select benchmark to optimize").
-		OptionsFunc(func() []huh.Option[engine.BenchInfo] {
-			options := make([]huh.Option[engine.BenchInfo], len(benchs))
-			for i, info := range benchs {
-				label := info.Name + env.Style.TonedDown(" — "+info.Package)
-				options[i] = huh.NewOption(label, info).
-					Selected(len(preSelected) > 0 && preSelected[0] == info.Name)
-			}
-			return options
-		}, nil).
-		Value(&selected)).
-		RunWithContext(ctx)
-	if err != nil {
-		return engine.BenchInfo{}, err
-	}
-
-	_ = env.Repo.SetRecalls(recallKey, func(yield func(string) bool) {
-		yield(selected.Name)
-	})
-	return selected, nil
 }
 
 func buildOptimizeStrategy(opts optimizeOptions, inputs []engine.InputInfo) engine.Strategy {
@@ -497,7 +452,7 @@ func (m optimizeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ready = true
 		m = m.rebuildChart()
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "ctrl+c", "q", "esc":
 			return m, tea.Quit
@@ -694,9 +649,9 @@ func (m optimizeModel) rebuildChart() optimizeModel {
 	return m
 }
 
-func (m optimizeModel) View() string {
+func (m optimizeModel) View() tea.View {
 	if !m.ready {
-		return "\n  Initializing..."
+		return tea.NewView("\n  Initializing...")
 	}
 
 	var sb strings.Builder
@@ -755,7 +710,9 @@ func (m optimizeModel) View() string {
 	footerParts = append(footerParts, "[p] print+quit", "[q] quit")
 	sb.WriteString(m.style.TonedDown(strings.Join(footerParts, "  ")))
 
-	return sb.String()
+	view := tea.NewView(sb.String())
+	view.AltScreen = true
+	return view
 }
 
 func (m optimizeModel) sortedResultIndices() []int { return sortResultIndices(m.results) }
@@ -764,7 +721,7 @@ func (m optimizeModel) renderTable(units []string) string {
 	bestIdx, _ := engine.BestPoint(m.results, m.metric, m.minimize)
 	lastResIdx := len(m.results) - 1
 	sorted := m.sortedResultIndices()
-	lastBg := lipgloss.AdaptiveColor{Light: "254", Dark: "238"}
+	lastBg := compat.AdaptiveColor{Light: lipgloss.Color("254"), Dark: lipgloss.Color("238")}
 
 	var sb strings.Builder
 	sb.WriteString(m.style.TonedDown(resultTableHeader(m.inputs, units)) + "\n")
@@ -846,15 +803,15 @@ func corrStyle(r float64) lipgloss.Style {
 	}
 	switch {
 	case abs < 0.3:
-		return lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "243", Dark: "245"})
+		return lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: lipgloss.Color("243"), Dark: lipgloss.Color("245")})
 	case r > 0.7:
-		return lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "28", Dark: "82"}).Bold(true)
+		return lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: lipgloss.Color("28"), Dark: lipgloss.Color("82")}).Bold(true)
 	case r > 0:
-		return lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "34", Dark: "76"})
+		return lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: lipgloss.Color("34"), Dark: lipgloss.Color("76")})
 	case r < -0.7:
-		return lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "160", Dark: "196"}).Bold(true)
+		return lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: lipgloss.Color("160"), Dark: lipgloss.Color("196")}).Bold(true)
 	default:
-		return lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "166", Dark: "214"})
+		return lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: lipgloss.Color("166"), Dark: lipgloss.Color("214")})
 	}
 }
 

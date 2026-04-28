@@ -1,16 +1,17 @@
 package execenv
 
 import (
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 )
 
 type Style struct {
-	*huh.Theme
+	*huh.Styles
+	themeFunc huh.ThemeFunc
 }
 
 func (s Style) TonedDown(strs ...string) string {
-	return s.Theme.Focused.Description.Render(strs...)
+	return s.Styles.Focused.Description.Render(strs...)
 }
 
 func (s Style) Bold(text string) string {
@@ -18,5 +19,5 @@ func (s Style) Bold(text string) string {
 }
 
 func (s Style) Accent(text string) string {
-	return s.Theme.Focused.Title.Render(text)
+	return s.Styles.Focused.Title.Render(text)
 }

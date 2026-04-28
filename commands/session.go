@@ -3,11 +3,12 @@ package commands
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"text/tabwriter"
 	"time"
 
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 	"github.com/spf13/cobra"
 
 	"benchspotter/commands/execenv"
@@ -32,21 +33,25 @@ func newSessionCommand(env *execenv.Env) *cobra.Command {
 	return cmd
 }
 
+type sessionLsOptions struct {
+	tag string
+}
+
 func newSessionLsCommand(env *execenv.Env) *cobra.Command {
-	var tag string
+	var opts sessionLsOptions
 	cmd := &cobra.Command{
 		Use:     "ls",
 		Short:   "List benchmark sessions",
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSessionLs(cmd.Context(), env, tag)
+			return runSessionLs(cmd.Context(), env, opts)
 		},
 	}
-	cmd.Flags().StringVar(&tag, "tag", "", "Filter sessions by tag")
+	cmd.Flags().StringVar(&opts.tag, "tag", "", "Filter sessions by tag")
 	return cmd
 }
 
-func runSessionLs(ctx context.Context, env *execenv.Env, tag string) error {
+func runSessionLs(ctx context.Context, env *execenv.Env, opts sessionLsOptions) error {
 	var sessions []*engine.SessionInfo
 
 	err := env.Spinner().Title("Finding sessions").
@@ -59,14 +64,11 @@ func runSessionLs(ctx context.Context, env *execenv.Env, tag string) error {
 		return err
 	}
 
-	if tag != "" {
+	if opts.tag != "" {
 		filtered := sessions[:0]
 		for _, s := range sessions {
-			for _, t := range s.Tags {
-				if t == tag {
-					filtered = append(filtered, s)
-					break
-				}
+			if slices.Contains(s.Tags, opts.tag) {
+				filtered = append(filtered, s)
 			}
 		}
 		sessions = filtered
@@ -332,21 +334,25 @@ func runSessionRename(ctx context.Context, env *execenv.Env, args []string) erro
 	return fmt.Errorf("session %q not found", sessionID)
 }
 
+type sessionRmOptions struct {
+	skipConfirmation bool
+}
+
 func newSessionRmCommand(env *execenv.Env) *cobra.Command {
-	var yes bool
+	var opts sessionRmOptions
 	cmd := &cobra.Command{
 		Use:     "rm [id]",
 		Short:   "Delete a session",
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSessionRm(cmd.Context(), env, args, yes)
+			return runSessionRm(cmd.Context(), env, args, opts)
 		},
 	}
-	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip confirmation")
+	cmd.Flags().BoolVarP(&opts.skipConfirmation, "skip-confirmation", "y", false, "Skip confirmation")
 	return cmd
 }
 
-func runSessionRm(ctx context.Context, env *execenv.Env, args []string, yes bool) error {
+func runSessionRm(ctx context.Context, env *execenv.Env, args []string, opts sessionRmOptions) error {
 	var target *engine.SessionInfo
 
 	if len(args) >= 1 {
@@ -371,7 +377,7 @@ func runSessionRm(ctx context.Context, env *execenv.Env, args []string, yes bool
 		}
 	}
 
-	if !yes {
+	if !opts.skipConfirmation {
 		var confirmed bool
 		err := env.FormSingle(huh.NewConfirm().
 			Title(fmt.Sprintf("Delete session %q?", target.HumanName)).

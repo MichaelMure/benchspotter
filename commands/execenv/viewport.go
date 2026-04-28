@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 var _ tea.Model = &viewportModel{}
@@ -35,7 +35,7 @@ func (v *viewportModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if k := msg.String(); k == "ctrl+c" || k == "q" || k == "esc" {
 			return v, tea.Quit
 		}
@@ -47,12 +47,12 @@ func (v *viewportModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// we can initialize the viewport. The initial dimensions come in
 			// quickly, though asynchronously, which is why we wait for them
 			// here.
-			v.viewport = viewport.New(msg.Width, msg.Height)
+			v.viewport = viewport.New(viewport.WithWidth(msg.Width), viewport.WithHeight(msg.Height))
 			v.ready = true
 			v.viewport.SetContent(v.content.String())
 		} else {
-			v.viewport.Width = msg.Width
-			v.viewport.Height = msg.Height
+			v.viewport.SetWidth(msg.Width)
+			v.viewport.SetHeight(msg.Height)
 		}
 
 	case refreshMsg:
@@ -68,11 +68,17 @@ func (v *viewportModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return v, tea.Batch(cmds...)
 }
 
-func (v *viewportModel) View() string {
+func (v *viewportModel) View() tea.View {
+	var content string
 	if !v.ready {
-		return "\n  Initializing..."
+		content = "\n  Initializing..."
+	} else {
+		content = v.viewport.View()
 	}
-	return v.viewport.View()
+	view := tea.NewView(content)
+	view.AltScreen = true
+	view.MouseMode = tea.MouseModeCellMotion
+	return view
 }
 
 func (v *viewportModel) SetContent(content string) {
@@ -172,7 +178,7 @@ func (v *interactiveViewportModel) Init() tea.Cmd { return nil }
 
 func (v *interactiveViewportModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		k := msg.String()
 		if k == "ctrl+c" || k == "q" {
 			return v, tea.Quit
@@ -184,12 +190,12 @@ func (v *interactiveViewportModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if v.model.HandleKey(k) {
 			oldContent := v.lastContent
-			oldOffset := v.viewport.YOffset
+			oldOffset := v.viewport.YOffset()
 			newContent := v.model.Render()
 			v.lastContent = newContent
 			v.viewport.SetContent(newContent)
 			if adj, ok := v.model.(YOffsetAdjuster); ok {
-				v.viewport.SetYOffset(adj.AdjustYOffset(oldContent, newContent, oldOffset, v.viewport.Height))
+				v.viewport.SetYOffset(adj.AdjustYOffset(oldContent, newContent, oldOffset, v.viewport.Height()))
 			}
 			return v, nil
 		}
@@ -206,13 +212,13 @@ func (v *interactiveViewportModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		vpWidth := msg.Width - v.sidebarWidth
 		// Reserve one line for the status footer.
 		if !v.ready {
-			v.viewport = viewport.New(vpWidth, msg.Height-1)
+			v.viewport = viewport.New(viewport.WithWidth(vpWidth), viewport.WithHeight(msg.Height-1))
 			v.lastContent = v.model.Render()
 			v.viewport.SetContent(v.lastContent)
 			v.ready = true
 		} else {
-			v.viewport.Width = vpWidth
-			v.viewport.Height = msg.Height - 1
+			v.viewport.SetWidth(vpWidth)
+			v.viewport.SetHeight(msg.Height - 1)
 		}
 	}
 	var cmd tea.Cmd
@@ -220,17 +226,23 @@ func (v *interactiveViewportModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return v, cmd
 }
 
-func (v *interactiveViewportModel) View() string {
+func (v *interactiveViewportModel) View() tea.View {
+	var content string
 	if !v.ready {
-		return "\n  Initializing..."
+		content = "\n  Initializing..."
+	} else {
+		if setter, ok := v.model.(YOffsetSetter); ok {
+			setter.SetCurrentYOffset(v.viewport.YOffset(), v.viewport.Height())
+		}
+		main := v.viewport.View()
+		if sp, ok := v.model.(SidebarProvider); ok && v.sidebarWidth > 0 {
+			sidebar := sp.RenderSidebar(v.sidebarWidth, v.viewport.Height())
+			main = lipgloss.JoinHorizontal(lipgloss.Top, sidebar, main)
+		}
+		content = main + "\n" + v.model.Status()
 	}
-	if setter, ok := v.model.(YOffsetSetter); ok {
-		setter.SetCurrentYOffset(v.viewport.YOffset, v.viewport.Height)
-	}
-	main := v.viewport.View()
-	if sp, ok := v.model.(SidebarProvider); ok && v.sidebarWidth > 0 {
-		sidebar := sp.RenderSidebar(v.sidebarWidth, v.viewport.Height)
-		main = lipgloss.JoinHorizontal(lipgloss.Top, sidebar, main)
-	}
-	return main + "\n" + v.model.Status()
+	view := tea.NewView(content)
+	view.AltScreen = true
+	view.MouseMode = tea.MouseModeCellMotion
+	return view
 }

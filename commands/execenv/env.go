@@ -6,9 +6,10 @@ import (
 	"io"
 	"os"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/huh/spinner"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
+	"charm.land/huh/v2/spinner"
+	"charm.land/lipgloss/v2"
 	"github.com/muesli/termenv"
 
 	"benchspotter/repository"
@@ -25,12 +26,14 @@ type Env struct {
 }
 
 func NewEnv() *Env {
+	tf := huh.ThemeFunc(huh.ThemeCharm)
+	isDark := lipgloss.HasDarkBackground(os.Stdin, os.Stdout)
 	return &Env{
 		Repo:   nil,
 		In:     in{Reader: os.Stdin},
 		Out:    out{out: termenv.NewOutput(os.Stdout)},
 		Err:    out{out: termenv.NewOutput(os.Stderr)},
-		Style:  Style{huh.ThemeCharm()},
+		Style:  Style{Styles: tf.Theme(isDark), themeFunc: tf},
 		Format: FormatText,
 	}
 }
@@ -39,7 +42,7 @@ func (e Env) Form(groups ...*huh.Group) *huh.Form {
 	return huh.NewForm(groups...).
 		WithInput(e.In.Raw()).
 		WithOutput(e.Out.Raw()).
-		WithTheme(e.Style.Theme)
+		WithTheme(e.Style.themeFunc)
 }
 
 func (e Env) FormSingle(field huh.Field) *huh.Form {
@@ -48,7 +51,11 @@ func (e Env) FormSingle(field huh.Field) *huh.Form {
 }
 
 func (e Env) Spinner() *spinner.Spinner {
-	return spinner.New().Output(e.Out.Raw())
+	s := spinner.New().WithOutput(e.Out.Raw())
+	if !e.Out.IsTerminal() {
+		s = s.WithAccessible(true)
+	}
+	return s
 }
 
 // RunModel runs m as a full-screen TUI. It is the caller's responsibility to
@@ -96,7 +103,5 @@ func (e Env) newProgram(ctx context.Context, m tea.Model) *tea.Program {
 		tea.WithContext(ctx),
 		tea.WithInput(e.In.Raw()),
 		tea.WithOutput(e.Out.Raw()),
-		tea.WithAltScreen(),
-		tea.WithMouseCellMotion(),
 	)
 }

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 
 	"benchspotter/commands/execenv"
 	"benchspotter/engine"
@@ -30,7 +30,7 @@ func SelectSession(ctx context.Context, env *execenv.Env, preSelect string, filt
 
 	var selection *engine.SessionInfo
 	err = env.FormSingle(huh.NewSelect[*engine.SessionInfo]().
-		Title("Select session").
+		Title("Select a session").
 		OptionsFunc(func() []huh.Option[*engine.SessionInfo] {
 			opts := make([]huh.Option[*engine.SessionInfo], 0, len(sessions))
 			for _, session := range sessions {
@@ -72,7 +72,7 @@ func SelectSessions(ctx context.Context, env *execenv.Env, preSelect []string) (
 	var selection []*engine.SessionInfo
 
 	err = env.FormSingle(huh.NewMultiSelect[*engine.SessionInfo]().
-		Title("Select session (/ to filter)").
+		Title("Select sessions (/ to filter)").
 		OptionsFunc(func() []huh.Option[*engine.SessionInfo] {
 			opts := make([]huh.Option[*engine.SessionInfo], len(sessions))
 			for i, session := range sessions {

@@ -3,7 +3,7 @@ package inputs
 import (
 	"context"
 
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 
 	"benchspotter/commands/execenv"
 )
@@ -23,7 +23,7 @@ func SelectProfileBench(ctx context.Context, env *execenv.Env, opts []BenchOptio
 
 	var selection string
 	err := env.FormSingle(huh.NewSelect[string]().
-		Title("Select benchmark").
+		Title("Select a benchmark").
 		Options(hopts...).
 		Value(&selection)).
 		RunWithContext(ctx)

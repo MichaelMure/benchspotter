@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 
 	"benchspotter/repository"
 )
@@ -72,7 +72,7 @@ func NewTestEnv(repo *repository.Repository) *Env {
 		In:     &TestIn{Buffer: &bytes.Buffer{}},
 		Out:    &TestOut{Buffer: &bytes.Buffer{}},
 		Err:    &TestOut{Buffer: &bytes.Buffer{}},
-		Style:  Style{Theme: huh.ThemeCharm()},
+		Style:  Style{Styles: huh.ThemeCharm(false), themeFunc: huh.ThemeFunc(huh.ThemeCharm)},
 		Format: FormatText,
 	}
 }
