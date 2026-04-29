@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -26,10 +27,12 @@ const GitDiffFilename = "git.diff"
 
 // sessionMeta is a metadata record in the session folder
 type sessionMeta struct {
-	Name      string   `json:"name,omitempty"`
-	Benches   []string `json:"benchs,omitempty"`
-	GitCommit string   `json:"git_commit,omitempty"`
-	Tags      []string `json:"tags,omitempty"`
+	Name      string       `json:"name,omitempty"`
+	Benches   []string     `json:"benchs,omitempty"`
+	GitCommit string       `json:"git_commit,omitempty"`
+	Tags      []string     `json:"tags,omitempty"`
+	Machine   *MachineInfo `json:"machine,omitempty"`
+	GoVersion string       `json:"go_version,omitempty"`
 }
 
 func PrepareSession(ctx context.Context, env *execenv.Env, name string, benches []BenchInfo) (string, error) {
@@ -77,7 +80,12 @@ func recordMeta(ctx context.Context, env *execenv.Env, id string, name string, b
 	}
 	defer f.Close()
 
-	meta := sessionMeta{Name: name}
+	machine := collectMachineInfo()
+	meta := sessionMeta{
+		Name:      name,
+		Machine:   &machine,
+		GoVersion: runtime.Version(),
+	}
 
 	meta.Benches = make([]string, len(benches))
 	for i, bench := range benches {
@@ -88,7 +96,9 @@ func recordMeta(ctx context.Context, env *execenv.Env, id string, name string, b
 		meta.GitCommit = commit
 	}
 
-	err = json.NewEncoder(f).Encode(meta)
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "\t")
+	err = enc.Encode(meta)
 	if err != nil {
 		return fmt.Errorf("failed to encode meta file: %w", err)
 	}
@@ -125,6 +135,8 @@ type SessionInfo struct {
 	Benches   []string
 	GitCommit string
 	Tags      []string
+	Machine   *MachineInfo
+	GoVersion string
 
 	uid uuid.UUID
 	fs  billy.Filesystem
@@ -176,6 +188,8 @@ func LocateSessions(fs billy.Filesystem, tagFilter ...string) ([]*SessionInfo, e
 			Benches:   meta.Benches,
 			GitCommit: meta.GitCommit,
 			Tags:      meta.Tags,
+			Machine:   meta.Machine,
+			GoVersion: meta.GoVersion,
 
 			uid: uid,
 			fs:  fs,

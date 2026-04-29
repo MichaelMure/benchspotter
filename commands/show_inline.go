@@ -137,9 +137,10 @@ func runShowInline(ctx context.Context, env *execenv.Env, options showInlineOpti
 				fileCache:   make(map[string][]string),
 				funcCache:   make(map[string][]engine.FuncBoundary),
 			},
-			sites:       sites,
-			showAll:     options.all,
-			projectOnly: !options.includeDeps,
+			machineHeader: engine.FormatMachineLine(selection.Machine, selection.GoVersion),
+			sites:         sites,
+			showAll:       options.all,
+			projectOnly:   !options.includeDeps,
 		}
 		return env.ViewportWithKeys(ctx, model)()
 
@@ -150,9 +151,10 @@ func runShowInline(ctx context.Context, env *execenv.Env, options showInlineOpti
 
 type inlineViewModel struct {
 	sourceViewBase
-	sites       []engine.InlineSite
-	showAll     bool
-	projectOnly bool
+	machineHeader string
+	sites         []engine.InlineSite
+	showAll       bool
+	projectOnly   bool
 }
 
 func (m *inlineViewModel) HandleKey(key string) bool {
@@ -249,6 +251,9 @@ func (m *inlineViewModel) Render() string {
 	}
 
 	content := sb.String()
+	if m.machineHeader != "" {
+		content = m.machineHeader + "\n\n" + content
+	}
 	m.updateHeaderLines(content)
 	return content
 }

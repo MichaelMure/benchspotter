@@ -32,11 +32,12 @@ var memMetricIds = map[engine.MemMetric][]string{
 // [s] cycles through sort orders for all profile types.
 // [a] toggles source line annotations (when sourcesRoot is set).
 type profileViewModel struct {
-	prof        *profile.Profile
-	profileType engine.Profile
-	metric      engine.MemMetric // only meaningful for ProfileMem
-	sort        engine.SortOrder
-	top         int
+	prof          *profile.Profile
+	profileType   engine.Profile
+	metric        engine.MemMetric // only meaningful for ProfileMem
+	sort          engine.SortOrder
+	top           int
+	machineHeader string
 	// source annotation
 	sourcesRoot string
 	sourceCache map[string][]byte // relPath → file content (nil = not found)
@@ -55,7 +56,11 @@ func (m *profileViewModel) Render() string {
 	if m.annotate && m.sourcesRoot != "" {
 		getSource = m.getSourceLines
 	}
-	return renderProfileTable(funcs, m.top, m.fmtValue(), m.sort, getSource)
+	content := renderProfileTable(funcs, m.top, m.fmtValue(), m.sort, getSource)
+	if m.machineHeader != "" {
+		return m.machineHeader + "\n\n" + content
+	}
+	return content
 }
 
 // getSourceLines returns up to 3 source lines starting at startLine for the
@@ -303,13 +308,14 @@ func runShowProfile(ctx context.Context, env *execenv.Env, options showProfileOp
 			return err
 		}
 		model := &profileViewModel{
-			prof:        prof,
-			profileType: options.profileType,
-			metric:      options.metric,
-			sort:        options.sort,
-			top:         options.top,
-			sourcesRoot: env.Repo.Sources().Root(),
-			sourceCache: make(map[string][]byte),
+			prof:          prof,
+			profileType:   options.profileType,
+			metric:        options.metric,
+			sort:          options.sort,
+			top:           options.top,
+			machineHeader: engine.FormatMachineLine(selection.Machine, selection.GoVersion),
+			sourcesRoot:   env.Repo.Sources().Root(),
+			sourceCache:   make(map[string][]byte),
 		}
 		return env.ViewportWithKeys(ctx, model)()
 

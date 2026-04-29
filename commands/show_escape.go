@@ -132,9 +132,10 @@ func runShowEscape(ctx context.Context, env *execenv.Env, options showEscapeOpti
 				fileCache:   make(map[string][]string),
 				funcCache:   make(map[string][]engine.FuncBoundary),
 			},
-			sites:       sites,
-			showAll:     options.all,
-			projectOnly: !options.includeDeps,
+			machineHeader: engine.FormatMachineLine(selection.Machine, selection.GoVersion),
+			sites:         sites,
+			showAll:       options.all,
+			projectOnly:   !options.includeDeps,
 		}
 		return env.ViewportWithKeys(ctx, model)()
 
@@ -145,10 +146,11 @@ func runShowEscape(ctx context.Context, env *execenv.Env, options showEscapeOpti
 
 type escapeViewModel struct {
 	sourceViewBase
-	sites       []engine.EscapeSite
-	showAll     bool
-	projectOnly bool
-	showFlow    bool
+	machineHeader string
+	sites         []engine.EscapeSite
+	showAll       bool
+	projectOnly   bool
+	showFlow      bool
 }
 
 func (m *escapeViewModel) HandleKey(key string) bool {
@@ -252,6 +254,9 @@ func (m *escapeViewModel) Render() string {
 	}
 
 	content := sb.String()
+	if m.machineHeader != "" {
+		content = m.machineHeader + "\n\n" + content
+	}
 	m.updateHeaderLines(content)
 	return content
 }

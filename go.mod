@@ -19,6 +19,7 @@ require (
 	github.com/go-git/go-git/v5 v5.18.0
 	github.com/google/pprof v0.0.0-20260402051712-545e8a4df936
 	github.com/google/uuid v1.6.0
+	github.com/klauspost/cpuid/v2 v2.3.0
 	github.com/mattn/go-isatty v0.0.21
 	github.com/muesli/termenv v0.16.0
 	github.com/spf13/cobra v1.10.2

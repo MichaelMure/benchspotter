@@ -99,6 +99,10 @@ func runShowDiffCommand(ctx context.Context, env *execenv.Env, options showDiffO
 			return err
 		}
 		viewport, runFn := env.Viewport(ctx)
+		if line := engine.FormatMachineLine(selection.Machine, selection.GoVersion); line != "" {
+			fmt.Fprintln(viewport, env.Style.TonedDown(line))
+			fmt.Fprintln(viewport)
+		}
 		if err := formatter.Format(viewport, style, it); err != nil {
 			return err
 		}

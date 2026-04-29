@@ -74,10 +74,16 @@ func runSessionLs(ctx context.Context, env *execenv.Env, opts sessionLsOptions) 
 		sessions = filtered
 	}
 
+	mc := engine.NewMachineContext(sessions)
+
 	switch env.Format {
 	case execenv.FormatText:
 		w := tabwriter.NewWriter(env.Out, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "NAME\tTIME\tCOMMIT\tBENCH\tCPU\tMEM\tBLOCK\tMUTEX\tESCAPE\tINLINE\tBENCHMARKS\tTAGS")
+		header := "NAME\tTIME\tCOMMIT\tBENCH\tCPU\tMEM\tBLOCK\tMUTEX\tESCAPE\tINLINE\tBENCHMARKS\tTAGS"
+		if mc != nil {
+			header += "\tMACHINE"
+		}
+		_, _ = fmt.Fprintln(w, header)
 		for _, s := range sessions {
 			commit := ""
 			if s.GitCommit != "" {
@@ -92,7 +98,7 @@ func runSessionLs(ctx context.Context, env *execenv.Env, opts sessionLsOptions) 
 				}
 				return "-"
 			}
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%s\n",
+			row := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%s",
 				s.HumanName,
 				s.Time.Format("2006-01-02 15:04"),
 				commit,
@@ -106,19 +112,38 @@ func runSessionLs(ctx context.Context, env *execenv.Env, opts sessionLsOptions) 
 				len(s.Benches),
 				strings.Join(s.Tags, ", "),
 			)
+			if mc != nil {
+				if n := mc.Labels[s.Id]; n != 0 {
+					row += fmt.Sprintf("\t⚙%d", n)
+				} else {
+					row += "\t"
+				}
+			}
+			_, _ = fmt.Fprintln(w, row)
 		}
-		return w.Flush()
+		if err := w.Flush(); err != nil {
+			return err
+		}
+		if mc != nil {
+			_, _ = fmt.Fprintln(env.Out)
+			for i, e := range mc.Entries {
+				_, _ = fmt.Fprintf(env.Out, "  ⚙%d  %s\n", i+1, engine.FormatMachineLine(&e.Machine, e.GoVersion))
+			}
+		}
+		return nil
 	case execenv.FormatJSON:
 		type sessionJSON struct {
-			ID         string    `json:"id"`
-			Name       string    `json:"name,omitempty"`
-			HumanName  string    `json:"human_name"`
-			Time       time.Time `json:"time"`
-			Commit     string    `json:"commit,omitempty"`
-			HasDiff    bool      `json:"has_diff"`
-			Profiles   []string  `json:"profiles"`
-			Tags       []string  `json:"tags"`
-			Benchmarks []string  `json:"benchmarks"`
+			ID         string              `json:"id"`
+			Name       string              `json:"name,omitempty"`
+			HumanName  string              `json:"human_name"`
+			Time       time.Time           `json:"time"`
+			Commit     string              `json:"commit,omitempty"`
+			HasDiff    bool                `json:"has_diff"`
+			Profiles   []string            `json:"profiles"`
+			Tags       []string            `json:"tags"`
+			Benchmarks []string            `json:"benchmarks"`
+			Machine    *engine.MachineInfo `json:"machine,omitempty"`
+			GoVersion  string              `json:"go_version,omitempty"`
 		}
 		out := make([]sessionJSON, len(sessions))
 		for i, s := range sessions {
@@ -136,6 +161,8 @@ func runSessionLs(ctx context.Context, env *execenv.Env, opts sessionLsOptions) 
 				Profiles:   sessionProfiles(s),
 				Tags:       tags,
 				Benchmarks: s.Benches,
+				Machine:    s.Machine,
+				GoVersion:  s.GoVersion,
 			}
 		}
 		return env.Out.PrintJSON(out)

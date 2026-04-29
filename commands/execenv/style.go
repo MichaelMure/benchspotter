@@ -98,13 +98,13 @@ func (s Style) SelectionBg() color.Color {
 // TrendCellBg returns a background color for a trend cell based on the curr/prev ratio.
 func (s Style) TrendCellBg(ratio float64) (color.Color, bool) {
 	switch {
-	case ratio > 1.10:
+	case ratio > 1.15:
 		return s.ld("224", "88"), true
-	case ratio > 1.02:
+	case ratio > 1.05:
 		return s.ld("217", "52"), true
-	case ratio < 0.90:
+	case ratio < 0.85:
 		return s.ld("120", "28"), true
-	case ratio < 0.98:
+	case ratio < 0.95:
 		return s.ld("157", "22"), true
 	}
 	return lipgloss.NoColor{}, false
@@ -123,13 +123,13 @@ func (s Style) TrendArrow(curr, prev float64, bg ...color.Color) string {
 	red := lipgloss.NewStyle().Foreground(s.ld("160", "9")).Background(bgColor)
 	green := lipgloss.NewStyle().Foreground(s.ld("28", "10")).Background(bgColor)
 	switch {
-	case ratio > 1.10:
+	case ratio > 1.15:
 		return red.Render("↑↑")
-	case ratio > 1.02:
+	case ratio > 1.05:
 		return red.Render("↑")
-	case ratio < 0.90:
+	case ratio < 0.85:
 		return green.Render("↓↓")
-	case ratio < 0.98:
+	case ratio < 0.95:
 		return green.Render("↓")
 	}
 	return ""

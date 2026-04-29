@@ -28,6 +28,18 @@ func SelectSession(ctx context.Context, env *execenv.Env, preSelect string, filt
 		return nil, fmt.Errorf("no sessions to select, use `benchspotter bench` to run benchmarks")
 	}
 
+	var visible []*engine.SessionInfo
+	for _, s := range sessions {
+		if filter == nil || filter(s) {
+			visible = append(visible, s)
+		}
+	}
+
+	mc := engine.NewMachineContext(visible)
+	if mc != nil {
+		printMachineLegend(env, mc)
+	}
+
 	var selection *engine.SessionInfo
 	err = env.FormSingle(huh.NewSelect[*engine.SessionInfo]().
 		Title("Select a session").
@@ -37,7 +49,7 @@ func SelectSession(ctx context.Context, env *execenv.Env, preSelect string, filt
 				if filter != nil && !filter(session) {
 					continue
 				}
-				line := formatSession(env, session)
+				line := formatSession(env, session, mc)
 				opts = append(opts, huh.NewOption(line, session).
 					Selected(preSelect == session.Id))
 			}
@@ -69,6 +81,11 @@ func SelectSessions(ctx context.Context, env *execenv.Env, preSelect []string) (
 		return nil, fmt.Errorf("no sessions to select, use `benchspotter bench` to run benchmarks")
 	}
 
+	mc := engine.NewMachineContext(sessions)
+	if mc != nil {
+		printMachineLegend(env, mc)
+	}
+
 	var selection []*engine.SessionInfo
 
 	err = env.FormSingle(huh.NewMultiSelect[*engine.SessionInfo]().
@@ -76,7 +93,7 @@ func SelectSessions(ctx context.Context, env *execenv.Env, preSelect []string) (
 		OptionsFunc(func() []huh.Option[*engine.SessionInfo] {
 			opts := make([]huh.Option[*engine.SessionInfo], len(sessions))
 			for i, session := range sessions {
-				line := formatSession(env, session)
+				line := formatSession(env, session, mc)
 				opts[i] = huh.NewOption(line, session).
 					Selected(slices.Contains(preSelect, session.Id))
 			}
@@ -92,7 +109,17 @@ func SelectSessions(ctx context.Context, env *execenv.Env, preSelect []string) (
 	return selection, nil
 }
 
-func formatSession(env *execenv.Env, session *engine.SessionInfo) string {
+func machineLabel(style execenv.Style, n int) string {
+	return style.Info(fmt.Sprintf("⚙%d", n))
+}
+
+func formatSession(env *execenv.Env, session *engine.SessionInfo, mc *engine.MachineContext) string {
+	var label string
+	if mc != nil {
+		if n := mc.Labels[session.Id]; n != 0 {
+			label = fmt.Sprintf(" ⚙%d", n)
+		}
+	}
 	var commit string
 	if len(session.GitCommit) > 0 {
 		if session.HasGitDiff() {
@@ -101,9 +128,18 @@ func formatSession(env *execenv.Env, session *engine.SessionInfo) string {
 			commit = fmt.Sprintf(" - (⎇  %s)", session.GitCommit[:7])
 		}
 	}
-	return fmt.Sprintf("%s%s%s",
+	return fmt.Sprintf("%s%s%s%s",
 		session.HumanName,
+		label,
 		commit,
 		env.Style.TonedDown(" - "+session.Id),
 	)
+}
+
+func printMachineLegend(env *execenv.Env, mc *engine.MachineContext) {
+	fmt.Fprintln(env.Out, "Machines:")
+	for i, e := range mc.Entries {
+		fmt.Fprintf(env.Out, "  %s  %s\n", machineLabel(env.Style, i+1), engine.FormatMachineLine(&e.Machine, e.GoVersion))
+	}
+	fmt.Fprintln(env.Out)
 }

@@ -158,11 +158,18 @@ func renderTrendTextPlain(env *execenv.Env, data *engine.TrendData, opts trendOp
 
 func renderTrendOverviewText(env *execenv.Env, data *engine.TrendData) error {
 	unit := data.Units[0]
+	mc := engine.NewMachineContext(data.Sessions)
 	tw := tabwriter.NewWriter(env.Out, 0, 0, 2, ' ', 0)
 
 	fmt.Fprintf(tw, "%-30s", "benchmark")
 	for _, s := range data.Sessions {
-		fmt.Fprintf(tw, "\t%s", s.HumanName)
+		col := s.HumanName
+		if mc != nil {
+			if n := mc.Labels[s.Id]; n != 0 {
+				col = fmt.Sprintf("⚙%d ", n) + col
+			}
+		}
+		fmt.Fprintf(tw, "\t%s", col)
 	}
 	fmt.Fprintln(tw)
 
@@ -190,11 +197,21 @@ func renderTrendOverviewText(env *execenv.Env, data *engine.TrendData) error {
 		}
 		fmt.Fprintln(tw)
 	}
-	return tw.Flush()
+	if err := tw.Flush(); err != nil {
+		return err
+	}
+	if mc != nil {
+		fmt.Fprintln(env.Out)
+		for i, e := range mc.Entries {
+			fmt.Fprintf(env.Out, "  ⚙%d  %s\n", i+1, engine.FormatMachineLine(&e.Machine, e.GoVersion))
+		}
+	}
+	return nil
 }
 
 func renderTrendDetailText(env *execenv.Env, data *engine.TrendData, bench string) error {
 	fmt.Fprintf(env.Out, "Benchmark: %s\n\n", bench)
+	mc := engine.NewMachineContext(data.Sessions)
 	tw := tabwriter.NewWriter(env.Out, 0, 0, 2, ' ', 0)
 
 	fmt.Fprintf(tw, "%-20s\t%-12s", "session", "date")
@@ -226,7 +243,13 @@ func renderTrendDetailText(env *execenv.Env, data *engine.TrendData, bench strin
 			continue
 		}
 
-		fmt.Fprintf(tw, "%-20s\t%-12s", ansi.Truncate(s.HumanName, 19, "…"), s.Time.Format("06-Jan-02"))
+		sessionName := s.HumanName
+		if mc != nil {
+			if n := mc.Labels[s.Id]; n != 0 {
+				sessionName = fmt.Sprintf("⚙%d ", n) + sessionName
+			}
+		}
+		fmt.Fprintf(tw, "%-20s\t%-12s", ansi.Truncate(sessionName, 19, "…"), s.Time.Format("06-Jan-02"))
 		for _, unit := range data.Units {
 			pts := data.Points[bench][unit]
 			if len(pts) == 0 {
@@ -248,7 +271,16 @@ func renderTrendDetailText(env *execenv.Env, data *engine.TrendData, bench strin
 		fmt.Fprintln(tw)
 		prevSID = s.Id
 	}
-	return tw.Flush()
+	if err := tw.Flush(); err != nil {
+		return err
+	}
+	if mc != nil {
+		fmt.Fprintln(env.Out)
+		for i, e := range mc.Entries {
+			fmt.Fprintf(env.Out, "  ⚙%d  %s\n", i+1, engine.FormatMachineLine(&e.Machine, e.GoVersion))
+		}
+	}
+	return nil
 }
 
 // ── TUI model ─────────────────────────────────────────────────────────────────
@@ -285,16 +317,55 @@ type trendViewModel struct {
 	// detail state
 	bench string
 	chart linechart.Model
+
+	// machine filter: nil when single machine; machineFilter=-1 means all
+	machineCtx    *engine.MachineContext
+	machineFilter int
 }
 
 func newTrendModel(data *engine.TrendData, opts trendOptions, style execenv.Style) trendViewModel {
-	m := trendViewModel{data: data, opts: opts, style: style}
+	m := trendViewModel{
+		data:          data,
+		opts:          opts,
+		style:         style,
+		machineCtx:    engine.NewMachineContext(data.Sessions),
+		machineFilter: -1,
+	}
 	if opts.bench != "" {
 		m.bench = opts.bench
 		m.mode = trendModeDetail
 		m.cursor = m.benchIdx()
 	}
 	return m
+}
+
+func (m trendViewModel) filteredSessions() []*engine.SessionInfo {
+	if m.machineCtx == nil || m.machineFilter < 0 {
+		return m.data.Sessions
+	}
+	n := m.machineFilter + 1
+	out := make([]*engine.SessionInfo, 0, len(m.data.Sessions))
+	for _, s := range m.data.Sessions {
+		if m.machineCtx.Labels[s.Id] == n {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+func (m trendViewModel) filteredPoints(bench, unit string) []engine.TrendPoint {
+	pts := m.data.Points[bench][unit]
+	if m.machineCtx == nil || m.machineFilter < 0 {
+		return pts
+	}
+	n := m.machineFilter + 1
+	out := make([]engine.TrendPoint, 0, len(pts))
+	for _, p := range pts {
+		if m.machineCtx.Labels[p.Session.Id] == n {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 func (m trendViewModel) Init() tea.Cmd { return nil }
@@ -342,7 +413,8 @@ func (m trendViewModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.colOff--
 				}
 			case "right", "l":
-				maxOff := len(m.data.Sessions) - m.maxCols()
+				sessions := m.filteredSessions()
+				maxOff := len(sessions) - m.maxCols()
 				if maxOff < 0 {
 					maxOff = 0
 				}
@@ -352,6 +424,15 @@ func (m trendViewModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "m":
 				if len(m.data.Units) > 0 {
 					m.unitIdx = (m.unitIdx + 1) % len(m.data.Units)
+				}
+			case "f":
+				if m.machineCtx != nil {
+					m.machineFilter++
+					if m.machineFilter >= len(m.machineCtx.Entries) {
+						m.machineFilter = -1
+					}
+					m.colOff = 0
+					m = m.clampScroll()
 				}
 			case "esc":
 				return m, tea.Quit
@@ -380,6 +461,16 @@ func (m trendViewModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "m":
 				if len(m.data.Units) > 0 {
 					m.unitIdx = (m.unitIdx + 1) % len(m.data.Units)
+					if m.ready {
+						m = m.rebuildChart()
+					}
+				}
+			case "f":
+				if m.machineCtx != nil {
+					m.machineFilter++
+					if m.machineFilter >= len(m.machineCtx.Entries) {
+						m.machineFilter = -1
+					}
 					if m.ready {
 						m = m.rebuildChart()
 					}
@@ -427,7 +518,7 @@ func (m trendViewModel) clampScroll() trendViewModel {
 	if m.scrollOff < 0 {
 		m.scrollOff = 0
 	}
-	maxOff := len(m.data.Sessions) - m.maxCols()
+	maxOff := len(m.filteredSessions()) - m.maxCols()
 	if maxOff < 0 {
 		maxOff = 0
 	}
@@ -452,7 +543,7 @@ func (m trendViewModel) chartHeight() int {
 }
 
 func (m trendViewModel) detailTableRows() int {
-	pts := m.data.Points[m.bench][m.data.Units[m.unitIdx]]
+	pts := m.filteredPoints(m.bench, m.data.Units[m.unitIdx])
 	n := len(pts) + 2
 	if n > 12 {
 		n = 12
@@ -465,7 +556,7 @@ func (m trendViewModel) rebuildChart() trendViewModel {
 		return m
 	}
 	unit := m.data.Units[m.unitIdx]
-	pts := m.data.Points[m.bench][unit]
+	pts := m.filteredPoints(m.bench, unit)
 
 	chartW := m.width - 2
 	if chartW < 10 {
@@ -550,12 +641,13 @@ func (m trendViewModel) viewOverview() string {
 	unit := m.data.Units[m.unitIdx]
 
 	// Determine which sessions fit as columns given terminal width.
+	allSessions := m.filteredSessions()
 	maxCols := m.maxCols()
 	colEnd := m.colOff + maxCols
-	if colEnd > len(m.data.Sessions) {
-		colEnd = len(m.data.Sessions)
+	if colEnd > len(allSessions) {
+		colEnd = len(allSessions)
 	}
-	sessions := m.data.Sessions[m.colOff:colEnd]
+	sessions := allSessions[m.colOff:colEnd]
 
 	// Build per-bench point maps once.
 	type benchRow struct {
@@ -579,13 +671,31 @@ func (m trendViewModel) viewOverview() string {
 	// Title
 	sb.WriteString(m.style.Bold("Trend") + m.style.TonedDown("  unit: ") + m.style.Accent(unit) + "\n")
 
-	// Header row
-	header := fmt.Sprintf("%-*s", overviewNameW, "benchmark")
+	// Header row — machine tag styled separately so it isn't swallowed by TonedDown.
+	header := m.style.TonedDown(fmt.Sprintf("%-*s", overviewNameW, "benchmark"))
 	for _, s := range sessions {
-		col := ansi.Truncate(s.HumanName, overviewColW-2, "…")
-		header += fmt.Sprintf("  %-*s", overviewColW-2, col)
+		var machineTag string
+		if m.machineCtx != nil {
+			if n := m.machineCtx.Labels[s.Id]; n != 0 {
+				machineTag = m.style.Info(fmt.Sprintf("⚙%d", n))
+			}
+		}
+		tagW := lipgloss.Width(machineTag)
+		nameW := overviewColW - 2 - tagW
+		if tagW > 0 {
+			nameW-- // space between tag and name
+		}
+		if nameW < 1 {
+			nameW = 1
+		}
+		col := ansi.Truncate(s.HumanName, nameW, "…")
+		if machineTag != "" {
+			header += "  " + machineTag + " " + m.style.TonedDown(fmt.Sprintf("%-*s", nameW, col))
+		} else {
+			header += "  " + m.style.TonedDown(fmt.Sprintf("%-*s", overviewColW-2, col))
+		}
 	}
-	sb.WriteString(m.style.TonedDown(header) + "\n")
+	sb.WriteString(header + "\n")
 
 	sb.WriteString(strings.Repeat("─", m.width) + "\n")
 
@@ -649,11 +759,19 @@ func (m trendViewModel) viewOverview() string {
 		"[↵] detail",
 		"[←→hl] scroll cols",
 		"[m] cycle unit",
-		"[q] quit",
 	}
+	if m.machineCtx != nil {
+		machineLabel := "all"
+		if m.machineFilter >= 0 {
+			e := m.machineCtx.Entries[m.machineFilter]
+			machineLabel = fmt.Sprintf("⚙%d", m.machineFilter+1) + " " + e.Machine.Summary()
+		}
+		statusParts = append(statusParts, "[f] machine: "+machineLabel)
+	}
+	statusParts = append(statusParts, "[q] quit")
 	status := strings.Join(statusParts, "  ")
-	if len(m.data.Sessions) > maxCols {
-		status += fmt.Sprintf("  cols %d-%d/%d", m.colOff+1, colEnd, len(m.data.Sessions))
+	if len(allSessions) > maxCols {
+		status += fmt.Sprintf("  cols %d-%d/%d", m.colOff+1, colEnd, len(allSessions))
 	}
 	sb.WriteString(m.style.TonedDown(status))
 
@@ -666,7 +784,7 @@ func (m trendViewModel) viewDetail() string {
 	}
 
 	unit := m.data.Units[m.unitIdx]
-	pts := m.data.Points[m.bench][unit]
+	pts := m.filteredPoints(m.bench, unit)
 
 	var sb strings.Builder
 
@@ -692,8 +810,8 @@ func (m trendViewModel) viewDetail() string {
 		start = len(pts) - tableMax
 	}
 
-	bMap := pointMap(m.data.Points[m.bench]["B/op"])
-	aMap := pointMap(m.data.Points[m.bench]["allocs/op"])
+	bMap := pointMap(m.filteredPoints(m.bench, "B/op"))
+	aMap := pointMap(m.filteredPoints(m.bench, "allocs/op"))
 
 	var prevID string
 	for i := start; i < len(pts); i++ {
@@ -719,9 +837,18 @@ func (m trendViewModel) viewDetail() string {
 			aVal = formatMetricValue(ap.Center, "allocs/op")
 		}
 
+		var machineTag string
+		if m.machineCtx != nil {
+			if n := m.machineCtx.Labels[p.Session.Id]; n != 0 {
+				machineTag = m.style.Info(fmt.Sprintf("⚙%d ", n))
+			}
+		}
+		tagW := lipgloss.Width(machineTag)
+		nameCell := machineTag + ansi.Truncate(p.Session.HumanName, 19-tagW, "…")
+
 		sb.WriteString(
 			padRight(fmt.Sprintf("%d", i+1), 3) +
-				"  " + padRight(ansi.Truncate(p.Session.HumanName, 19, "…"), 20) +
+				"  " + padRight(nameCell, 20) +
 				"  " + padRight(p.Session.Time.Format("06-Jan-02"), 12) +
 				"  " + padRight(nsVal, 14) +
 				"  " + padRight(bVal, 8) +
@@ -735,9 +862,16 @@ func (m trendViewModel) viewDetail() string {
 	statusParts := []string{
 		"[←→hl] cycle benchmark",
 		"[m] cycle unit",
-		"[b/esc] back",
-		"[q] quit",
 	}
+	if m.machineCtx != nil {
+		machineLabel := "all"
+		if m.machineFilter >= 0 {
+			e := m.machineCtx.Entries[m.machineFilter]
+			machineLabel = fmt.Sprintf("⚙%d", m.machineFilter+1) + " " + e.Machine.Summary()
+		}
+		statusParts = append(statusParts, "[f] machine: "+machineLabel)
+	}
+	statusParts = append(statusParts, "[b/esc] back", "[q] quit")
 	sb.WriteString(m.style.TonedDown(strings.Join(statusParts, "  ")))
 
 	return sb.String()

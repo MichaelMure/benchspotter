@@ -18,14 +18,15 @@ import (
 )
 
 type compareStatOptions struct {
-	sessions   []string
-	thresholds benchmath.Thresholds
-	table      string
-	row        string
-	col        string
-	ignore     string
-	filter     string
-	confidence float64
+	sessions         []string
+	thresholds       benchmath.Thresholds
+	table            string
+	row              string
+	col              string
+	ignore           string
+	filter           string
+	confidence       float64
+	skipMachineCheck bool
 }
 
 func newCompareStatCommand(env *execenv.Env) *cobra.Command {
@@ -52,6 +53,7 @@ func newCompareStatCommand(env *execenv.Env) *cobra.Command {
 	flags.Float64Var(&options.thresholds.CompareAlpha, "alpha",
 		options.thresholds.CompareAlpha, "consider change significant if p < `α`")
 	flags.Float64Var(&options.confidence, "confidence", 0.95, "confidence `level` for ranges")
+	flags.BoolVar(&options.skipMachineCheck, "skip-machine-check", false, "suppress cross-machine warning")
 
 	return cmd
 }
@@ -100,6 +102,16 @@ func runCompareStat(ctx context.Context, env *execenv.Env, options compareStatOp
 		}
 		if len(selection) == 0 {
 			return fmt.Errorf("no matching sessions found")
+		}
+	}
+
+	if !options.skipMachineCheck {
+		if mc := engine.NewMachineContext(selection); mc != nil {
+			fmt.Fprintln(env.Err, "Warning: comparing sessions from different machines:")
+			for i, e := range mc.Entries {
+				fmt.Fprintf(env.Err, "  ⚙%d  %s\n", i+1, engine.FormatMachineLine(&e.Machine, e.GoVersion))
+			}
+			fmt.Fprintln(env.Err)
 		}
 	}
 

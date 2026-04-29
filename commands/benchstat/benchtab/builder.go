@@ -23,8 +23,6 @@ import (
 	"benchspotter/commands/execenv"
 )
 
-// TODO: Color by good/bad (or nothing for unknown units)
-
 // A Builder collects benchmark results into a Tables set.
 type Builder struct {
 	tableBy, rowBy, colBy *benchproc.Projection

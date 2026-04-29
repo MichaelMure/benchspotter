@@ -9,10 +9,10 @@ import (
 	"sort"
 	"strings"
 
+	"charm.land/lipgloss/v2"
 	"github.com/alecthomas/chroma/formatters"
 	"github.com/alecthomas/chroma/lexers"
 	"github.com/alecthomas/chroma/styles"
-	"charm.land/lipgloss/v2"
 
 	"benchspotter/commands/execenv"
 	"benchspotter/engine"
