@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"text/tabwriter"
 	"time"
 
 	"charm.land/huh/v2"
@@ -13,6 +12,7 @@ import (
 
 	"benchspotter/commands/execenv"
 	"benchspotter/commands/inputs"
+	"benchspotter/commands/tabwriter"
 	"benchspotter/engine"
 )
 
@@ -57,6 +57,7 @@ func runSessionLs(ctx context.Context, env *execenv.Env, opts sessionLsOptions) 
 	err := env.Spinner().Title("Finding sessions").
 		ActionWithErr(func(ctx context.Context) error {
 			var err error
+			// time.Sleep(100 * time.Millisecond)
 			sessions, err = engine.LocateSessions(env.Repo.Storage())
 			return err
 		}).Context(ctx).Run()
@@ -94,9 +95,9 @@ func runSessionLs(ctx context.Context, env *execenv.Env, opts sessionLsOptions) 
 			}
 			check := func(ok bool) string {
 				if ok {
-					return "✓"
+					return env.Style.Positive("✓")
 				}
-				return "-"
+				return env.Style.Negative("-")
 			}
 			row := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%s",
 				s.HumanName,

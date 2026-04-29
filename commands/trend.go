@@ -7,7 +7,6 @@ import (
 	"math"
 	"strconv"
 	"strings"
-	"text/tabwriter"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -18,6 +17,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"benchspotter/commands/execenv"
+	"benchspotter/commands/tabwriter"
 	"benchspotter/engine"
 )
 
@@ -933,7 +933,6 @@ func trendArrow(curr, prev float64) string {
 	}
 	return ""
 }
-
 
 // padRight pads s to at least width visible characters, accounting for ANSI codes.
 func padRight(s string, width int) string {

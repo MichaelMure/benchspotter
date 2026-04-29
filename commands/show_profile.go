@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"text/tabwriter"
 	"time"
 
 	"github.com/google/pprof/profile"
@@ -17,6 +16,7 @@ import (
 
 	"benchspotter/commands/execenv"
 	"benchspotter/commands/inputs"
+	"benchspotter/commands/tabwriter"
 	"benchspotter/engine"
 )
 
