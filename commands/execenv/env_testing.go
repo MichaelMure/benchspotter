@@ -66,13 +66,17 @@ func (te *TestOut) Raw() io.Writer {
 	return te.Buffer
 }
 
+func TestStyle() Style {
+	return NewStyle(huh.ThemeFunc(huh.ThemeCharm), false)
+}
+
 func NewTestEnv(repo *repository.Repository) *Env {
 	return &Env{
 		Repo:   repo,
 		In:     &TestIn{Buffer: &bytes.Buffer{}},
 		Out:    &TestOut{Buffer: &bytes.Buffer{}},
 		Err:    &TestOut{Buffer: &bytes.Buffer{}},
-		Style:  Style{Styles: huh.ThemeCharm(false), themeFunc: huh.ThemeFunc(huh.ThemeCharm)},
+		Style:  TestStyle(),
 		Format: FormatText,
 	}
 }

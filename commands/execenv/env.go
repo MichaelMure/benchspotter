@@ -33,7 +33,7 @@ func NewEnv() *Env {
 		In:     in{Reader: os.Stdin},
 		Out:    out{out: termenv.NewOutput(os.Stdout)},
 		Err:    out{out: termenv.NewOutput(os.Stderr)},
-		Style:  Style{Styles: tf.Theme(isDark), themeFunc: tf},
+		Style:  NewStyle(tf, isDark),
 		Format: FormatText,
 	}
 }

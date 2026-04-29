@@ -11,8 +11,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
-	"charm.land/lipgloss/v2"
-	"charm.land/lipgloss/v2/compat"
 	"github.com/NimbleMarkets/ntcharts/v2/canvas"
 	"github.com/NimbleMarkets/ntcharts/v2/linechart"
 	"github.com/charmbracelet/x/ansi"
@@ -721,7 +719,7 @@ func (m optimizeModel) renderTable(units []string) string {
 	bestIdx, _ := engine.BestPoint(m.results, m.metric, m.minimize)
 	lastResIdx := len(m.results) - 1
 	sorted := m.sortedResultIndices()
-	lastBg := compat.AdaptiveColor{Light: lipgloss.Color("254"), Dark: lipgloss.Color("238")}
+	lastBg := m.style.SelectionBg()
 
 	var sb strings.Builder
 	sb.WriteString(m.style.TonedDown(resultTableHeader(m.inputs, units)) + "\n")
@@ -742,7 +740,7 @@ func (m optimizeModel) renderTable(units []string) string {
 			line += "  " + m.style.Accent("← best")
 		}
 		if resIdx == lastResIdx {
-			line = lipgloss.NewStyle().Background(lastBg).Render(line)
+			line = m.style.WithBg(lastBg, line)
 		}
 		sb.WriteString(line + "\n")
 	}
@@ -783,7 +781,7 @@ func (m optimizeModel) renderCorr(units []string) string {
 			if !ok {
 				row += "  " + padRight("—", colW)
 			} else {
-				row += "  " + corrStyle(r).Render(padRight(fmt.Sprintf("%+.2f", r), colW))
+				row += "  " + m.style.Corr(r, padRight(fmt.Sprintf("%+.2f", r), colW))
 			}
 		}
 		sb.WriteString(row + "\n")
@@ -794,25 +792,6 @@ func (m optimizeModel) renderCorr(units []string) string {
 	}
 
 	return sb.String()
-}
-
-func corrStyle(r float64) lipgloss.Style {
-	abs := r
-	if abs < 0 {
-		abs = -abs
-	}
-	switch {
-	case abs < 0.3:
-		return lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: lipgloss.Color("243"), Dark: lipgloss.Color("245")})
-	case r > 0.7:
-		return lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: lipgloss.Color("28"), Dark: lipgloss.Color("82")}).Bold(true)
-	case r > 0:
-		return lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: lipgloss.Color("34"), Dark: lipgloss.Color("76")})
-	case r < -0.7:
-		return lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: lipgloss.Color("160"), Dark: lipgloss.Color("196")}).Bold(true)
-	default:
-		return lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: lipgloss.Color("166"), Dark: lipgloss.Color("214")})
-	}
 }
 
 func printOptimizeReport(env *execenv.Env, results []engine.EvaluatedPoint, metric string, minimize bool) {

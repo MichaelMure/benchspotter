@@ -14,6 +14,7 @@ import (
 	"github.com/alecthomas/chroma/styles"
 	"charm.land/lipgloss/v2"
 
+	"benchspotter/commands/execenv"
 	"benchspotter/engine"
 	"benchspotter/repository"
 )
@@ -22,6 +23,7 @@ import (
 // and show inline. Embed it in a view model to get caching, git-aware source
 // lookup, and the shared rendering primitives.
 type sourceViewBase struct {
+	style       execenv.Style
 	sourcesRoot string
 	gitCommit   string
 	gitDiff     []byte
@@ -599,16 +601,6 @@ func truncateLeft(s string, maxLen int) string {
 
 const sidebarMinTermWidth = 80
 
-var (
-	// TODO: move to Style?
-	sidebarFileStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("250"))
-	sidebarFnStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
-	sidebarActiveStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("255")).Bold(true)
-	sidebarSelectStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Bold(true) // orange — selected search match
-	sidebarDimStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("238"))            // non-matching entries
-	sidebarDivStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-)
-
 func (b *sourceViewBase) SidebarWidth(totalWidth int) int {
 	if totalWidth < sidebarMinTermWidth {
 		return 0
@@ -625,7 +617,7 @@ func (b *sourceViewBase) SidebarWidth(totalWidth int) int {
 
 func (b *sourceViewBase) RenderSidebar(width, height int) string {
 	inner := width - 1 // last column is the │ divider
-	divider := sidebarDivStyle.Render("│")
+	divider := b.style.SidebarDivider("│")
 
 	// In search mode, find which header index is the selected match.
 	selectedIdx := -1
@@ -656,11 +648,26 @@ func (b *sourceViewBase) RenderSidebar(width, height int) string {
 
 	type entry struct {
 		text      string
-		style     lipgloss.Style
 		prominent bool // auto-scroll to keep this visible
 	}
 	var entries []entry
 	prominentIdx := -1
+
+	applyStyle := func(text string, isActive, isSelected, isMatch, isFn bool) string {
+		switch {
+		case isSelected:
+			return b.style.SidebarSelected(text)
+		case isActive:
+			return b.style.SidebarActive(text)
+		case isMatch:
+			if isFn {
+				return b.style.SidebarFn(text)
+			}
+			return b.style.SidebarFile(text)
+		default:
+			return b.style.SidebarDim(text)
+		}
+	}
 
 	prevFile := ""
 	for i := range b.headers {
@@ -671,7 +678,6 @@ func (b *sourceViewBase) RenderSidebar(width, height int) string {
 
 		if h.file != prevFile {
 			prevFile = h.file
-			// Dim file heading if none of its entries match the query.
 			fileHasMatch := isMatch
 			if !fileHasMatch {
 				for j := i + 1; j < len(b.headers) && b.headers[j].file == h.file; j++ {
@@ -681,23 +687,9 @@ func (b *sourceViewBase) RenderSidebar(width, height int) string {
 					}
 				}
 			}
-			var st lipgloss.Style
-			switch {
-			case isSelected && h.fn == "":
-				st = sidebarSelectStyle
-			case isActive && h.fn == "":
-				st = sidebarActiveStyle
-			case fileHasMatch:
-				st = sidebarFileStyle
-			default:
-				st = sidebarDimStyle
-			}
 			prominent := (isActive || isSelected) && h.fn == ""
-			entries = append(entries, entry{
-				text:      " " + truncateLeft(h.file, inner-1),
-				style:     st,
-				prominent: prominent,
-			})
+			text := applyStyle(" "+truncateLeft(h.file, inner-1), isActive && h.fn == "", isSelected && h.fn == "", fileHasMatch, false)
+			entries = append(entries, entry{text: text, prominent: prominent})
 			if prominent {
 				prominentIdx = len(entries) - 1
 			}
@@ -713,23 +705,9 @@ func (b *sourceViewBase) RenderSidebar(width, height int) string {
 			if runes := []rune(name); len(runes) > maxName {
 				name = string(runes[:maxName-1]) + "…"
 			}
-			var st lipgloss.Style
-			switch {
-			case isSelected:
-				st = sidebarSelectStyle
-			case isActive:
-				st = sidebarActiveStyle
-			case isMatch:
-				st = sidebarFnStyle
-			default:
-				st = sidebarDimStyle
-			}
 			prominent := isActive || isSelected
-			entries = append(entries, entry{
-				text:      "  " + name + badge,
-				style:     st,
-				prominent: prominent,
-			})
+			text := applyStyle("  "+name+badge, isActive, isSelected, isMatch, true)
+			entries = append(entries, entry{text: text, prominent: prominent})
 			if prominent {
 				prominentIdx = len(entries) - 1
 			}
@@ -753,8 +731,7 @@ func (b *sourceViewBase) RenderSidebar(width, height int) string {
 		idx := scrollStart + row
 		var line string
 		if idx < len(entries) {
-			e := entries[idx]
-			line = lipgloss.NewStyle().Width(inner).MaxWidth(inner).Inherit(e.style).Render(e.text)
+			line = lipgloss.NewStyle().Width(inner).MaxWidth(inner).Render(entries[idx].text)
 		} else {
 			line = lipgloss.NewStyle().Width(inner).Render("")
 		}

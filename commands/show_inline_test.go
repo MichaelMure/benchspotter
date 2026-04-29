@@ -259,9 +259,10 @@ func TestInlineAnnotationStyle(t *testing.T) {
 		{Message: "inlining call to pkg.Bar"},
 		{Message: "can inline Baz"},
 	}
+	style := execenv.TestStyle()
 	var sb strings.Builder
 	for _, s := range sites {
-		sb.WriteString(inlineAnnotationStyle(s))
+		sb.WriteString(inlineAnnotationStyle(style, s))
 		sb.WriteByte('\n')
 	}
 	out := sb.String()

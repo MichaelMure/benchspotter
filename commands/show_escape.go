@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 
 	"benchspotter/commands/execenv"
@@ -124,6 +123,7 @@ func runShowEscape(ctx context.Context, env *execenv.Env, options showEscapeOpti
 		}
 		model := &escapeViewModel{
 			sourceViewBase: sourceViewBase{
+				style:       env.Style,
 				sourcesRoot: sourcesRoot,
 				gitCommit:   selection.GitCommit,
 				gitDiff:     gitDiff,
@@ -297,12 +297,12 @@ func (m *escapeViewModel) renderEscapeAnnotations(sb *strings.Builder, sites []e
 		return
 	}
 	indent := strings.Repeat(" ", annotIndent)
-	fmt.Fprintf(sb, "%s%s\n", indent, escapeAnnotSeparator(sites))
+	fmt.Fprintf(sb, "%s%s\n", indent, escapeAnnotSeparator(m.style, sites))
 	for _, s := range sites {
-		fmt.Fprintf(sb, "%s%s\n", indent, escapeAnnotationStyle(s))
+		fmt.Fprintf(sb, "%s%s\n", indent, escapeAnnotationStyle(m.style, s))
 		if m.showFlow {
 			for _, f := range s.FlowChain {
-				fmt.Fprintf(sb, "%s  %s\n", indent, flowLineStyle.Render(f))
+				fmt.Fprintf(sb, "%s  %s\n", indent, m.style.FlowLine(f))
 			}
 		}
 	}
@@ -323,45 +323,35 @@ func (m *escapeViewModel) filteredSites() []engine.EscapeSite {
 
 // ── Escape-specific annotation rendering ─────────────────────────────────────
 
-var (
-	heapEscapeStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("214")) // orange
-	leakingParamStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("81"))  // cyan
-	otherNoteStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("245")) // dim gray
-	flowLineStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("239")) // darker gray
-	subjectStyle      = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255"))
-)
-
 // "  NNNN  " prefix = 8 chars; annotations indent 2 more.
 const lineNumWidth = 8
 const annotIndent = lineNumWidth + 2
 const annotSepWidth = 36
 
-func escapeAnnotSeparator(sites []engine.EscapeSite) string {
-	base := otherNoteStyle
+func escapeAnnotSeparator(style execenv.Style, sites []engine.EscapeSite) string {
+	render := func(s string) string { return style.TonedDown(s) }
 	for _, s := range sites {
 		if s.IsHeapEscape() {
-			base = heapEscapeStyle
+			render = style.Warning
 			break
 		}
 		if s.IsLeakingParam() {
-			base = leakingParamStyle
+			render = style.Info
 		}
 	}
-	return base.Render(strings.Repeat("─", annotSepWidth))
+	return render(strings.Repeat("─", annotSepWidth))
 }
 
-func escapeAnnotationStyle(s engine.EscapeSite) string {
+func escapeAnnotationStyle(style execenv.Style, s engine.EscapeSite) string {
 	prefix, subject, suffix := splitEscapeSubject(s.Message)
-	var base lipgloss.Style
+	render := func(t string) string { return style.TonedDown(t) }
 	switch {
 	case s.IsHeapEscape():
-		base = heapEscapeStyle
+		render = style.Warning
 	case s.IsLeakingParam():
-		base = leakingParamStyle
-	default:
-		base = otherNoteStyle
+		render = style.Info
 	}
-	return "↑ " + base.Render(prefix) + subjectStyle.Render(subject) + base.Render(suffix)
+	return "↑ " + render(prefix) + style.Subject(subject) + render(suffix)
 }
 
 func splitEscapeSubject(msg string) (prefix, subject, suffix string) {

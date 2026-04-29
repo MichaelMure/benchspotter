@@ -6,7 +6,6 @@ import (
 	"io"
 	"strings"
 
-	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 
 	"benchspotter/commands/execenv"
@@ -129,6 +128,7 @@ func runShowInline(ctx context.Context, env *execenv.Env, options showInlineOpti
 		}
 		model := &inlineViewModel{
 			sourceViewBase: sourceViewBase{
+				style:       env.Style,
 				sourcesRoot: sourcesRoot,
 				gitCommit:   selection.GitCommit,
 				gitDiff:     gitDiff,
@@ -265,7 +265,7 @@ func (m *inlineViewModel) renderInlineFunction(sb *strings.Builder, absFile stri
 			}
 		},
 		func(sb *strings.Builder, lineNo int) {
-			renderInlineAnnotations(sb, annotations[lineNo])
+			m.renderInlineAnnotations(sb, annotations[lineNo])
 		},
 	)
 }
@@ -284,7 +284,7 @@ func (m *inlineViewModel) renderInlineContext(sb *strings.Builder, absFile strin
 			}
 		},
 		func(sb *strings.Builder, lineNo int) {
-			renderInlineAnnotations(sb, annotations[lineNo])
+			m.renderInlineAnnotations(sb, annotations[lineNo])
 		},
 	)
 }
@@ -304,50 +304,40 @@ func (m *inlineViewModel) filteredSites() []engine.InlineSite {
 
 // ── Inline-specific annotation rendering ─────────────────────────────────────
 
-var (
-	inlineCannotStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("214")) // orange — matches heap escape
-	inlineCalledStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("77"))  // green
-	inlineCanStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("245")) // dim gray
-	inlineSubjectStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255"))
-)
-
-func renderInlineAnnotations(sb *strings.Builder, sites []engine.InlineSite) {
+func (m *inlineViewModel) renderInlineAnnotations(sb *strings.Builder, sites []engine.InlineSite) {
 	if len(sites) == 0 {
 		return
 	}
 	indent := strings.Repeat(" ", annotIndent)
-	fmt.Fprintf(sb, "%s%s\n", indent, inlineAnnotSeparator(sites))
+	fmt.Fprintf(sb, "%s%s\n", indent, inlineAnnotSeparator(m.style, sites))
 	for _, s := range sites {
-		fmt.Fprintf(sb, "%s%s\n", indent, inlineAnnotationStyle(s))
+		fmt.Fprintf(sb, "%s%s\n", indent, inlineAnnotationStyle(m.style, s))
 	}
 }
 
-func inlineAnnotSeparator(sites []engine.InlineSite) string {
-	base := inlineCanStyle
+func inlineAnnotSeparator(style execenv.Style, sites []engine.InlineSite) string {
+	render := func(s string) string { return style.TonedDown(s) }
 	for _, s := range sites {
 		switch s.Kind() {
 		case engine.InlineCannotInline:
-			base = inlineCannotStyle
+			render = style.Warning
 		case engine.InlineInliningCall:
-			base = inlineCalledStyle
-		default:
+			render = style.Info
 		}
 	}
-	return base.Render(strings.Repeat("─", annotSepWidth))
+	return render(strings.Repeat("─", annotSepWidth))
 }
 
-func inlineAnnotationStyle(s engine.InlineSite) string {
+func inlineAnnotationStyle(style execenv.Style, s engine.InlineSite) string {
 	prefix, subject, suffix := splitInlineSubject(s.Message)
-	var base lipgloss.Style
+	render := func(t string) string { return style.TonedDown(t) }
 	switch s.Kind() {
 	case engine.InlineCannotInline:
-		base = inlineCannotStyle
+		render = style.Warning
 	case engine.InlineInliningCall:
-		base = inlineCalledStyle
-	default:
-		base = inlineCanStyle
+		render = style.Info
 	}
-	return "↑ " + base.Render(prefix) + inlineSubjectStyle.Render(subject) + base.Render(suffix)
+	return "↑ " + render(prefix) + style.Subject(subject) + render(suffix)
 }
 
 // splitInlineSubject splits an inline message so the function name is bolded.

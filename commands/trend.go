@@ -12,7 +12,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"charm.land/lipgloss/v2/compat"
 	"github.com/NimbleMarkets/ntcharts/v2/canvas"
 	"github.com/NimbleMarkets/ntcharts/v2/linechart"
 	"github.com/charmbracelet/x/ansi"
@@ -597,11 +596,9 @@ func (m trendViewModel) viewOverview() string {
 		end = len(rows)
 	}
 
-	selBg := compat.AdaptiveColor{Light: lipgloss.Color("254"), Dark: lipgloss.Color("238")}
+	selBg := m.style.SelectionBg()
 
-	withBg := func(text string, bg color.Color) string {
-		return lipgloss.NewStyle().Background(bg).Render(text)
-	}
+	withBg := func(text string, bg color.Color) string { return m.style.WithBg(bg, text) }
 
 	for i := m.scrollOff; i < end; i++ {
 		row := rows[i]
@@ -626,10 +623,10 @@ func (m trendViewModel) viewOverview() string {
 			var arrow string
 			if j > 0 {
 				if prev, hasPrev := row.ptMap[sessions[j-1].Id]; hasPrev {
-					if bg, ok := trendCellBg(p.Center / prev.Center); ok {
+					if bg, ok := m.style.TrendCellBg(p.Center / prev.Center); ok {
 						cellBg = bg
 					}
-					arrow = coloredArrow(p.Center, prev.Center, cellBg)
+					arrow = m.style.TrendArrow(p.Center, prev.Center, cellBg)
 				}
 			}
 			arrowW := lipgloss.Width(arrow)
@@ -707,7 +704,7 @@ func (m trendViewModel) viewDetail() string {
 		if prevID != "" {
 			for _, prev := range pts {
 				if prev.Session.Id == prevID {
-					nsVal += " " + coloredArrow(p.Center, prev.Center)
+					nsVal += " " + m.style.TrendArrow(p.Center, prev.Center)
 					break
 				}
 			}
@@ -803,44 +800,6 @@ func trendArrow(curr, prev float64) string {
 	return ""
 }
 
-// trendCellBg returns a background color for a cell based on the curr/prev ratio.
-func trendCellBg(ratio float64) (color.Color, bool) {
-	switch {
-	case ratio > 1.10:
-		return compat.AdaptiveColor{Light: lipgloss.Color("224"), Dark: lipgloss.Color("88")}, true
-	case ratio > 1.02:
-		return compat.AdaptiveColor{Light: lipgloss.Color("217"), Dark: lipgloss.Color("52")}, true
-	case ratio < 0.90:
-		return compat.AdaptiveColor{Light: lipgloss.Color("120"), Dark: lipgloss.Color("28")}, true
-	case ratio < 0.98:
-		return compat.AdaptiveColor{Light: lipgloss.Color("157"), Dark: lipgloss.Color("22")}, true
-	}
-	return lipgloss.NoColor{}, false
-}
-
-func coloredArrow(curr, prev float64, bg ...color.Color) string {
-	if prev == 0 {
-		return ""
-	}
-	ratio := curr / prev
-	var bgColor color.Color = lipgloss.NoColor{}
-	if len(bg) > 0 {
-		bgColor = bg[0]
-	}
-	red := lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Background(bgColor)
-	green := lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Background(bgColor)
-	switch {
-	case ratio > 1.10:
-		return red.Render("↑↑")
-	case ratio > 1.02:
-		return red.Render("↑")
-	case ratio < 0.90:
-		return green.Render("↓↓")
-	case ratio < 0.98:
-		return green.Render("↓")
-	}
-	return ""
-}
 
 // padRight pads s to at least width visible characters, accounting for ANSI codes.
 func padRight(s string, width int) string {
