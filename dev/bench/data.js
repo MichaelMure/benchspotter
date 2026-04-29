@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777417036885,
+  "lastUpdate": 1777447386813,
   "repoUrl": "https://github.com/MichaelMure/benchspotter",
   "entries": {
     "Go Benchmark": [
@@ -1392,6 +1392,246 @@ window.BENCHMARK_DATA = {
             "value": 0,
             "unit": "allocs/op",
             "extra": "198816897 times\n2 procs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "batolettre@gmail.com",
+            "name": "Michael Muré",
+            "username": "MichaelMure"
+          },
+          "committer": {
+            "email": "batolettre@gmail.com",
+            "name": "Michael Muré",
+            "username": "MichaelMure"
+          },
+          "distinct": true,
+          "id": "32f7e139640bb38c43302c047bc4beb2e5c3641c",
+          "message": "move color handling into execenv.Style",
+          "timestamp": "2026-04-29T09:21:00+02:00",
+          "tree_id": "d1a3a6cc2e5d8f5d94e0a7af5f3be878475caead",
+          "url": "https://github.com/MichaelMure/benchspotter/commit/32f7e139640bb38c43302c047bc4beb2e5c3641c"
+        },
+        "date": 1777447385595,
+        "tool": "go",
+        "benches": [
+          {
+            "name": "BenchmarkFoo (benchspotter/engine/internal)",
+            "value": 152.2,
+            "unit": "ns/op\t     456 B/op\t       3 allocs/op",
+            "extra": "7030714 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkFoo (benchspotter/engine/internal) - ns/op",
+            "value": 152.2,
+            "unit": "ns/op",
+            "extra": "7030714 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkFoo (benchspotter/engine/internal) - B/op",
+            "value": 456,
+            "unit": "B/op",
+            "extra": "7030714 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkFoo (benchspotter/engine/internal) - allocs/op",
+            "value": 3,
+            "unit": "allocs/op",
+            "extra": "7030714 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBar (benchspotter/engine/internal)",
+            "value": 149.7,
+            "unit": "ns/op\t     456 B/op\t       3 allocs/op",
+            "extra": "7847220 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBar (benchspotter/engine/internal) - ns/op",
+            "value": 149.7,
+            "unit": "ns/op",
+            "extra": "7847220 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBar (benchspotter/engine/internal) - B/op",
+            "value": 456,
+            "unit": "B/op",
+            "extra": "7847220 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBar (benchspotter/engine/internal) - allocs/op",
+            "value": 3,
+            "unit": "allocs/op",
+            "extra": "7847220 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBaz/foo/bar (benchspotter/engine/internal)",
+            "value": 168.6,
+            "unit": "ns/op\t     456 B/op\t       3 allocs/op",
+            "extra": "7422243 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBaz/foo/bar (benchspotter/engine/internal) - ns/op",
+            "value": 168.6,
+            "unit": "ns/op",
+            "extra": "7422243 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBaz/foo/bar (benchspotter/engine/internal) - B/op",
+            "value": 456,
+            "unit": "B/op",
+            "extra": "7422243 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBaz/foo/bar (benchspotter/engine/internal) - allocs/op",
+            "value": 3,
+            "unit": "allocs/op",
+            "extra": "7422243 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/first (benchspotter/engine/internal)",
+            "value": 7.48,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "162685690 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/first (benchspotter/engine/internal) - ns/op",
+            "value": 7.48,
+            "unit": "ns/op",
+            "extra": "162685690 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/first (benchspotter/engine/internal) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "162685690 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/first (benchspotter/engine/internal) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "162685690 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/second (benchspotter/engine/internal)",
+            "value": 7.688,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "163887816 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/second (benchspotter/engine/internal) - ns/op",
+            "value": 7.688,
+            "unit": "ns/op",
+            "extra": "163887816 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/second (benchspotter/engine/internal) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "163887816 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/second (benchspotter/engine/internal) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "163887816 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkHybridSort (benchspotter/engine/internal)",
+            "value": 482997,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "2476 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkHybridSort (benchspotter/engine/internal) - ns/op",
+            "value": 482997,
+            "unit": "ns/op",
+            "extra": "2476 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkHybridSort (benchspotter/engine/internal) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "2476 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkHybridSort (benchspotter/engine/internal) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "2476 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkMapOps (benchspotter/engine/internal)",
+            "value": 170343,
+            "unit": "ns/op\t  295553 B/op\t      33 allocs/op",
+            "extra": "6598 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkMapOps (benchspotter/engine/internal) - ns/op",
+            "value": 170343,
+            "unit": "ns/op",
+            "extra": "6598 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkMapOps (benchspotter/engine/internal) - B/op",
+            "value": 295553,
+            "unit": "B/op",
+            "extra": "6598 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkMapOps (benchspotter/engine/internal) - allocs/op",
+            "value": 33,
+            "unit": "allocs/op",
+            "extra": "6598 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBaz (benchspotter/engine/internal/anotherpackage)",
+            "value": 7.5,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "163367427 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBaz (benchspotter/engine/internal/anotherpackage) - ns/op",
+            "value": 7.5,
+            "unit": "ns/op",
+            "extra": "163367427 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBaz (benchspotter/engine/internal/anotherpackage) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "163367427 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBaz (benchspotter/engine/internal/anotherpackage) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "163367427 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBoz (benchspotter/engine/internal/anotherpackage)",
+            "value": 7.336,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "162770499 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBoz (benchspotter/engine/internal/anotherpackage) - ns/op",
+            "value": 7.336,
+            "unit": "ns/op",
+            "extra": "162770499 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBoz (benchspotter/engine/internal/anotherpackage) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "162770499 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBoz (benchspotter/engine/internal/anotherpackage) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "162770499 times\n2 procs"
           }
         ]
       }
