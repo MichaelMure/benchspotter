@@ -19,6 +19,8 @@ import (
 	"golang.org/x/perf/benchfmt"
 	"golang.org/x/perf/benchmath"
 	"golang.org/x/perf/benchproc"
+
+	"benchspotter/commands/execenv"
 )
 
 // TODO: Color by good/bad (or nothing for unknown units)
@@ -347,12 +349,12 @@ func summarizeCol(table *Table, col benchproc.Key, s *TableSummary, nBase int, i
 
 // ToText renders t to a textual representation, assuming a
 // fixed-width font.
-func (t *Tables) ToText(w io.Writer, color bool) error {
+func (t *Tables) ToText(w io.Writer, style *execenv.Style) error {
 	return t.printTables(func(hdr string) error {
 		_, err := fmt.Fprintf(w, "%s\n", hdr)
 		return err
 	}, func(table *Table) error {
-		return table.ToText(w, color)
+		return table.ToText(w, style)
 	})
 }
 

@@ -9,7 +9,8 @@ import (
 	"io"
 	"sort"
 	"strings"
-	"unicode/utf8"
+
+	"github.com/charmbracelet/x/ansi"
 )
 
 // Table does layout of text-based tables.
@@ -59,10 +60,10 @@ func (a align) lpad(s string, w int) string {
 	default:
 		return s
 	case alignCenter:
-		l := (w - utf8.RuneCountInString(s)) / 2
+		l := (w - ansi.StringWidth(s)) / 2
 		return fmt.Sprintf("%*s%s", l, "", s)
 	case alignRight:
-		return fmt.Sprintf("%*s", w, s)
+		return fmt.Sprintf("%*s", w-ansi.StringWidth(s), "") + s
 	}
 }
 
@@ -137,7 +138,7 @@ func (t *Table) Format(w io.Writer) error {
 	// Collect max length margin for each column.
 	lmargin := make([]int, t.cols)
 	for _, cell := range t.cells {
-		lmargin[cell.col] = max(utf8.RuneCountInString(cell.leftMargin), lmargin[cell.col])
+		lmargin[cell.col] = max(ansi.StringWidth(cell.leftMargin), lmargin[cell.col])
 	}
 
 	// Compute column widths, including their left margins.
@@ -148,7 +149,7 @@ func (t *Table) Format(w io.Writer) error {
 	})
 	var spanCols []int
 	for _, cell := range t.cells {
-		w := utf8.RuneCountInString(cell.value) + lmargin[cell.col]
+		w := ansi.StringWidth(cell.value) + lmargin[cell.col]
 
 		if cell.span == 1 {
 			// Easy case.
@@ -276,7 +277,7 @@ func (t *Table) Format(w io.Writer) error {
 		if _, err := fmt.Fprintf(w, "%s", s); err != nil {
 			return err
 		}
-		off += utf8.RuneCountInString(s)
+		off += ansi.StringWidth(s)
 	}
 	if len(t.cells) > 0 {
 		if _, err := fmt.Fprintf(w, "\n"); err != nil {

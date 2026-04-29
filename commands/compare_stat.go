@@ -176,7 +176,7 @@ func runCompareStat(ctx context.Context, env *execenv.Env, options compareStatOp
 	case execenv.FormatText:
 		tables := stat.ToTables(tableOpts)
 		viewport, runFn := env.Viewport(ctx)
-		if err := tables.ToText(viewport, true); err != nil {
+		if err := tables.ToText(viewport, &env.Style); err != nil {
 			return err
 		}
 		return runFn()

@@ -15,6 +15,7 @@ import (
 	"golang.org/x/perf/benchunit"
 
 	"benchspotter/commands/benchstat/texttab"
+	"benchspotter/commands/execenv"
 )
 
 // A Table summarizes and compares benchmark results in a 2D grid.
@@ -111,9 +112,25 @@ func (t *Table) RowScaler(row benchproc.Key, unitClass benchunit.Class) benchuni
 	return benchunit.CommonScale(values, unitClass)
 }
 
+func colorDelta(d string, style *execenv.Style) string {
+	if style == nil {
+		return d
+	}
+	switch {
+	case d == "~", d == "+0.00%":
+		return style.TonedDown(d)
+	case len(d) > 0 && d[0] == '-':
+		return style.Positive(d)
+	case len(d) > 0 && d[0] == '+':
+		return style.Negative(d)
+	default:
+		return d
+	}
+}
+
 // ToText renders t to a textual representation, assuming a
 // fixed-width font.
-func (t *Table) ToText(w io.Writer, color bool) error {
+func (t *Table) ToText(w io.Writer, style *execenv.Style) error {
 	var o texttab.Table
 
 	// Each logical column expands to centerCols columns, plus
@@ -153,6 +170,14 @@ func (t *Table) ToText(w io.Writer, color bool) error {
 		o.Cell(s)
 	}
 
+	sep := " │ "
+	sepR := " │"
+	if style != nil {
+		bar := style.TonedDown("│")
+		sep = " " + bar + " "
+		sepR = " " + bar
+	}
+
 	// Construct the header.
 	kt := benchproc.NewKeyHeader(t.Cols)
 	rEdge := startCol(len(t.Cols) + 1)
@@ -170,12 +195,16 @@ func (t *Table) ToText(w io.Writer, color bool) error {
 			// also add some space so that each logical
 			// column in the rest of the table is better
 			// separated.
-			o.Col(l).Span(r-l, node.Value, texttab.Center, texttab.LeftMargin(" │ "))
+			val := node.Value
+			if style != nil {
+				val = style.Bold(val)
+			}
+			o.Col(l).Span(r-l, val, texttab.Center, texttab.LeftMargin(sep))
 			nextNodes = append(nextNodes, node.Children...)
 		}
 		// Add a vertical bar down the right side to match the other
 		// separators.
-		o.Col(rEdge).Cell("", texttab.LeftMargin(" │"))
+		o.Col(rEdge).Cell("", texttab.LeftMargin(sepR))
 		nodes = nextNodes
 	}
 
@@ -188,7 +217,7 @@ func (t *Table) ToText(w io.Writer, color bool) error {
 
 		// Show the unit over the center column group, since
 		// these are values in that unit.
-		o.Span(centerCols, t.Unit, texttab.Center, texttab.LeftMargin(" │ "))
+		o.Span(centerCols, t.Unit, texttab.Center, texttab.LeftMargin(sep))
 
 		if i > 0 {
 			// All but the first column will have A/B
@@ -206,7 +235,7 @@ func (t *Table) ToText(w io.Writer, color bool) error {
 			o.SetShrink(j, true)
 		}
 	}
-	o.Col(rEdge).Cell("", texttab.LeftMargin(" │"))
+	o.Col(rEdge).Cell("", texttab.LeftMargin(sepR))
 
 	// Emit measurements.
 	unitClass := benchunit.ClassOf(t.Unit)
@@ -236,10 +265,12 @@ func (t *Table) ToText(w io.Writer, color bool) error {
 			warn(cell.Sample.Warnings, cell.Summary.Warnings)
 			if exp > 0 && cell.Baseline != nil {
 				d := cell.Comparison.FormatDelta(cell.Baseline.Summary.Center, cell.Summary.Center)
-				// TODO: Color the delta for whether
-				// it's good or bad.
-				o.Cell(d, texttab.Right)
-				o.Cell("(" + cell.Comparison.String() + ")")
+				o.Cell(colorDelta(d, style), texttab.Right)
+				stat := "(" + cell.Comparison.String() + ")"
+				if style != nil {
+					stat = style.TonedDown(stat)
+				}
+				o.Cell(stat)
 				warn(cell.Comparison.Warnings)
 			}
 		}
@@ -248,7 +279,11 @@ func (t *Table) ToText(w io.Writer, color bool) error {
 	// Emit summary row.
 	if len(t.Rows) > 1 {
 		o.Row()
-		o.Cell(t.SummaryLabel)
+		summaryLabel := t.SummaryLabel
+		if style != nil {
+			summaryLabel = style.Bold(summaryLabel)
+		}
+		o.Cell(summaryLabel)
 		for exp, col := range t.Cols {
 			tsum, ok := t.Summary[col]
 			if !ok {
@@ -262,7 +297,8 @@ func (t *Table) ToText(w io.Writer, color bool) error {
 			if exp > 0 {
 				o.Col(startCol(exp) + centerCols)
 				if tsum.HasRatio {
-					o.Cell(fmt.Sprintf("%+.2f%%", (tsum.Ratio-1)*100), texttab.Right)
+					d := fmt.Sprintf("%+.2f%%", (tsum.Ratio-1)*100)
+					o.Cell(colorDelta(d, style), texttab.Right)
 				} else {
 					o.Cell("?")
 				}
@@ -281,7 +317,11 @@ func (t *Table) ToText(w io.Writer, color bool) error {
 	// Emit warnings.
 	if len(warningList) > 0 {
 		for i, msg := range warningList {
-			if _, err := fmt.Fprintf(w, "%s %s\n", superscript(i+1), msg); err != nil {
+			line := fmt.Sprintf("%s %s", superscript(i+1), msg)
+			if style != nil {
+				line = style.TonedDown(line)
+			}
+			if _, err := fmt.Fprintf(w, "%s\n", line); err != nil {
 				return err
 			}
 		}
