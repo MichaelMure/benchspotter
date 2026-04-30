@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	"charm.land/huh/v2"
 
@@ -36,26 +37,30 @@ func SelectSession(ctx context.Context, env *execenv.Env, preSelect string, filt
 	}
 
 	mc := engine.NewMachineContext(visible)
-	if mc != nil {
-		printMachineLegend(env, mc)
-	}
 
 	var selection *engine.SessionInfo
-	err = env.FormSingle(huh.NewSelect[*engine.SessionInfo]().
-		Title("Select a session").
-		OptionsFunc(func() []huh.Option[*engine.SessionInfo] {
-			opts := make([]huh.Option[*engine.SessionInfo], 0, len(sessions))
-			for _, session := range sessions {
-				if filter != nil && !filter(session) {
-					continue
+	fields := []huh.Field{
+		huh.NewSelect[*engine.SessionInfo]().
+			Title("Select a session").
+			OptionsFunc(func() []huh.Option[*engine.SessionInfo] {
+				opts := make([]huh.Option[*engine.SessionInfo], 0, len(sessions))
+				for _, session := range sessions {
+					if filter != nil && !filter(session) {
+						continue
+					}
+					line := formatSession(env, session, mc)
+					opts = append(opts, huh.NewOption(line, session).
+						Selected(preSelect == session.Id))
 				}
-				line := formatSession(env, session, mc)
-				opts = append(opts, huh.NewOption(line, session).
-					Selected(preSelect == session.Id))
-			}
-			return opts
-		}, nil).
-		Value(&selection)).
+				return opts
+			}, nil).
+			Value(&selection),
+	}
+	if mc != nil {
+		fields = append([]huh.Field{machineLegendNote(env, mc)}, fields...)
+	}
+	err = env.Form(huh.NewGroup(fields...)).
+		WithShowHelp(false).
 		RunWithContext(ctx)
 	if err != nil {
 		return nil, err
@@ -82,25 +87,28 @@ func SelectSessions(ctx context.Context, env *execenv.Env, preSelect []string) (
 	}
 
 	mc := engine.NewMachineContext(sessions)
-	if mc != nil {
-		printMachineLegend(env, mc)
-	}
 
 	var selection []*engine.SessionInfo
-
-	err = env.FormSingle(huh.NewMultiSelect[*engine.SessionInfo]().
-		Title("Select sessions (/ to filter)").
-		OptionsFunc(func() []huh.Option[*engine.SessionInfo] {
-			opts := make([]huh.Option[*engine.SessionInfo], len(sessions))
-			for i, session := range sessions {
-				line := formatSession(env, session, mc)
-				opts[i] = huh.NewOption(line, session).
-					Selected(slices.Contains(preSelect, session.Id))
-			}
-			return opts
-		}, nil).
-		Filterable(true).
-		Value(&selection)).
+	fields := []huh.Field{
+		huh.NewMultiSelect[*engine.SessionInfo]().
+			Title("Select sessions (/ to filter)").
+			OptionsFunc(func() []huh.Option[*engine.SessionInfo] {
+				opts := make([]huh.Option[*engine.SessionInfo], len(sessions))
+				for i, session := range sessions {
+					line := formatSession(env, session, mc)
+					opts[i] = huh.NewOption(line, session).
+						Selected(slices.Contains(preSelect, session.Id))
+				}
+				return opts
+			}, nil).
+			Filterable(true).
+			Value(&selection),
+	}
+	if mc != nil {
+		fields = append([]huh.Field{machineLegendNote(env, mc)}, fields...)
+	}
+	err = env.Form(huh.NewGroup(fields...)).
+		WithShowHelp(false).
 		RunWithContext(ctx)
 	if err != nil {
 		return nil, err
@@ -136,10 +144,13 @@ func formatSession(env *execenv.Env, session *engine.SessionInfo, mc *engine.Mac
 	)
 }
 
-func printMachineLegend(env *execenv.Env, mc *engine.MachineContext) {
-	fmt.Fprintln(env.Out, "Machines:")
+func machineLegendNote(env *execenv.Env, mc *engine.MachineContext) *huh.Note {
+	var body strings.Builder
 	for i, e := range mc.Entries {
-		fmt.Fprintf(env.Out, "  %s  %s\n", machineLabel(env.Style, i+1), engine.FormatMachineLine(&e.Machine, e.GoVersion))
+		if i > 0 {
+			body.WriteByte('\n')
+		}
+		_, _ = fmt.Fprintf(&body, "  %s  %s", machineLabel(env.Style, i+1), engine.FormatMachineLine(&e.Machine, e.GoVersion))
 	}
-	fmt.Fprintln(env.Out)
+	return huh.NewNote().Title("Machines:").Description(body.String())
 }
