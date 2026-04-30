@@ -57,7 +57,11 @@ func runSessionLs(ctx context.Context, env *execenv.Env, opts sessionLsOptions) 
 	err := env.Spinner().Title("Finding sessions").
 		ActionWithErr(func(ctx context.Context) error {
 			var err error
-			// time.Sleep(100 * time.Millisecond)
+			// HACK: bubbletea or huh suffers at the moment from an issue where, if the app runs
+			// and stops too fast, a race can happen where bubbletea query the terminal for info,
+			// the app stops, then the terminal print the response visibly to stdin as garbage.
+			// A small delay fix that.
+			time.Sleep(100 * time.Millisecond)
 			sessions, err = engine.LocateSessions(env.Repo.Storage())
 			return err
 		}).Context(ctx).Run()
