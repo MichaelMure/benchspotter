@@ -123,7 +123,7 @@ func runShowEscape(ctx context.Context, env *execenv.Env, options showEscapeOpti
 		}
 		model := &escapeViewModel{
 			sourceViewBase: sourceViewBase{
-				style:       env.Style,
+				env:         env,
 				sourcesRoot: sourcesRoot,
 				gitCommit:   selection.GitCommit,
 				gitDiff:     gitDiff,
@@ -217,7 +217,7 @@ func (m *escapeViewModel) Render() string {
 
 	groups := buildGroups(&m.sourceViewBase, visible,
 		func(s engine.EscapeSite) string { return s.File },
-		func(s engine.EscapeSite) int    { return s.Line },
+		func(s engine.EscapeSite) int { return s.Line },
 	)
 
 	m.headers = make([]headerEntry, len(groups))
@@ -302,12 +302,12 @@ func (m *escapeViewModel) renderEscapeAnnotations(sb *strings.Builder, sites []e
 		return
 	}
 	indent := strings.Repeat(" ", annotIndent)
-	fmt.Fprintf(sb, "%s%s\n", indent, escapeAnnotSeparator(m.style, sites))
+	fmt.Fprintf(sb, "%s%s\n", indent, escapeAnnotSeparator(m.env.Style, sites))
 	for _, s := range sites {
-		fmt.Fprintf(sb, "%s%s\n", indent, escapeAnnotationStyle(m.style, s))
+		fmt.Fprintf(sb, "%s%s\n", indent, escapeAnnotationStyle(m.env.Style, s))
 		if m.showFlow {
 			for _, f := range s.FlowChain {
-				fmt.Fprintf(sb, "%s  %s\n", indent, m.style.FlowLine(f))
+				fmt.Fprintf(sb, "%s  %s\n", indent, m.env.Style.FlowLine(f))
 			}
 		}
 	}

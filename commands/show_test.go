@@ -15,7 +15,7 @@ func TestShowDiff(t *testing.T) {
 	t.Run("text", func(t *testing.T) {
 		storage := memfs.New()
 		session := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "abc1234def5678abc1234def5678abc1234def56", true)
-		env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 
 		err := runShowDiffCommand(t.Context(), env, showDiffOptions{session: session})
 		require.NoError(t, err)
@@ -25,7 +25,7 @@ func TestShowDiff(t *testing.T) {
 	t.Run("raw", func(t *testing.T) {
 		storage := memfs.New()
 		session := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "abc1234def5678abc1234def5678abc1234def56", true)
-		env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 		env.Format = execenv.FormatRaw
 
 		err := runShowDiffCommand(t.Context(), env, showDiffOptions{session: session})
@@ -36,7 +36,7 @@ func TestShowDiff(t *testing.T) {
 	t.Run("json", func(t *testing.T) {
 		storage := memfs.New()
 		session := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "abc1234def5678abc1234def5678abc1234def56", true)
-		env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 		env.Format = execenv.FormatJSON
 
 		err := runShowDiffCommand(t.Context(), env, showDiffOptions{session: session})

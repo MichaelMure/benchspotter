@@ -2,18 +2,15 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"iter"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-billy/v5/util"
-	gogit "github.com/go-git/go-git/v5"
 	"golang.org/x/sys/execabs"
 )
 
@@ -105,20 +102,11 @@ func (repo *Repository) init() error {
 		}
 	}
 
-	gitRepo, err := gogit.PlainOpen(repo.sources.Root())
-	if err != nil && !errors.Is(err, gogit.ErrRepositoryNotExists) {
-		return fmt.Errorf("open git repository: %w", err)
+	if _, err := detectGitPath(repo.sources.Root(), 0); err == nil {
+		repo.git = &execGitSource{root: repo.sources.Root()}
 	}
-	repo.git = &goGitSource{repo: gitRepo}
 
 	return nil
-}
-
-// FileAtCommit returns the content of relPath (relative to the sources root)
-// at the given git commit hash. Returns an error if not a git repository or
-// if the commit or path cannot be found.
-func (repo *Repository) FileAtCommit(commit, relPath string) ([]byte, error) {
-	return repo.git.FileAtCommit(commit, relPath)
 }
 
 func (repo *Repository) Sources() billy.Filesystem {
@@ -130,10 +118,22 @@ func (repo *Repository) Storage() billy.Filesystem {
 	return repo.storage
 }
 
-func (repo *Repository) Cmd(ctx context.Context, name string, args ...string) *exec.Cmd {
-	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Dir = repo.sources.Root()
-	return cmd
+// FileAtCommit returns the content of relPath (relative to the sources root)
+// at the given git commit hash. Returns an error if not a git repository or
+// if the commit or path cannot be found.
+func (repo *Repository) FileAtCommit(ctx context.Context, commit, relPath string) ([]byte, error) {
+	return repo.git.FileAtCommit(ctx, commit, relPath)
+}
+
+// HeadCommit returns the hash of the current HEAD commit.
+func (repo *Repository) HeadCommit(ctx context.Context) (string, error) {
+	return repo.git.HeadCommit(ctx)
+}
+
+// Diff returns a unified diff of all uncommitted changes vs HEAD.
+// Returns nil, nil when the working tree is clean or there is no git repository.
+func (repo *Repository) Diff(ctx context.Context) ([]byte, error) {
+	return repo.git.Diff(ctx)
 }
 
 // GetRecall returns a single value from the "recall" storage for a better UX

@@ -2,6 +2,7 @@ package execenv
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -67,11 +68,12 @@ func (te *TestOut) Raw() io.Writer {
 }
 
 func TestStyle() Style {
-	return NewStyle(huh.ThemeFunc(huh.ThemeCharm), false)
+	return NewStyle(huh.ThemeCharm, false)
 }
 
-func NewTestEnv(repo *repository.Repository) *Env {
+func NewTestEnv(ctx context.Context, repo *repository.Repository) *Env {
 	return &Env{
+		Ctx:    ctx,
 		Repo:   repo,
 		In:     &TestIn{Buffer: &bytes.Buffer{}},
 		Out:    &TestOut{Buffer: &bytes.Buffer{}},

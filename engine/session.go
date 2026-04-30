@@ -7,11 +7,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"time"
 
 	"github.com/go-git/go-billy/v5"
@@ -42,12 +40,12 @@ func PrepareSession(ctx context.Context, env *execenv.Env, name string, benches 
 	}
 	id := uid.String()
 
-	err = recordDiffIfAvailable(ctx, env, id)
+	err = recordDiffIfAvailable(env, id)
 	if err != nil {
 		return "", err
 	}
 
-	err = recordMeta(ctx, env, id, name, benches)
+	err = recordMeta(env, id, name, benches)
 	if err != nil {
 		return "", err
 	}
@@ -55,24 +53,22 @@ func PrepareSession(ctx context.Context, env *execenv.Env, name string, benches 
 	return id, nil
 }
 
-func recordDiffIfAvailable(ctx context.Context, env *execenv.Env, id string) error {
+func recordDiffIfAvailable(env *execenv.Env, id string) error {
+	data, err := env.Repo.Diff(env.Ctx)
+	if err != nil || len(data) == 0 {
+		return nil
+	}
 	filename := filepath.Join(sessionDir, id, GitDiffFilename)
-	diffFile, err := env.Repo.Storage().Create(filename)
+	f, err := env.Repo.Storage().Create(filename)
 	if err != nil {
 		return fmt.Errorf("failed to create diff file: %w", err)
 	}
-
-	cmd := env.Repo.Cmd(ctx, "git", "diff")
-	cmd.Stdout = &CountingWriter{writer: diffFile}
-	err = cmd.Run()
-	_ = diffFile.Close()
-	if err != nil || cmd.Stdout.(*CountingWriter).bytesWritten == 0 {
-		_ = env.Repo.Storage().Remove(filename)
-	}
-	return nil
+	_, err = f.Write(data)
+	_ = f.Close()
+	return err
 }
 
-func recordMeta(ctx context.Context, env *execenv.Env, id string, name string, benches []BenchInfo) error {
+func recordMeta(env *execenv.Env, id string, name string, benches []BenchInfo) error {
 	filename := filepath.Join(sessionDir, id, metaFilename)
 	f, err := env.Repo.Storage().Create(filename)
 	if err != nil {
@@ -92,7 +88,7 @@ func recordMeta(ctx context.Context, env *execenv.Env, id string, name string, b
 		meta.Benches[i] = bench.Name
 	}
 
-	if commit, err := getCommitIfAvailable(ctx, env); err == nil {
+	if commit, err := env.Repo.HeadCommit(env.Ctx); err == nil {
 		meta.GitCommit = commit
 	}
 
@@ -103,26 +99,6 @@ func recordMeta(ctx context.Context, env *execenv.Env, id string, name string, b
 		return fmt.Errorf("failed to encode meta file: %w", err)
 	}
 	return nil
-}
-
-func getCommitIfAvailable(ctx context.Context, env *execenv.Env) (string, error) {
-	cmd := env.Repo.Cmd(ctx, "git", "rev-parse", "HEAD")
-	out, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(out)), nil
-}
-
-type CountingWriter struct {
-	writer       io.Writer
-	bytesWritten int
-}
-
-func (c *CountingWriter) Write(p []byte) (int, error) {
-	n, err := c.writer.Write(p)
-	c.bytesWritten += n
-	return n, err
 }
 
 type SessionInfo struct {

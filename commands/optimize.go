@@ -38,6 +38,7 @@ func newOptimizeCommand(env *execenv.Env) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "optimize",
+		Aliases: []string{"optimise"},
 		Short:   "Search for optimal benchinput parameter values",
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {

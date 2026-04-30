@@ -53,7 +53,7 @@ engine/foo.go:30:1: can inline Qux
 
 		t.Run("default", func(t *testing.T) {
 			sessionID, storage := setup(t)
-			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 			env.Format = execenv.FormatJSON
 
 			err := runShowInline(t.Context(), env, showInlineOptions{session: sessionID})
@@ -67,7 +67,7 @@ engine/foo.go:30:1: can inline Qux
 
 		t.Run("all", func(t *testing.T) {
 			sessionID, storage := setup(t)
-			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 			env.Format = execenv.FormatJSON
 
 			err := runShowInline(t.Context(), env, showInlineOptions{session: sessionID, all: true})
@@ -89,7 +89,7 @@ engine/foo.go:30:1: can inline Qux
 			require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.InlineFilename), []byte(mixed), 0644))
 
 			t.Run("default", func(t *testing.T) {
-				env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+				env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 				env.Format = execenv.FormatJSON
 
 				err := runShowInline(t.Context(), env, showInlineOptions{session: sessionID})
@@ -100,7 +100,7 @@ engine/foo.go:30:1: can inline Qux
 			})
 
 			t.Run("include_deps", func(t *testing.T) {
-				env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+				env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 				env.Format = execenv.FormatJSON
 
 				err := runShowInline(t.Context(), env, showInlineOptions{session: sessionID, includeDeps: true})
@@ -130,7 +130,7 @@ func callHelper() {}
 			dir := filepath.Join("sessions", sessionID)
 			require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.InlineFilename), []byte(inlineData), 0644))
 
-			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, gitSrc))
+			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, gitSrc))
 			env.Format = execenv.FormatText
 
 			err := runShowInline(t.Context(), env, showInlineOptions{session: sessionID, all: true})
@@ -170,7 +170,7 @@ func oldHelper() {}
 			inlineData := "engine/foo.go:4:2: inlining call to newHelper\n"
 			require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.InlineFilename), []byte(inlineData), 0644))
 
-			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, gitSrc))
+			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, gitSrc))
 			env.Format = execenv.FormatText
 
 			err := runShowInline(t.Context(), env, showInlineOptions{session: sessionID, all: true})
@@ -186,7 +186,7 @@ func oldHelper() {}
 		storage := memfs.New()
 		sessionID := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
 
-		env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 		env.Format = execenv.FormatJSON
 
 		err := runShowInline(t.Context(), env, showInlineOptions{session: sessionID})
@@ -197,7 +197,7 @@ func oldHelper() {}
 		storage := memfs.New()
 		createTestSession(t, storage, "some-session", []string{"BenchmarkFoo"}, "", false)
 
-		env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 		env.Format = execenv.FormatJSON
 
 		err := runShowInline(t.Context(), env, showInlineOptions{session: "nonexistent-id"})
@@ -243,7 +243,7 @@ func helperB() int { return 2 }
 	dir := filepath.Join("sessions", sessionID)
 	require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.InlineFilename), []byte(inlineData), 0644))
 
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, gitSrc))
+	env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, gitSrc))
 	env.Format = execenv.FormatText
 
 	err := runShowInline(t.Context(), env, showInlineOptions{session: sessionID})

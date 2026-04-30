@@ -2,14 +2,14 @@ package repository
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
-	gogit "github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
+	"golang.org/x/sys/execabs"
 )
 
 func detectGitPath(path string, depth int) (string, error) {
@@ -97,32 +97,53 @@ func isGitDir(path string) (bool, error) {
 	return true, nil
 }
 
-// GitSource retrieves file content at a specific git commit.
+// GitSource retrieves file content and metadata from a git repository.
 type GitSource interface {
-	FileAtCommit(commit, relPath string) ([]byte, error)
+	// FileAtCommit returns the content of relPath (relative to the sources root)
+	// at the given git commit hash. Returns an error if not a git repository or
+	// if the commit or path cannot be found.
+	FileAtCommit(ctx context.Context, commit, relPath string) ([]byte, error)
+	// HeadCommit returns the hash of the current HEAD commit.
+	HeadCommit(ctx context.Context) (string, error)
+	// Diff returns a unified diff of all uncommitted changes vs HEAD.
+	// Returns nil, nil when the working tree is clean.
+	Diff(ctx context.Context) ([]byte, error)
 }
 
-// goGitSource is the real GitSource backed by a go-git repository.
-type goGitSource struct {
-	repo *gogit.Repository
+// execGitSource is a GitSource backed by the git binary.
+type execGitSource struct {
+	root string
 }
 
-func (g *goGitSource) FileAtCommit(commit, relPath string) ([]byte, error) {
-	commitObj, err := g.repo.CommitObject(plumbing.NewHash(commit))
+func (g *execGitSource) FileAtCommit(ctx context.Context, commit, relPath string) ([]byte, error) {
+	cmd := execabs.CommandContext(ctx, "git", "show", commit+":"+relPath)
+	cmd.Dir = g.root
+	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("commit %s: %w", commit, err)
+		return nil, fmt.Errorf("git show %s:%s: %w", commit, relPath, err)
 	}
-	tree, err := commitObj.Tree()
+	return out, nil
+}
+
+func (g *execGitSource) HeadCommit(ctx context.Context) (string, error) {
+	cmd := execabs.CommandContext(ctx, "git", "rev-parse", "HEAD")
+	cmd.Dir = g.root
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+func (g *execGitSource) Diff(ctx context.Context) ([]byte, error) {
+	cmd := execabs.CommandContext(ctx, "git", "diff", "HEAD")
+	cmd.Dir = g.root
+	out, err := cmd.Output()
 	if err != nil {
 		return nil, err
 	}
-	file, err := tree.File(relPath)
-	if err != nil {
-		return nil, err
+	if len(out) == 0 {
+		return nil, nil
 	}
-	contents, err := file.Contents()
-	if err != nil {
-		return nil, err
-	}
-	return []byte(contents), nil
+	return out, nil
 }

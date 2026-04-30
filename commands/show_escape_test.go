@@ -69,7 +69,7 @@ engine/foo.go:30:1: can inline Baz
 			dir := filepath.Join("sessions", sessionID)
 			require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.EscapeFilename), []byte(escapeData), 0644))
 
-			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 			env.Format = execenv.FormatJSON
 
 			err := runShowEscape(t.Context(), env, showEscapeOptions{session: sessionID})
@@ -91,7 +91,7 @@ engine/foo.go:30:1: can inline Baz
 			dir := filepath.Join("sessions", sessionID)
 			require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.EscapeFilename), []byte(escapeData), 0644))
 
-			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 			env.Format = execenv.FormatJSON
 
 			err := runShowEscape(t.Context(), env, showEscapeOptions{session: sessionID, all: true})
@@ -111,7 +111,7 @@ engine/foo.go:30:1: can inline Baz
 			require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.EscapeFilename), []byte(escapeData), 0644))
 
 			t.Run("default", func(t *testing.T) {
-				env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+				env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 				env.Format = execenv.FormatJSON
 
 				err := runShowEscape(t.Context(), env, showEscapeOptions{session: sessionID})
@@ -122,7 +122,7 @@ engine/foo.go:30:1: can inline Baz
 			})
 
 			t.Run("include_deps", func(t *testing.T) {
-				env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+				env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 				env.Format = execenv.FormatJSON
 
 				err := runShowEscape(t.Context(), env, showEscapeOptions{session: sessionID, includeDeps: true})
@@ -156,7 +156,7 @@ func BenchmarkFoo(b *testing.B) {
 			dir := filepath.Join("sessions", sessionID)
 			require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.EscapeFilename), []byte(escapeData), 0644))
 
-			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, gitSrc))
+			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, gitSrc))
 			env.Format = execenv.FormatText
 
 			err := runShowEscape(t.Context(), env, showEscapeOptions{session: sessionID})
@@ -201,7 +201,7 @@ func BenchmarkFoo(b *testing.B) {
 			escapeData := "engine/foo.go:6:7: make([]byte, 1024) escapes to heap\n"
 			require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.EscapeFilename), []byte(escapeData), 0644))
 
-			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, gitSrc))
+			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, gitSrc))
 			env.Format = execenv.FormatText
 
 			err := runShowEscape(t.Context(), env, showEscapeOptions{session: sessionID})
@@ -217,7 +217,7 @@ func BenchmarkFoo(b *testing.B) {
 		storage := memfs.New()
 		sessionID := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
 
-		env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 		env.Format = execenv.FormatJSON
 
 		err := runShowEscape(t.Context(), env, showEscapeOptions{session: sessionID})
@@ -228,7 +228,7 @@ func BenchmarkFoo(b *testing.B) {
 		storage := memfs.New()
 		createTestSession(t, storage, "some-session", []string{"BenchmarkFoo"}, "", false)
 
-		env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 		env.Format = execenv.FormatJSON
 
 		err := runShowEscape(t.Context(), env, showEscapeOptions{session: "nonexistent-id"})
@@ -388,7 +388,7 @@ func BenchmarkFoo(b *testing.B) {
 	dir := filepath.Join("sessions", sessionID)
 	require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.EscapeFilename), []byte(escapeData), 0644))
 
-	env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, gitSrc))
+	env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, gitSrc))
 	env.Format = execenv.FormatText
 
 	err := runShowEscape(t.Context(), env, showEscapeOptions{session: sessionID})
@@ -408,8 +408,13 @@ func TestFlowChainRendering(t *testing.T) {
 		FlowChain: []string{"flow: from parameter to heap", "flow: assigned to interface"},
 	}
 
+	env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), memfs.New(), nil))
+
 	model := &escapeViewModel{
-		sourceViewBase: sourceViewBase{rawCache: make(map[string][]byte)},
+		sourceViewBase: sourceViewBase{
+			env:      env,
+			rawCache: make(map[string][]byte),
+		},
 	}
 
 	var sb strings.Builder

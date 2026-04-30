@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"context"
+
 	"github.com/spf13/cobra"
 	"github.com/thediveo/enumflag/v2"
 
@@ -9,7 +11,7 @@ import (
 
 const RootCmdName = "benchspotter"
 
-func NewRootCommand() *cobra.Command {
+func NewRootCommand(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   RootCmdName,
 		Short: "Your companion for go benchmarking",
@@ -35,7 +37,7 @@ A typical session is as follow:
 		child.GroupID = groupID
 	}
 
-	env := execenv.NewEnv()
+	env := execenv.NewEnv(ctx)
 
 	formatFlag := enumflag.New(&env.Format, "format", execenv.FormatIds, enumflag.EnumCaseInsensitive)
 	cmd.PersistentFlags().VarP(formatFlag, "format", "f", "output format (not all formats supported by every command)")

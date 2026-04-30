@@ -128,7 +128,7 @@ func runShowInline(ctx context.Context, env *execenv.Env, options showInlineOpti
 		}
 		model := &inlineViewModel{
 			sourceViewBase: sourceViewBase{
-				style:       env.Style,
+				env:         env,
 				sourcesRoot: sourcesRoot,
 				gitCommit:   selection.GitCommit,
 				gitDiff:     gitDiff,
@@ -314,9 +314,9 @@ func (m *inlineViewModel) renderInlineAnnotations(sb *strings.Builder, sites []e
 		return
 	}
 	indent := strings.Repeat(" ", annotIndent)
-	fmt.Fprintf(sb, "%s%s\n", indent, inlineAnnotSeparator(m.style, sites))
+	fmt.Fprintf(sb, "%s%s\n", indent, inlineAnnotSeparator(m.env.Style, sites))
 	for _, s := range sites {
-		fmt.Fprintf(sb, "%s%s\n", indent, inlineAnnotationStyle(m.style, s))
+		fmt.Fprintf(sb, "%s%s\n", indent, inlineAnnotationStyle(m.env.Style, s))
 	}
 }
 

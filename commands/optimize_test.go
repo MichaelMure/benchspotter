@@ -45,7 +45,7 @@ func optimizeTestFixtures() (results []engine.EvaluatedPoint, bench engine.Bench
 
 //go:fix inline
 func newOptimizeTestEnv(t *testing.T) *execenv.Env {
-	return execenv.NewTestEnv(repository.NewForTesting(memfs.New(), memfs.New(), nil))
+	return execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), memfs.New(), nil))
 }
 
 func TestOptimize(t *testing.T) {

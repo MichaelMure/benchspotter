@@ -17,6 +17,7 @@ import (
 
 // Env is the environment of a command
 type Env struct {
+	Ctx    context.Context
 	Repo   *repository.Repository
 	In     In
 	Out    Out
@@ -25,10 +26,11 @@ type Env struct {
 	Format Format
 }
 
-func NewEnv() *Env {
+func NewEnv(ctx context.Context) *Env {
 	tf := huh.ThemeFunc(huh.ThemeCharm)
 	isDark := lipgloss.HasDarkBackground(os.Stdin, os.Stdout)
 	return &Env{
+		Ctx:    ctx,
 		Repo:   nil,
 		In:     in{Reader: os.Stdin},
 		Out:    out{out: termenv.NewOutput(os.Stdout)},

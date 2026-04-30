@@ -41,7 +41,7 @@ func TestCompareStats(t *testing.T) {
 		// benchfmt.Files reads from real disk paths via BenchFullPath(), so storage
 		// must be backed by a real directory rather than memfs.
 		storage, id1, id2 := setupCompareStorage(t)
-		env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 
 		err := runCompareStat(t.Context(), env, compareStatOpts(id1, id2))
 		require.NoError(t, err)
@@ -54,7 +54,7 @@ func TestCompareStats(t *testing.T) {
 
 	t.Run("json", func(t *testing.T) {
 		storage, id1, id2 := setupCompareStorage(t)
-		env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 		env.Format = execenv.FormatJSON
 
 		err := runCompareStat(t.Context(), env, compareStatOpts(id1, id2))
@@ -72,7 +72,7 @@ func TestCompareStats(t *testing.T) {
 
 	t.Run("raw", func(t *testing.T) {
 		storage, id1, id2 := setupCompareStorage(t)
-		env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 		env.Format = execenv.FormatRaw
 
 		err := runCompareStat(t.Context(), env, compareStatOpts(id1, id2))

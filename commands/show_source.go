@@ -23,7 +23,7 @@ import (
 // and show inline. Embed it in a view model to get caching, git-aware source
 // lookup, and the shared rendering primitives.
 type sourceViewBase struct {
-	style       execenv.Style
+	env         *execenv.Env
 	sourcesRoot string
 	gitCommit   string
 	gitDiff     []byte
@@ -254,7 +254,7 @@ func (b *sourceViewBase) rawContent(absFile string) []byte {
 	var data []byte
 	if b.git != nil && b.gitCommit != "" && isProjectFile(b.sourcesRoot, absFile) {
 		if rel := b.gitRelPath(absFile); rel != "" {
-			if raw, err := b.git.FileAtCommit(b.gitCommit, rel); err == nil {
+			if raw, err := b.git.FileAtCommit(b.env.Ctx, b.gitCommit, rel); err == nil {
 				if len(b.gitDiff) > 0 {
 					ls := splitFileContent(raw)
 					ls = engine.ApplyUnifiedDiff(ls, b.gitDiff, rel)
@@ -617,7 +617,7 @@ func (b *sourceViewBase) SidebarWidth(totalWidth int) int {
 
 func (b *sourceViewBase) RenderSidebar(width, height int) string {
 	inner := width - 1 // last column is the │ divider
-	divider := b.style.SidebarDivider("│")
+	divider := b.env.Style.SidebarDivider("│")
 
 	// In search mode, find which header index is the selected match.
 	selectedIdx := -1
@@ -656,16 +656,16 @@ func (b *sourceViewBase) RenderSidebar(width, height int) string {
 	applyStyle := func(text string, isActive, isSelected, isMatch, isFn bool) string {
 		switch {
 		case isSelected:
-			return b.style.SidebarSelected(text)
+			return b.env.Style.SidebarSelected(text)
 		case isActive:
-			return b.style.SidebarActive(text)
+			return b.env.Style.SidebarActive(text)
 		case isMatch:
 			if isFn {
-				return b.style.SidebarFn(text)
+				return b.env.Style.SidebarFn(text)
 			}
-			return b.style.SidebarFile(text)
+			return b.env.Style.SidebarFile(text)
 		default:
-			return b.style.SidebarDim(text)
+			return b.env.Style.SidebarDim(text)
 		}
 	}
 

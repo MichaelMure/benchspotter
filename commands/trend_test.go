@@ -26,7 +26,7 @@ func setupTrendStorage(t *testing.T) billy.Filesystem {
 func TestTrend(t *testing.T) {
 	t.Run("json", func(t *testing.T) {
 		storage := setupTrendStorage(t)
-		env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 		env.Format = execenv.FormatJSON
 
 		sessions, err := engine.LocateSessions(storage)
@@ -47,7 +47,7 @@ func TestTrend(t *testing.T) {
 
 	t.Run("json_single_bench", func(t *testing.T) {
 		storage := setupTrendStorage(t)
-		env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 		env.Format = execenv.FormatJSON
 
 		sessions, err := engine.LocateSessions(storage)
@@ -65,7 +65,7 @@ func TestTrend(t *testing.T) {
 	t.Run("text", func(t *testing.T) {
 		t.Run("overview", func(t *testing.T) {
 			storage := setupTrendStorage(t)
-			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 
 			sessions, err := engine.LocateSessions(storage)
 			require.NoError(t, err)
@@ -84,7 +84,7 @@ func TestTrend(t *testing.T) {
 
 		t.Run("detail", func(t *testing.T) {
 			storage := setupTrendStorage(t)
-			env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 
 			sessions, err := engine.LocateSessions(storage)
 			require.NoError(t, err)
@@ -111,7 +111,7 @@ func TestTrend(t *testing.T) {
 		writeBenchResults(t, storage, id2, "BenchmarkFoo-8\t1000000\t90 ns/op\n")
 		addTagToSession(t, storage, id2, "prod")
 
-		env := execenv.NewTestEnv(repository.NewForTesting(memfs.New(), storage, nil))
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 		env.Format = execenv.FormatJSON
 
 		// "prod" matches id2; "other" matches nothing — any-match should still return id2.
