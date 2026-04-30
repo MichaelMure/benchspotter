@@ -315,7 +315,10 @@ func AggregateFuncs(prof *profile.Profile, valueIdx int, order SortOrder) []Prof
 			if result[i].Cumulative != result[j].Cumulative {
 				return result[i].Cumulative > result[j].Cumulative
 			}
-			return result[i].Flat > result[j].Flat
+			if result[i].Flat != result[j].Flat {
+				return result[i].Flat > result[j].Flat
+			}
+			return result[i].Name < result[j].Name
 		})
 	case SortName:
 		sort.Slice(result, func(i, j int) bool {
@@ -326,7 +329,10 @@ func AggregateFuncs(prof *profile.Profile, valueIdx int, order SortOrder) []Prof
 			if result[i].Flat != result[j].Flat {
 				return result[i].Flat > result[j].Flat
 			}
-			return result[i].Cumulative > result[j].Cumulative
+			if result[i].Cumulative != result[j].Cumulative {
+				return result[i].Cumulative > result[j].Cumulative
+			}
+			return result[i].Name < result[j].Name
 		})
 	}
 

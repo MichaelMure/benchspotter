@@ -64,16 +64,19 @@ func (m *profileViewModel) Render() string {
 }
 
 // getSourceLines returns up to 3 source lines starting at startLine for the
-// given absolute file path, reading from disk relative to sourcesRoot.
+// given file path, reading from disk. It tries sourcesRoot-relative first,
+// then falls back to absFile directly (for stdlib and dependencies).
 func (m *profileViewModel) getSourceLines(absFile string, startLine int64) []string {
-	rel, err := filepath.Rel(m.sourcesRoot, absFile)
-	if err != nil || strings.HasPrefix(rel, "..") {
-		return nil
-	}
-	content, seen := m.sourceCache[rel]
+	content, seen := m.sourceCache[absFile]
 	if !seen {
-		content, _ = os.ReadFile(filepath.Join(m.sourcesRoot, rel))
-		m.sourceCache[rel] = content // nil if read failed — skip next time
+		rel, err := filepath.Rel(m.sourcesRoot, absFile)
+		if err == nil && !strings.HasPrefix(rel, "..") {
+			content, _ = os.ReadFile(filepath.Join(m.sourcesRoot, rel))
+		}
+		if content == nil {
+			content, _ = os.ReadFile(absFile)
+		}
+		m.sourceCache[absFile] = content // nil if not found — skip next time
 	}
 	if content == nil {
 		return nil
