@@ -183,22 +183,63 @@ type showProfileOptions struct {
 }
 
 func newShowCPUCommand(env *execenv.Env) *cobra.Command {
-	return newShowProfileCommand(env, engine.ProfileCPU, "cpu", "Show hot functions from a CPU profile")
+	return newShowProfileCommand(env, engine.ProfileCPU, "cpu", "Show hot functions from a CPU profile", `Show hot functions from a CPU profile.
+
+A CPU profile tells you where the program is spending wall-clock time. The
+table lists each function with its flat time (time spent inside the function
+itself) and cumulative time (including all callees), both as absolute values
+and as a percentage of total.
+
+In the viewer: [s] cycles the sort order (flat / cumulative / name), [a]
+toggles inline source-line annotations, [o] opens the profile in the pprof
+web UI (go tool pprof -http) for a full call-graph view.
+
+Any interactive prompt can be bypassed with the corresponding flags.`)
 }
 
 func newShowMemCommand(env *execenv.Env) *cobra.Command {
-	return newShowProfileCommand(env, engine.ProfileMem, "mem", "Show allocation sites from a memory profile")
+	return newShowProfileCommand(env, engine.ProfileMem, "mem", "Show allocation sites from a memory profile", `Show allocation sites from a memory profile.
+
+A memory profile tells you what is allocating heap memory. Four metrics are
+available — alloc_space and alloc_objects count everything allocated over the
+lifetime of the benchmark; inuse_space and inuse_objects show what was still
+live at the time the profile was taken.
+
+In the viewer: [m] cycles through the four metrics, [s] cycles the sort order
+(flat / cumulative / name), [a] toggles inline source-line annotations, [o]
+opens the profile in the pprof web UI.
+
+Any interactive prompt can be bypassed with the corresponding flags.`)
 }
 
 func newShowBlockCommand(env *execenv.Env) *cobra.Command {
-	return newShowProfileCommand(env, engine.ProfileBlock, "block", "Show blocking contention hotspots")
+	return newShowProfileCommand(env, engine.ProfileBlock, "block", "Show blocking contention hotspots", `Show blocking contention hotspots.
+
+A blocking profile records goroutines waiting on synchronisation primitives —
+channel sends/receives, select statements, and sync package calls. The values
+are cumulative wait durations, so the top entries are where your goroutines
+spend the most time blocked.
+
+In the viewer: [s] cycles the sort order, [a] toggles inline source-line
+annotations, [o] opens the profile in the pprof web UI.
+
+Any interactive prompt can be bypassed with the corresponding flags.`)
 }
 
 func newShowMutexCommand(env *execenv.Env) *cobra.Command {
-	return newShowProfileCommand(env, engine.ProfileMutex, "mutex", "Show mutex contention hotspots")
+	return newShowProfileCommand(env, engine.ProfileMutex, "mutex", "Show mutex contention hotspots", `Show mutex contention hotspots.
+
+A mutex profile records time spent waiting to acquire sync.Mutex and sync.RWMutex
+locks. Unlike the blocking profile, it only covers mutex contention, not channels
+or other waiting, which makes it easier to pinpoint lock-related bottlenecks.
+
+In the viewer: [s] cycles the sort order, [a] toggles inline source-line
+annotations, [o] opens the profile in the pprof web UI.
+
+Any interactive prompt can be bypassed with the corresponding flags.`)
 }
 
-func newShowProfileCommand(env *execenv.Env, profileType engine.Profile, use, short string) *cobra.Command {
+func newShowProfileCommand(env *execenv.Env, profileType engine.Profile, use, short, long string) *cobra.Command {
 	options := showProfileOptions{
 		profileType: profileType,
 		top:         20,
@@ -207,6 +248,7 @@ func newShowProfileCommand(env *execenv.Env, profileType engine.Profile, use, sh
 	cmd := &cobra.Command{
 		Use:     use,
 		Short:   short,
+		Long:    long,
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runShowProfile(env, options)

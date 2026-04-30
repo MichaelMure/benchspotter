@@ -10,6 +10,10 @@ func newShowCommand(env *execenv.Env) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "show",
 		Short: "Display raw benchmarking results",
+		Long: `Display the data recorded for a session.
+
+Each subcommand targets a specific artifact type. Only sessions that actually
+contain the requested artifact are offered in the interactive selector.`,
 	}
 
 	cmd.AddCommand(

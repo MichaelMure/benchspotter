@@ -23,8 +23,17 @@ func newShowDiffCommand(env *execenv.Env) *cobra.Command {
 	options := showDiffOptions{}
 
 	cmd := &cobra.Command{
-		Use:     "diff",
-		Short:   "Show the (git) source diff when the benchmark was run",
+		Use:   "diff",
+		Short: "Show the (git) source diff when the benchmark was run",
+		Long: `Show the git diff that was captured when the session was recorded.
+
+When 'bench' runs, it snapshots the current 'git diff' output and stores it
+alongside the results. This lets you come back weeks later and see exactly
+what code change was in place for a given session — useful when comparing
+results and trying to understand what caused a performance difference.
+
+The diff is displayed syntax-highlighted in a scrollable viewport.
+Any interactive prompt can be bypassed with the corresponding flags.`,
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runShowDiffCommand(env, options)

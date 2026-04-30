@@ -32,8 +32,16 @@ func newTrendCommand(env *execenv.Env) *cobra.Command {
 	opts := trendOptions{confidence: 0.95}
 
 	cmd := &cobra.Command{
-		Use:     "trend",
-		Short:   "Show benchmark trends over time",
+		Use:   "trend",
+		Short: "Show benchmark trends over time",
+		Long: `Show how benchmark performance has evolved across sessions over time.
+
+Sessions are ordered chronologically and each benchmark's metric values are
+plotted on a timeline, making it easy to spot regressions or improvements and
+correlate them with specific commits or changes.
+
+Use --tag to scope the view to sessions carrying a specific tag, and --last to
+limit to the most recent N sessions.`,
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runTrend(env, opts)

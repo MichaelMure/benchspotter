@@ -20,6 +20,15 @@ func newSessionCommand(env *execenv.Env) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "session",
 		Short: "Manage benchmark sessions",
+		Long: `Manage benchmark sessions.
+
+A session is created each time you run 'benchspotter bench'. It is a directory
+under .benchspotter/sessions/ containing the benchmark results, any profiles
+that were captured, an optional git diff snapshot, and metadata (name, git
+commit, machine info).
+
+Sessions accumulate over time so you can compare results across code changes,
+tag related groups, or clean up old data.`,
 	}
 
 	cmd.AddCommand(
@@ -40,8 +49,18 @@ type sessionLsOptions struct {
 func newSessionLsCommand(env *execenv.Env) *cobra.Command {
 	var opts sessionLsOptions
 	cmd := &cobra.Command{
-		Use:     "ls",
-		Short:   "List benchmark sessions",
+		Use:   "ls",
+		Short: "List benchmark sessions",
+		Long: `List all recorded benchmark sessions in a table.
+
+Each row shows: name, timestamp, git commit (with ± if there was an uncommitted
+diff at recording time), which data types were collected (bench results and
+cpu/mem/block/mutex profiles, escape analysis, inlining decisions), the number
+of benchmarks, and any tags.
+
+When sessions originate from different machines, a legend is printed below the
+table so you can tell which session was recorded where. Use --tag to show only
+sessions with a given tag.`,
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSessionLs(env, opts)
@@ -194,8 +213,16 @@ func sessionProfiles(s *engine.SessionInfo) []string {
 
 func newSessionTagCommand(env *execenv.Env) *cobra.Command {
 	return &cobra.Command{
-		Use:     "tag [id] [tag]",
-		Short:   "Tag a session",
+		Use:   "tag [id] [tag]",
+		Short: "Tag a session",
+		Long: `Attach a tag to a session.
+
+Tags are free-form labels you can use to group related sessions. For example,
+tag a set of sessions "before-refactor" and "after-refactor", then use
+'trend --tag' or 'session ls --tag' to scope views to that group.
+
+A session can have multiple tags. If the session ID and tag are not given as
+arguments, an interactive prompt is shown.`,
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSessionTag(env, args)
@@ -255,8 +282,13 @@ func runSessionTag(env *execenv.Env, args []string) error {
 
 func newSessionUntagCommand(env *execenv.Env) *cobra.Command {
 	return &cobra.Command{
-		Use:     "untag [id] [tag]",
-		Short:   "Remove a tag from a session",
+		Use:   "untag [id] [tag]",
+		Short: "Remove a tag from a session",
+		Long: `Remove a tag from a session.
+
+If the session ID and tag name are not provided as arguments, an interactive
+prompt is shown. Only sessions that already have at least one tag are offered
+in the selector.`,
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSessionUntag(env, args)
@@ -312,8 +344,15 @@ func runSessionUntag(env *execenv.Env, args []string) error {
 
 func newSessionRenameCommand(env *execenv.Env) *cobra.Command {
 	return &cobra.Command{
-		Use:     "rename [id] [name]",
-		Short:   "Rename a session",
+		Use:   "rename [id] [name]",
+		Short: "Rename a session",
+		Long: `Rename a session.
+
+Session names are set at recording time but can be updated at any point. The
+name is shown in all listings and comparison tables.
+
+If the session ID and new name are not provided as arguments, an interactive
+prompt is shown with the current name pre-filled.`,
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSessionRename(env, args)
@@ -373,8 +412,12 @@ type sessionRmOptions struct {
 func newSessionRmCommand(env *execenv.Env) *cobra.Command {
 	var opts sessionRmOptions
 	cmd := &cobra.Command{
-		Use:     "rm [id]",
-		Short:   "Delete a session",
+		Use:   "rm [id]",
+		Short: "Delete a session",
+		Long: `Permanently delete a session and all its recorded data.
+
+A confirmation prompt is shown unless -y is passed. If no session ID is given
+as an argument, an interactive selector is shown first.`,
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSessionRm(env, args, opts)

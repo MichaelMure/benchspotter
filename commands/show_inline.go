@@ -22,8 +22,21 @@ func newShowInlineCommand(env *execenv.Env) *cobra.Command {
 	options := showInlineOptions{}
 
 	cmd := &cobra.Command{
-		Use:     "inline",
-		Short:   "Show compiler inlining decisions recorded for a session",
+		Use:   "inline",
+		Short: "Show compiler inlining decisions recorded for a session",
+		Long: `Show the compiler's inlining decisions, annotated against your source code.
+
+When the compiler inlines a function call it substitutes the callee's body
+directly at the call site. This eliminates function call overhead and often
+enables further optimisations (such as better escape analysis). When a function
+cannot be inlined, the compiler emits a "cannot inline" message with a reason.
+
+By default only "cannot inline" sites are shown, since those are the ones worth
+investigating. In the viewer: [a] toggles showing all decisions (including
+successful inlines and "can inline" marks), [p] toggles including stdlib and
+dependencies, [Tab]/[Shift+Tab] jump between sites.
+
+Any interactive prompt can be bypassed with the corresponding flags.`,
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runShowInline(env, options)

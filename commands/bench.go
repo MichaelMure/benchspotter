@@ -53,8 +53,44 @@ func newBenchCommand(env *execenv.Env) *cobra.Command {
 	options := benchOptions{}
 
 	cmd := &cobra.Command{
-		Use:     "bench",
-		Short:   "Run benchmarks in various ways",
+		Use:   "bench",
+		Short: "Run benchmarks in various ways",
+		Long: `Run benchmarks and record the results as a named session.
+
+Each invocation walks an interactive wizard:
+  1. Choose one or more profiling modes to run simultaneously.
+  2. Select which benchmarks to execute.
+  3. Give the session a name (optional, for your own reference).
+  4. If running "bench" mode, choose how many times to repeat each benchmark.
+
+Profiling modes:
+
+  bench   — Runs 'go test -bench -benchmem -count N' and records the numeric
+             output (ns/op, B/op, allocs/op, and any custom metrics). Use this
+             when you want to compare performance numbers across code changes.
+
+  cpu     — Captures a CPU profile via 'go test -cpuprofile'. Shows where
+             wall-clock time is spent. Use it to find hot code paths.
+
+  mem     — Captures a memory profile via 'go test -memprofile'. Shows heap
+             allocation sites. Use it to find what is allocating most.
+
+  mutex   — Captures a mutex-contention profile via 'go test -mutexprofile'.
+             Shows which sync.Mutex locks are held the longest. Useful when
+             goroutine scheduling is a bottleneck.
+
+  block   — Captures a blocking profile via 'go test -blockprofile'. Shows
+             where goroutines spend time waiting (channels, locks, syscalls).
+
+  escape  — Passes -gcflags='-m' to the compiler and records which variables
+             escape to the heap. Use it to reduce unintended allocations.
+
+  inline  — Passes -gcflags='-m' to the compiler and records which functions
+             the compiler was unable to inline, and why.
+
+Results are stored under .benchspotter/sessions/<uuid>/. All prompts remember
+your last selection and pre-populate it the next time you run this command.
+Any interactive prompt can be bypassed with the corresponding flags.`,
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBench(env, options)

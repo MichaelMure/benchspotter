@@ -23,8 +23,22 @@ func newShowEscapeCommand(env *execenv.Env) *cobra.Command {
 	options := showEscapeOptions{}
 
 	cmd := &cobra.Command{
-		Use:     "escape",
-		Short:   "Show compiler escape analysis recorded for a session",
+		Use:   "escape",
+		Short: "Show compiler escape analysis recorded for a session",
+		Long: `Show the compiler's escape analysis output, annotated against your source code.
+
+The Go compiler decides whether a variable lives on the stack or must be moved
+to the heap. Variables that escape to the heap cause garbage collector pressure
+and extra allocations. Escape analysis output (from -gcflags='-m') tells you
+which variables escaped and why — the "why" is often a function call, interface
+conversion, or closure capture that prevented stack allocation.
+
+By default only heap escapes and leaking parameters are shown. In the viewer:
+[a] toggles showing all compiler notes, [p] toggles including stdlib and
+dependencies (default: project code only), [f] toggles the dataflow chain that
+explains how each value escaped, [Tab]/[Shift+Tab] jump between sites.
+
+Any interactive prompt can be bypassed with the corresponding flags.`,
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runShowEscape(env, options)

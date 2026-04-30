@@ -40,6 +40,41 @@ func newOptimizeCommand(env *execenv.Env) *cobra.Command {
 		Use:     "optimize",
 		Aliases: []string{"optimise"},
 		Short:   "Search for optimal benchinput parameter values",
+		Long: `Search for the parameter values that minimise (or maximise) a benchmark metric.
+
+This command works with the benchinput package, which lets you declare named
+parameters anywhere in your codebase — for example:
+
+  benchinput.Int("size", 64, 1, 1024)
+
+Each parameter has a name, a default value, and a valid range. These are
+typically the magic constants or tuning knobs in your code whose optimal value
+is not obvious (buffer sizes, concurrency limits, batch sizes, thresholds…).
+benchspotter statically discovers those declarations and repeatedly runs the
+selected benchmark with different values, using the chosen strategy to guide
+the search.
+
+Available strategies:
+
+  random  — uniform random sampling; runs until stopped or max-trials is
+             reached. Unbiased sampling makes the correlation matrix reliable.
+
+  coord   — coordinate descent; adjusts one parameter at a time and stops
+             when it can no longer find improvement. Fast for smooth surfaces.
+
+  sa      — starts with random exploration then switches to simulated
+             annealing; runs until stopped. Better at escaping local optima
+             than coord.
+
+During the run a live TUI shows the current best result, a scrollable table of
+all trials sorted by parameter value, and — for single-parameter sweeps — a
+line chart of metric vs. parameter value. A Pearson correlation matrix appears
+once enough data has been collected.
+
+Press [s] to stop early, [p] to print the full results table and quit, [q]
+to quit without printing.
+
+Any interactive prompt can be bypassed with the corresponding flags.`,
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runOptimize(env, opts)
@@ -917,14 +952,14 @@ func resultTableRow(r engine.EvaluatedPoint, units []string, resIdx int) string 
 	return line
 }
 
-// displayParamValue formats a float parameter value for fixed-width table columns.
-// Uses %e notation with 3 decimal places so the string is always exactly 10 chars
-// (e.g. "1.234e+02"), giving stable column alignment regardless of magnitude.
-// Non-float types are returned as-is (their natural representation fits easily).
+// displayParamValue formats a parameter value for fixed-width table columns.
+// Floats use %g (4 significant digits) so plain decimal notation is used when
+// possible (e.g. "100", "1.234"), falling back to scientific only for extreme
+// magnitudes. Non-float types are returned as-is.
 func displayParamValue(a engine.ParamAssignment) string {
 	switch a.Input.(type) {
 	case engine.FloatType, engine.FloatLogType:
-		return fmt.Sprintf("%.4e", a.FloatVal)
+		return fmt.Sprintf("%.4g", a.FloatVal)
 	}
 	return a.Value
 }

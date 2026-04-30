@@ -34,8 +34,24 @@ func newCompareBenchCommand(env *execenv.Env) *cobra.Command {
 	}
 
 	cmd := &cobra.Command{
-		Use:     "bench",
-		Short:   "Compare benchmark results with x/perf/cmd/benchstat",
+		Use:   "bench",
+		Short: "Compare benchmark results with x/perf/cmd/benchstat",
+		Long: `Compare benchmark results across sessions using benchstat-style statistical analysis.
+
+For each benchmark and metric, the table shows the central value (mean or
+median), a confidence interval, and the percentage change relative to the
+baseline session. Changes are annotated with their statistical significance:
+p-values below the alpha threshold (default 0.05) are considered significant.
+
+The comparison uses the same algorithm as golang.org/x/perf/cmd/benchstat.
+The --table, --row, and --col flags control how results are grouped, using
+benchstat's projection syntax — for example, '--col .config' splits columns
+by benchmark configuration keys.
+
+If sessions were recorded on different machines, a warning is printed to
+stderr (suppress with --skip-machine-check).
+
+Any interactive prompt can be bypassed with the corresponding flags.`,
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCompareBench(env, options)
