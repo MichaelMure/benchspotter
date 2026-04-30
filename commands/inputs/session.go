@@ -12,7 +12,7 @@ import (
 	"benchspotter/engine"
 )
 
-func SelectSession(ctx context.Context, env *execenv.Env, preSelect string, filter func(info *engine.SessionInfo) bool) (*engine.SessionInfo, error) {
+func SelectSession(env *execenv.Env, preSelect string, filter func(info *engine.SessionInfo) bool) (*engine.SessionInfo, error) {
 	var sessions []*engine.SessionInfo
 
 	err := env.Spinner().Title("Finding sessions").
@@ -20,7 +20,7 @@ func SelectSession(ctx context.Context, env *execenv.Env, preSelect string, filt
 			var err error
 			sessions, err = engine.LocateSessions(env.Repo.Storage())
 			return err
-		}).Context(ctx).Run()
+		}).Context(env.Ctx).Run()
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover sessions: %w", err)
 	}
@@ -61,7 +61,7 @@ func SelectSession(ctx context.Context, env *execenv.Env, preSelect string, filt
 	}
 	err = env.Form(huh.NewGroup(fields...)).
 		WithShowHelp(false).
-		RunWithContext(ctx)
+		RunWithContext(env.Ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func SelectSession(ctx context.Context, env *execenv.Env, preSelect string, filt
 	return selection, nil
 }
 
-func SelectSessions(ctx context.Context, env *execenv.Env, preSelect []string) ([]*engine.SessionInfo, error) {
+func SelectSessions(env *execenv.Env, preSelect []string) ([]*engine.SessionInfo, error) {
 	var sessions []*engine.SessionInfo
 
 	err := env.Spinner().Title("Finding sessions").
@@ -77,7 +77,7 @@ func SelectSessions(ctx context.Context, env *execenv.Env, preSelect []string) (
 			var err error
 			sessions, err = engine.LocateSessions(env.Repo.Storage())
 			return err
-		}).Context(ctx).Run()
+		}).Context(env.Ctx).Run()
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover sessions: %w", err)
 	}
@@ -109,7 +109,7 @@ func SelectSessions(ctx context.Context, env *execenv.Env, preSelect []string) (
 	}
 	err = env.Form(huh.NewGroup(fields...)).
 		WithShowHelp(false).
-		RunWithContext(ctx)
+		RunWithContext(env.Ctx)
 	if err != nil {
 		return nil, err
 	}

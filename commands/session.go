@@ -44,14 +44,14 @@ func newSessionLsCommand(env *execenv.Env) *cobra.Command {
 		Short:   "List benchmark sessions",
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSessionLs(cmd.Context(), env, opts)
+			return runSessionLs(env, opts)
 		},
 	}
 	cmd.Flags().StringVar(&opts.tag, "tag", "", "Filter sessions by tag")
 	return cmd
 }
 
-func runSessionLs(ctx context.Context, env *execenv.Env, opts sessionLsOptions) error {
+func runSessionLs(env *execenv.Env, opts sessionLsOptions) error {
 	var sessions []*engine.SessionInfo
 
 	err := env.Spinner().Title("Finding sessions").
@@ -64,7 +64,7 @@ func runSessionLs(ctx context.Context, env *execenv.Env, opts sessionLsOptions) 
 			time.Sleep(100 * time.Millisecond)
 			sessions, err = engine.LocateSessions(env.Repo.Storage())
 			return err
-		}).Context(ctx).Run()
+		}).Context(env.Ctx).Run()
 	if err != nil {
 		return err
 	}
@@ -198,18 +198,18 @@ func newSessionTagCommand(env *execenv.Env) *cobra.Command {
 		Short:   "Tag a session",
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSessionTag(cmd.Context(), env, args)
+			return runSessionTag(env, args)
 		},
 	}
 }
 
-func runSessionTag(ctx context.Context, env *execenv.Env, args []string) error {
+func runSessionTag(env *execenv.Env, args []string) error {
 	var sessionID, tag string
 
 	if len(args) >= 2 {
 		sessionID, tag = args[0], args[1]
 	} else {
-		selection, err := inputs.SelectSession(ctx, env, env.Repo.GetRecall("session_tag_session"), nil)
+		selection, err := inputs.SelectSession(env, env.Repo.GetRecall("session_tag_session"), nil)
 		if err != nil {
 			return err
 		}
@@ -224,7 +224,7 @@ func runSessionTag(ctx context.Context, env *execenv.Env, args []string) error {
 			err = env.FormSingle(huh.NewInput().
 				Title("Tag name").
 				Value(&tag)).
-				RunWithContext(ctx)
+				RunWithContext(env.Ctx)
 			if err != nil {
 				return err
 			}
@@ -259,18 +259,18 @@ func newSessionUntagCommand(env *execenv.Env) *cobra.Command {
 		Short:   "Remove a tag from a session",
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSessionUntag(cmd.Context(), env, args)
+			return runSessionUntag(env, args)
 		},
 	}
 }
 
-func runSessionUntag(ctx context.Context, env *execenv.Env, args []string) error {
+func runSessionUntag(env *execenv.Env, args []string) error {
 	var sessionID, tag string
 
 	if len(args) >= 2 {
 		sessionID, tag = args[0], args[1]
 	} else {
-		selection, err := inputs.SelectSession(ctx, env, env.Repo.GetRecall("session_untag_session"),
+		selection, err := inputs.SelectSession(env, env.Repo.GetRecall("session_untag_session"),
 			func(s *engine.SessionInfo) bool { return len(s.Tags) > 0 })
 		if err != nil {
 			return err
@@ -291,7 +291,7 @@ func runSessionUntag(ctx context.Context, env *execenv.Env, args []string) error
 				Title("Tag to remove").
 				Options(opts...).
 				Value(&tag)).
-				RunWithContext(ctx)
+				RunWithContext(env.Ctx)
 			if err != nil {
 				return err
 			}
@@ -316,18 +316,18 @@ func newSessionRenameCommand(env *execenv.Env) *cobra.Command {
 		Short:   "Rename a session",
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSessionRename(cmd.Context(), env, args)
+			return runSessionRename(env, args)
 		},
 	}
 }
 
-func runSessionRename(ctx context.Context, env *execenv.Env, args []string) error {
+func runSessionRename(env *execenv.Env, args []string) error {
 	var sessionID, name string
 
 	if len(args) >= 2 {
 		sessionID, name = args[0], args[1]
 	} else {
-		selection, err := inputs.SelectSession(ctx, env, env.Repo.GetRecall("session_rename_session"), nil)
+		selection, err := inputs.SelectSession(env, env.Repo.GetRecall("session_rename_session"), nil)
 		if err != nil {
 			return err
 		}
@@ -343,7 +343,7 @@ func runSessionRename(ctx context.Context, env *execenv.Env, args []string) erro
 			err = env.FormSingle(huh.NewInput().
 				Title("New name").
 				Value(&name)).
-				RunWithContext(ctx)
+				RunWithContext(env.Ctx)
 			if err != nil {
 				return err
 			}
@@ -377,14 +377,14 @@ func newSessionRmCommand(env *execenv.Env) *cobra.Command {
 		Short:   "Delete a session",
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSessionRm(cmd.Context(), env, args, opts)
+			return runSessionRm(env, args, opts)
 		},
 	}
 	cmd.Flags().BoolVarP(&opts.skipConfirmation, "skip-confirmation", "y", false, "Skip confirmation")
 	return cmd
 }
 
-func runSessionRm(ctx context.Context, env *execenv.Env, args []string, opts sessionRmOptions) error {
+func runSessionRm(env *execenv.Env, args []string, opts sessionRmOptions) error {
 	var target *engine.SessionInfo
 
 	if len(args) >= 1 {
@@ -403,7 +403,7 @@ func runSessionRm(ctx context.Context, env *execenv.Env, args []string, opts ses
 		}
 	} else {
 		var err error
-		target, err = inputs.SelectSession(ctx, env, env.Repo.GetRecall("session_rm_session"), nil)
+		target, err = inputs.SelectSession(env, env.Repo.GetRecall("session_rm_session"), nil)
 		if err != nil {
 			return err
 		}
@@ -414,7 +414,7 @@ func runSessionRm(ctx context.Context, env *execenv.Env, args []string, opts ses
 		err := env.FormSingle(huh.NewConfirm().
 			Title(fmt.Sprintf("Delete session %q?", target.HumanName)).
 			Value(&confirmed)).
-			RunWithContext(ctx)
+			RunWithContext(env.Ctx)
 		if err != nil {
 			return err
 		}

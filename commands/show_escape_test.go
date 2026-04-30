@@ -72,7 +72,7 @@ engine/foo.go:30:1: can inline Baz
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 			env.Format = execenv.FormatJSON
 
-			err := runShowEscape(t.Context(), env, showEscapeOptions{session: sessionID})
+			err := runShowEscape(env, showEscapeOptions{session: sessionID})
 			require.NoError(t, err)
 
 			out := env.Out.String()
@@ -94,7 +94,7 @@ engine/foo.go:30:1: can inline Baz
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 			env.Format = execenv.FormatJSON
 
-			err := runShowEscape(t.Context(), env, showEscapeOptions{session: sessionID, all: true})
+			err := runShowEscape(env, showEscapeOptions{session: sessionID, all: true})
 			require.NoError(t, err)
 
 			assert.Contains(t, env.Out.String(), "can inline")
@@ -114,7 +114,7 @@ engine/foo.go:30:1: can inline Baz
 				env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 				env.Format = execenv.FormatJSON
 
-				err := runShowEscape(t.Context(), env, showEscapeOptions{session: sessionID})
+				err := runShowEscape(env, showEscapeOptions{session: sessionID})
 				require.NoError(t, err)
 				out := env.Out.String()
 				assert.Contains(t, out, "engine/foo.go")
@@ -125,7 +125,7 @@ engine/foo.go:30:1: can inline Baz
 				env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 				env.Format = execenv.FormatJSON
 
-				err := runShowEscape(t.Context(), env, showEscapeOptions{session: sessionID, includeDeps: true})
+				err := runShowEscape(env, showEscapeOptions{session: sessionID, includeDeps: true})
 				require.NoError(t, err)
 				assert.Contains(t, env.Out.String(), "fmt/format.go")
 			})
@@ -159,7 +159,7 @@ func BenchmarkFoo(b *testing.B) {
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, gitSrc))
 			env.Format = execenv.FormatText
 
-			err := runShowEscape(t.Context(), env, showEscapeOptions{session: sessionID})
+			err := runShowEscape(env, showEscapeOptions{session: sessionID})
 			require.NoError(t, err)
 
 			out := env.Out.String()
@@ -204,7 +204,7 @@ func BenchmarkFoo(b *testing.B) {
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, gitSrc))
 			env.Format = execenv.FormatText
 
-			err := runShowEscape(t.Context(), env, showEscapeOptions{session: sessionID})
+			err := runShowEscape(env, showEscapeOptions{session: sessionID})
 			require.NoError(t, err)
 
 			out := env.Out.String()
@@ -220,7 +220,7 @@ func BenchmarkFoo(b *testing.B) {
 		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 		env.Format = execenv.FormatJSON
 
-		err := runShowEscape(t.Context(), env, showEscapeOptions{session: sessionID})
+		err := runShowEscape(env, showEscapeOptions{session: sessionID})
 		assert.ErrorContains(t, err, "no escape analysis recorded")
 	})
 
@@ -231,7 +231,7 @@ func BenchmarkFoo(b *testing.B) {
 		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 		env.Format = execenv.FormatJSON
 
-		err := runShowEscape(t.Context(), env, showEscapeOptions{session: "nonexistent-id"})
+		err := runShowEscape(env, showEscapeOptions{session: "nonexistent-id"})
 		assert.ErrorContains(t, err, `"nonexistent-id" not found`)
 	})
 
@@ -287,7 +287,7 @@ func TestSearchState(t *testing.T) {
 
 	t.Run("ctrl_s_enters_search", func(t *testing.T) {
 		b := makeBase(nil)
-		consumed := b.handleSearchKey("ctrl+s")
+		consumed := b.handleSearchKey("ctrl+f")
 		assert.True(t, consumed)
 		assert.True(t, b.searchMode)
 		assert.Equal(t, "", b.searchQuery)
@@ -295,7 +295,7 @@ func TestSearchState(t *testing.T) {
 
 	t.Run("esc_exits_search", func(t *testing.T) {
 		b := makeBase(nil)
-		b.handleSearchKey("ctrl+s")
+		b.handleSearchKey("ctrl+f")
 		consumed := b.handleSearchKey("esc")
 		assert.True(t, consumed)
 		assert.False(t, b.searchMode)
@@ -304,7 +304,7 @@ func TestSearchState(t *testing.T) {
 
 	t.Run("typing_builds_query", func(t *testing.T) {
 		b := makeBase(nil)
-		b.handleSearchKey("ctrl+s")
+		b.handleSearchKey("ctrl+f")
 		b.handleSearchKey("f")
 		b.handleSearchKey("o")
 		b.handleSearchKey("o")
@@ -313,7 +313,7 @@ func TestSearchState(t *testing.T) {
 
 	t.Run("backspace_removes_char", func(t *testing.T) {
 		b := makeBase(nil)
-		b.handleSearchKey("ctrl+s")
+		b.handleSearchKey("ctrl+f")
 		b.handleSearchKey("f")
 		b.handleSearchKey("o")
 		b.handleSearchKey("backspace")
@@ -334,7 +334,7 @@ func TestSearchState(t *testing.T) {
 
 	t.Run("status_line_no_query", func(t *testing.T) {
 		b := makeBase(nil)
-		b.handleSearchKey("ctrl+s")
+		b.handleSearchKey("ctrl+f")
 		s := b.searchStatusLine()
 		assert.Contains(t, s, "search:")
 		assert.NotContains(t, s, "no match")
@@ -346,7 +346,7 @@ func TestSearchState(t *testing.T) {
 			{file: "engine/foo.go", fn: "BenchmarkFoo"},
 		}
 		b := makeBase(headers)
-		b.handleSearchKey("ctrl+s")
+		b.handleSearchKey("ctrl+f")
 		b.handleSearchKey("z")
 		b.handleSearchKey("z")
 		b.handleSearchKey("z")
@@ -360,7 +360,7 @@ func TestSearchState(t *testing.T) {
 			{file: "engine/bar.go", fn: "BenchmarkBar"},
 		}
 		b := makeBase(headers)
-		b.handleSearchKey("ctrl+s")
+		b.handleSearchKey("ctrl+f")
 		b.handleSearchKey("e") // matches both (engine/)
 		s := b.searchStatusLine()
 		assert.Contains(t, s, "1/2")
@@ -391,7 +391,7 @@ func BenchmarkFoo(b *testing.B) {
 	env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, gitSrc))
 	env.Format = execenv.FormatText
 
-	err := runShowEscape(t.Context(), env, showEscapeOptions{session: sessionID})
+	err := runShowEscape(env, showEscapeOptions{session: sessionID})
 	require.NoError(t, err)
 
 	out := env.Out.String()

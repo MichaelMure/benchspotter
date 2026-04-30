@@ -17,7 +17,7 @@ func TestShowDiff(t *testing.T) {
 		session := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "abc1234def5678abc1234def5678abc1234def56", true)
 		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 
-		err := runShowDiffCommand(t.Context(), env, showDiffOptions{session: session})
+		err := runShowDiffCommand(env, showDiffOptions{session: session})
 		require.NoError(t, err)
 		assert.Contains(t, env.Out.String(), "a change")
 	})
@@ -28,7 +28,7 @@ func TestShowDiff(t *testing.T) {
 		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 		env.Format = execenv.FormatRaw
 
-		err := runShowDiffCommand(t.Context(), env, showDiffOptions{session: session})
+		err := runShowDiffCommand(env, showDiffOptions{session: session})
 		require.NoError(t, err)
 		assert.Equal(t, "diff --git a/foo.go b/foo.go\n+// a change\n", env.Out.String())
 	})
@@ -39,7 +39,7 @@ func TestShowDiff(t *testing.T) {
 		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 		env.Format = execenv.FormatJSON
 
-		err := runShowDiffCommand(t.Context(), env, showDiffOptions{session: session})
+		err := runShowDiffCommand(env, showDiffOptions{session: session})
 		require.NoError(t, err)
 		out := env.Out.String()
 		assert.Contains(t, out, `"session_id"`)

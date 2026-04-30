@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -39,7 +38,7 @@ func newCompareBenchCommand(env *execenv.Env) *cobra.Command {
 		Short:   "Compare benchmark results with x/perf/cmd/benchstat",
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCompareBench(cmd.Context(), env, options)
+			return runCompareBench(env, options)
 		},
 	}
 
@@ -58,7 +57,7 @@ func newCompareBenchCommand(env *execenv.Env) *cobra.Command {
 	return cmd
 }
 
-func runCompareBench(ctx context.Context, env *execenv.Env, options compareBenchOptions) error {
+func runCompareBench(env *execenv.Env, options compareBenchOptions) error {
 	// Note: largely taken from golang.org/x/perf/cmd/benchstat/main.go
 	// at revision v0.0.0-20250909190841-7e13e04d9366/
 
@@ -69,7 +68,7 @@ func runCompareBench(ctx context.Context, env *execenv.Env, options compareBench
 		const recallKey = "compare_bench_sessions"
 		preSelected := env.Repo.GetRecalls(recallKey)
 
-		selection, err = inputs.SelectSessions(ctx, env, preSelected)
+		selection, err = inputs.SelectSessions(env, preSelected)
 		if err != nil {
 			return err
 		}
@@ -187,7 +186,7 @@ func runCompareBench(ctx context.Context, env *execenv.Env, options compareBench
 	switch env.Format {
 	case execenv.FormatText:
 		tables := stat.ToTables(tableOpts)
-		viewport, runFn := env.Viewport(ctx)
+		viewport, runFn := env.Viewport()
 		if err := tables.ToText(viewport, &env.Style); err != nil {
 			return err
 		}
@@ -215,12 +214,12 @@ func runCompareBench(ctx context.Context, env *execenv.Env, options compareBench
 }
 
 type compareBenchJSONTable struct {
-	Unit       string                     `json:"unit"`
+	Unit       string                      `json:"unit"`
 	Benchmarks []compareBenchJSONBenchmark `json:"benchmarks"`
 }
 
 type compareBenchJSONBenchmark struct {
-	Name     string                   `json:"name"`
+	Name     string                    `json:"name"`
 	Sessions []compareBenchJSONSession `json:"sessions"`
 }
 

@@ -389,11 +389,11 @@ func highlightGoLines(lines []string) []string {
 func (b *sourceViewBase) IsModal() bool { return b.searchMode }
 
 // handleSearchKey processes a key press when in search mode, or intercepts
-// ctrl+s to enter search mode. Returns true when the key was consumed.
+// ctrl+f to enter search mode. Returns true when the key was consumed.
 // It always sets a pending jump so the viewport does not also process the key.
 func (b *sourceViewBase) handleSearchKey(key string) bool {
 	if !b.searchMode {
-		if key == "ctrl+s" {
+		if key == "ctrl+f" {
 			b.searchMode = true
 			b.searchQuery = ""
 			b.searchIdx = 0
@@ -414,7 +414,7 @@ func (b *sourceViewBase) handleSearchKey(key string) bool {
 	}()
 
 	switch key {
-	case "esc", "ctrl+s":
+	case "esc", "ctrl+f":
 		b.searchMode = false
 		b.searchQuery = ""
 	case "enter":

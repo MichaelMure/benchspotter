@@ -57,7 +57,7 @@ func newBenchCommand(env *execenv.Env) *cobra.Command {
 		Short:   "Run benchmarks in various ways",
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runBench(cmd.Context(), env, options)
+			return runBench(env, options)
 		},
 	}
 
@@ -77,7 +77,7 @@ func newBenchCommand(env *execenv.Env) *cobra.Command {
 	return cmd
 }
 
-func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error {
+func runBench(env *execenv.Env, options benchOptions) error {
 	var err error
 
 	if len(options.profiles) == 0 {
@@ -97,7 +97,7 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 				huh.NewOption("Inlining decisions", engine.ProfileInline).Selected(selected(engine.ProfileInline)),
 			).
 			Value(&options.profiles)).
-			RunWithContext(ctx)
+			RunWithContext(env.Ctx)
 		if err != nil {
 			return err
 		}
@@ -119,7 +119,7 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 		const recallKey = "bench_benchmarks"
 		preSelected := env.Repo.GetRecalls(recallKey)
 
-		selection, err = inputs.SelectBenchmarks(ctx, env, preSelected)
+		selection, err = inputs.SelectBenchmarks(env, preSelected)
 		if err != nil {
 			return err
 		}
@@ -140,7 +140,7 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 			var locErr error
 			all, locErr = engine.LocateBenchmarks(ctx, env.Repo.Sources())
 			return locErr
-		}).Context(ctx).Run()
+		}).Context(env.Ctx).Run()
 		if err != nil {
 			return err
 		}
@@ -164,7 +164,7 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 				return nil
 			}).
 			Value(&options.name)).
-			RunWithContext(ctx)
+			RunWithContext(env.Ctx)
 		if err != nil {
 			return err
 		}
@@ -186,7 +186,7 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 				return nil
 			}).
 			Value(&value)).
-			RunWithContext(ctx)
+			RunWithContext(env.Ctx)
 		if err != nil {
 			return err
 		}
@@ -198,13 +198,13 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 		}
 	}
 
-	id, err := engine.PrepareSession(ctx, env, options.name, selection)
+	id, err := engine.PrepareSession(env, options.name, selection)
 	if err != nil {
 		return err
 	}
 
 	if slices.Contains(options.profiles, engine.ProfileBench) {
-		it := engine.RunBenches(ctx, env.Repo.Storage(), id, selection, options.count)
+		it := engine.RunBenches(env.Ctx, env.Repo.Storage(), id, selection, options.count)
 		for {
 			start := time.Now()
 			var res *benchfmt.Result
@@ -235,12 +235,12 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 	}
 
 	if slices.Contains(options.profiles, engine.ProfileCPU) {
-		it := engine.RunProfile(ctx, env.Repo.Storage(), id, selection, engine.ProfileCPU)
+		it := engine.RunProfile(env.Ctx, env.Repo.Storage(), id, selection, engine.ProfileCPU)
 		for _, info := range selection {
 			start := time.Now()
 			err = env.Spinner().Title("CPU " + info.Name).ActionWithErr(func(ctx context.Context) error {
 				return it()
-			}).Context(ctx).Run()
+			}).Context(env.Ctx).Run()
 			if err != nil {
 				return err
 			}
@@ -249,12 +249,12 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 	}
 
 	if slices.Contains(options.profiles, engine.ProfileMem) {
-		it := engine.RunProfile(ctx, env.Repo.Storage(), id, selection, engine.ProfileMem)
+		it := engine.RunProfile(env.Ctx, env.Repo.Storage(), id, selection, engine.ProfileMem)
 		for _, info := range selection {
 			start := time.Now()
 			err = env.Spinner().Title("Memory " + info.Name).ActionWithErr(func(ctx context.Context) error {
 				return it()
-			}).Context(ctx).Run()
+			}).Context(env.Ctx).Run()
 			if err != nil {
 				return err
 			}
@@ -263,12 +263,12 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 	}
 
 	if slices.Contains(options.profiles, engine.ProfileMutex) {
-		it := engine.RunProfile(ctx, env.Repo.Storage(), id, selection, engine.ProfileMutex)
+		it := engine.RunProfile(env.Ctx, env.Repo.Storage(), id, selection, engine.ProfileMutex)
 		for _, info := range selection {
 			start := time.Now()
 			err = env.Spinner().Title("Mutex " + info.Name).ActionWithErr(func(ctx context.Context) error {
 				return it()
-			}).Context(ctx).Run()
+			}).Context(env.Ctx).Run()
 			if err != nil {
 				return err
 			}
@@ -277,12 +277,12 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 	}
 
 	if slices.Contains(options.profiles, engine.ProfileBlock) {
-		it := engine.RunProfile(ctx, env.Repo.Storage(), id, selection, engine.ProfileBlock)
+		it := engine.RunProfile(env.Ctx, env.Repo.Storage(), id, selection, engine.ProfileBlock)
 		for _, info := range selection {
 			start := time.Now()
 			err = env.Spinner().Title("Block " + info.Name).ActionWithErr(func(ctx context.Context) error {
 				return it()
-			}).Context(ctx).Run()
+			}).Context(env.Ctx).Run()
 			if err != nil {
 				return err
 			}
@@ -302,7 +302,7 @@ func runBench(ctx context.Context, env *execenv.Env, options benchOptions) error
 		start := time.Now()
 		err = env.Spinner().Title(title).ActionWithErr(func(ctx context.Context) error {
 			return engine.RecordCompilerAnalysis(ctx, env.Repo.Sources().Root(), env.Repo.Storage(), id, wantEscape, wantInline)
-		}).Context(ctx).Run()
+		}).Context(env.Ctx).Run()
 		if err != nil {
 			return err
 		}

@@ -43,7 +43,7 @@ func TestCompareBench(t *testing.T) {
 		storage, id1, id2 := setupCompareStorage(t)
 		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 
-		err := runCompareBench(t.Context(), env, compareBenchOpts(id1, id2))
+		err := runCompareBench(env, compareBenchOpts(id1, id2))
 		require.NoError(t, err)
 
 		out := env.Out.String()
@@ -57,7 +57,7 @@ func TestCompareBench(t *testing.T) {
 		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 		env.Format = execenv.FormatJSON
 
-		err := runCompareBench(t.Context(), env, compareBenchOpts(id1, id2))
+		err := runCompareBench(env, compareBenchOpts(id1, id2))
 		require.NoError(t, err)
 
 		out := env.Out.String()
@@ -75,7 +75,7 @@ func TestCompareBench(t *testing.T) {
 		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 		env.Format = execenv.FormatRaw
 
-		err := runCompareBench(t.Context(), env, compareBenchOpts(id1, id2))
+		err := runCompareBench(env, compareBenchOpts(id1, id2))
 		require.NoError(t, err)
 
 		out := env.Out.String()

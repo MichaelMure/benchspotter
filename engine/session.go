@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
@@ -33,7 +32,7 @@ type sessionMeta struct {
 	GoVersion string       `json:"go_version,omitempty"`
 }
 
-func PrepareSession(ctx context.Context, env *execenv.Env, name string, benches []BenchInfo) (string, error) {
+func PrepareSession(env *execenv.Env, name string, benches []BenchInfo) (string, error) {
 	uid, err := uuid.NewV7()
 	if err != nil {
 		return "", fmt.Errorf("failed to generate session id: %w", err)

@@ -11,7 +11,7 @@ import (
 	"benchspotter/engine"
 )
 
-func SelectBenchmark(ctx context.Context, env *execenv.Env, preSelect string) (engine.BenchInfo, error) {
+func SelectBenchmark(env *execenv.Env, preSelect string) (engine.BenchInfo, error) {
 	var benchs []engine.BenchInfo
 
 	err := env.Spinner().Title("Finding benchmarks").
@@ -19,7 +19,7 @@ func SelectBenchmark(ctx context.Context, env *execenv.Env, preSelect string) (e
 			var err error
 			benchs, err = engine.LocateBenchmarks(ctx, env.Repo.Sources())
 			return err
-		}).Context(ctx).Run()
+		}).Context(env.Ctx).Run()
 	if err != nil {
 		return engine.BenchInfo{}, fmt.Errorf("failed to discover benchmarks: %w", err)
 	}
@@ -41,7 +41,7 @@ func SelectBenchmark(ctx context.Context, env *execenv.Env, preSelect string) (e
 			return options
 		}, nil).
 		Value(&selected)).
-		RunWithContext(ctx)
+		RunWithContext(env.Ctx)
 	if err != nil {
 		return engine.BenchInfo{}, err
 	}
@@ -49,7 +49,7 @@ func SelectBenchmark(ctx context.Context, env *execenv.Env, preSelect string) (e
 	return selected, nil
 }
 
-func SelectBenchmarks(ctx context.Context, env *execenv.Env, preSelect []string) ([]engine.BenchInfo, error) {
+func SelectBenchmarks(env *execenv.Env, preSelect []string) ([]engine.BenchInfo, error) {
 	var benchs []engine.BenchInfo
 
 	err := env.Spinner().Title("Finding benchmarks").
@@ -57,7 +57,7 @@ func SelectBenchmarks(ctx context.Context, env *execenv.Env, preSelect []string)
 			var err error
 			benchs, err = engine.LocateBenchmarks(ctx, env.Repo.Sources())
 			return err
-		}).Context(ctx).Run()
+		}).Context(env.Ctx).Run()
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover benchmarks: %w", err)
 	}
@@ -80,7 +80,7 @@ func SelectBenchmarks(ctx context.Context, env *execenv.Env, preSelect []string)
 			return opts
 		}, nil).
 		Value(&selection)).
-		RunWithContext(ctx)
+		RunWithContext(env.Ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -23,7 +23,7 @@ func TestSession(t *testing.T) {
 			createTestSession(t, storage, "second-session", []string{"BenchmarkBaz"}, "xyz9876fed5432xyz9876fed5432xyz9876fed54", true)
 
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
-			err := runSessionLs(t.Context(), env, sessionLsOptions{tag: ""})
+			err := runSessionLs(env, sessionLsOptions{tag: ""})
 			require.NoError(t, err)
 
 			out := env.Out.String()
@@ -46,7 +46,7 @@ func TestSession(t *testing.T) {
 			_ = f.Close()
 
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
-			require.NoError(t, runSessionLs(t.Context(), env, sessionLsOptions{tag: ""}))
+			require.NoError(t, runSessionLs(env, sessionLsOptions{tag: ""}))
 			assert.Contains(t, env.Out.String(), "✓")
 		})
 
@@ -56,7 +56,7 @@ func TestSession(t *testing.T) {
 			addTagToSession(t, storage, id, "baseline")
 
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
-			require.NoError(t, runSessionLs(t.Context(), env, sessionLsOptions{tag: ""}))
+			require.NoError(t, runSessionLs(env, sessionLsOptions{tag: ""}))
 			assert.Contains(t, env.Out.String(), "baseline")
 		})
 
@@ -67,7 +67,7 @@ func TestSession(t *testing.T) {
 			addTagToSession(t, storage, id1, "baseline")
 
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
-			require.NoError(t, runSessionLs(t.Context(), env, sessionLsOptions{tag: "baseline"}))
+			require.NoError(t, runSessionLs(env, sessionLsOptions{tag: "baseline"}))
 
 			out := env.Out.String()
 			assert.Contains(t, out, "tagged")
@@ -81,7 +81,7 @@ func TestSession(t *testing.T) {
 
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 			env.Format = execenv.FormatJSON
-			err := runSessionLs(t.Context(), env, sessionLsOptions{tag: ""})
+			err := runSessionLs(env, sessionLsOptions{tag: ""})
 			require.NoError(t, err)
 
 			out := env.Out.String()
@@ -99,7 +99,7 @@ func TestSession(t *testing.T) {
 		id := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
 
 		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
-		require.NoError(t, runSessionTag(t.Context(), env, []string{id, "baseline"}))
+		require.NoError(t, runSessionTag(env, []string{id, "baseline"}))
 
 		meta := readSessionMeta(t, storage, id)
 		assert.Equal(t, []interface{}{"baseline"}, meta["tags"])
@@ -112,7 +112,7 @@ func TestSession(t *testing.T) {
 		addTagToSession(t, storage, id, "fast")
 
 		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
-		require.NoError(t, runSessionUntag(t.Context(), env, []string{id, "baseline"}))
+		require.NoError(t, runSessionUntag(env, []string{id, "baseline"}))
 
 		meta := readSessionMeta(t, storage, id)
 		assert.Equal(t, []interface{}{"fast"}, meta["tags"])
@@ -123,7 +123,7 @@ func TestSession(t *testing.T) {
 		id := createTestSession(t, storage, "old-name", []string{"BenchmarkFoo"}, "", false)
 
 		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
-		require.NoError(t, runSessionRename(t.Context(), env, []string{id, "new-name"}))
+		require.NoError(t, runSessionRename(env, []string{id, "new-name"}))
 
 		meta := readSessionMeta(t, storage, id)
 		assert.Equal(t, "new-name", meta["name"])
@@ -135,7 +135,7 @@ func TestSession(t *testing.T) {
 			id := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
 
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
-			require.NoError(t, runSessionRm(t.Context(), env, []string{id}, sessionRmOptions{skipConfirmation: true}))
+			require.NoError(t, runSessionRm(env, []string{id}, sessionRmOptions{skipConfirmation: true}))
 
 			_, err := storage.Stat(filepath.Join("sessions", id))
 			assert.Error(t, err)
@@ -146,7 +146,7 @@ func TestSession(t *testing.T) {
 			createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
 
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
-			err := runSessionRm(t.Context(), env, []string{"00000000-0000-0000-0000-000000000000"}, sessionRmOptions{skipConfirmation: true})
+			err := runSessionRm(env, []string{"00000000-0000-0000-0000-000000000000"}, sessionRmOptions{skipConfirmation: true})
 			assert.ErrorContains(t, err, "not found")
 		})
 	})

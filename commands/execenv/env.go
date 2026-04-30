@@ -62,12 +62,12 @@ func (e Env) Spinner() *spinner.Spinner {
 
 // RunModel runs m as a full-screen TUI. It is the caller's responsibility to
 // handle the non-terminal case before calling this.
-func (e Env) RunModel(ctx context.Context, m tea.Model) error {
-	_, err := e.newProgram(ctx, m).Run()
+func (e Env) RunModel(m tea.Model) error {
+	_, err := e.newProgram(e.Ctx, m).Run()
 	return err
 }
 
-func (e Env) Viewport(ctx context.Context) (ViewportWriter, func() error) {
+func (e Env) Viewport() (ViewportWriter, func() error) {
 	if !e.Out.IsTerminal() {
 		p := &plainViewport{}
 		return p, func() error {
@@ -77,7 +77,7 @@ func (e Env) Viewport(ctx context.Context) (ViewportWriter, func() error) {
 	}
 
 	v := &viewportModel{}
-	v.program = e.newProgram(ctx, v)
+	v.program = e.newProgram(e.Ctx, v)
 
 	return v, func() error {
 		_, err := v.program.Run()
@@ -88,7 +88,7 @@ func (e Env) Viewport(ctx context.Context) (ViewportWriter, func() error) {
 // ViewportWithKeys runs m as an interactive TUI viewport. In non-terminal mode
 // it renders once and writes directly to Out. Flags should set the initial
 // model state for headless use.
-func (e Env) ViewportWithKeys(ctx context.Context, m InteractiveModel) func() error {
+func (e Env) ViewportWithKeys(m InteractiveModel) func() error {
 	if !e.Out.IsTerminal() {
 		return func() error {
 			_, err := fmt.Fprint(e.Out, m.Render())
@@ -96,7 +96,7 @@ func (e Env) ViewportWithKeys(ctx context.Context, m InteractiveModel) func() er
 		}
 	}
 	return func() error {
-		return e.RunModel(ctx, &interactiveViewportModel{model: m})
+		return e.RunModel(&interactiveViewportModel{model: m})
 	}
 }
 

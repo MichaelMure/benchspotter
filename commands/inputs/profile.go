@@ -1,8 +1,6 @@
 package inputs
 
 import (
-	"context"
-
 	"charm.land/huh/v2"
 
 	"benchspotter/commands/execenv"
@@ -15,7 +13,7 @@ type BenchOption struct {
 }
 
 // SelectProfileBench prompts the user to choose a benchmark from the available profiles.
-func SelectProfileBench(ctx context.Context, env *execenv.Env, opts []BenchOption, preSelect string) (string, error) {
+func SelectProfileBench(env *execenv.Env, opts []BenchOption, preSelect string) (string, error) {
 	hopts := make([]huh.Option[string], len(opts))
 	for i, o := range opts {
 		hopts[i] = huh.NewOption(o.Label, o.Name).Selected(o.Name == preSelect)
@@ -26,7 +24,7 @@ func SelectProfileBench(ctx context.Context, env *execenv.Env, opts []BenchOptio
 		Title("Select a benchmark").
 		Options(hopts...).
 		Value(&selection)).
-		RunWithContext(ctx)
+		RunWithContext(env.Ctx)
 	if err != nil {
 		return "", err
 	}

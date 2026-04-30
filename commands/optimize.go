@@ -42,7 +42,7 @@ func newOptimizeCommand(env *execenv.Env) *cobra.Command {
 		Short:   "Search for optimal benchinput parameter values",
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runOptimize(cmd.Context(), env, opts)
+			return runOptimize(env, opts)
 		},
 	}
 
@@ -62,14 +62,14 @@ func newOptimizeCommand(env *execenv.Env) *cobra.Command {
 	return cmd
 }
 
-func runOptimize(ctx context.Context, env *execenv.Env, opts optimizeOptions) error {
+func runOptimize(env *execenv.Env, opts optimizeOptions) error {
 	// Discover benchinput parameters.
 	var allInputs []engine.InputInfo
 	err := env.Spinner().Title("Discovering inputs").ActionWithErr(func(ctx context.Context) error {
 		var err error
 		allInputs, err = engine.Inputs(env.Repo.Sources().Root())
 		return err
-	}).Context(ctx).Run()
+	}).Context(env.Ctx).Run()
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func runOptimize(ctx context.Context, env *execenv.Env, opts optimizeOptions) er
 				return options
 			}, nil).
 			Value(&selectedInputs)).
-			RunWithContext(ctx)
+			RunWithContext(env.Ctx)
 		if err != nil {
 			return err
 		}
@@ -130,7 +130,7 @@ func runOptimize(ctx context.Context, env *execenv.Env, opts optimizeOptions) er
 			var err error
 			allBenches, err = engine.LocateBenchmarks(ctx, env.Repo.Sources())
 			return err
-		}).Context(ctx).Run()
+		}).Context(env.Ctx).Run()
 		if err != nil {
 			return err
 		}
@@ -145,7 +145,7 @@ func runOptimize(ctx context.Context, env *execenv.Env, opts optimizeOptions) er
 		}
 	} else {
 		const recallKey = "optimize_bench"
-		bench, err = inputs.SelectBenchmark(ctx, env, env.Repo.GetRecall(recallKey))
+		bench, err = inputs.SelectBenchmark(env, env.Repo.GetRecall(recallKey))
 		if err != nil {
 			return err
 		}
@@ -167,7 +167,7 @@ func runOptimize(ctx context.Context, env *execenv.Env, opts optimizeOptions) er
 				return options
 			}, nil).
 			Value(&strat)).
-			RunWithContext(ctx)
+			RunWithContext(env.Ctx)
 		if err != nil {
 			return err
 		}
@@ -197,7 +197,7 @@ func runOptimize(ctx context.Context, env *execenv.Env, opts optimizeOptions) er
 				return opts
 			}, nil).
 			Value(&selected)).
-			RunWithContext(ctx)
+			RunWithContext(env.Ctx)
 		if err != nil {
 			return err
 		}
@@ -208,7 +208,7 @@ func runOptimize(ctx context.Context, env *execenv.Env, opts optimizeOptions) er
 	strategy := buildOptimizeStrategy(opts, selectedInputs)
 	minimize := !opts.maximize
 
-	optCtx, cancelOpt := context.WithCancel(ctx)
+	optCtx, cancelOpt := context.WithCancel(env.Ctx)
 	defer cancelOpt()
 
 	resultCh := engine.RunOptimize(optCtx, bench, strategy, opts.count, opts.maxTrials)
@@ -219,7 +219,7 @@ func runOptimize(ctx context.Context, env *execenv.Env, opts optimizeOptions) er
 			return runOptimizePlain(env, resultCh, opts.metric, minimize, opts.maxTrials)
 		}
 		var modelResult optimizeModelResult
-		err = env.RunModel(ctx, newOptimizeModel(bench, selectedInputs, opts.metric, minimize, strategy, opts.maxTrials, resultCh, cancelOpt, env.Style, &modelResult))
+		err = env.RunModel(newOptimizeModel(bench, selectedInputs, opts.metric, minimize, strategy, opts.maxTrials, resultCh, cancelOpt, env.Style, &modelResult))
 		if err != nil {
 			return err
 		}

@@ -92,7 +92,7 @@ func TestShowProfile(t *testing.T) {
 			storage, id := setupProfileSession(t)
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 
-			err := runShowProfile(t.Context(), env, showProfileOptions{
+			err := runShowProfile(env, showProfileOptions{
 				session:     id,
 				profileType: engine.ProfileCPU,
 				top:         20,
@@ -111,7 +111,7 @@ func TestShowProfile(t *testing.T) {
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 			env.Format = execenv.FormatJSON
 
-			err := runShowProfile(t.Context(), env, showProfileOptions{
+			err := runShowProfile(env, showProfileOptions{
 				session:     id,
 				profileType: engine.ProfileCPU,
 				top:         20,
@@ -130,7 +130,7 @@ func TestShowProfile(t *testing.T) {
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 			env.Format = execenv.FormatRaw
 
-			err := runShowProfile(t.Context(), env, showProfileOptions{
+			err := runShowProfile(env, showProfileOptions{
 				session:     id,
 				profileType: engine.ProfileCPU,
 				top:         20,
@@ -146,7 +146,7 @@ func TestShowProfile(t *testing.T) {
 			id := createTestSession(t, storage, "no-profiles", []string{"BenchmarkFoo"}, "abc1234", false)
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 
-			err := runShowProfile(t.Context(), env, showProfileOptions{
+			err := runShowProfile(env, showProfileOptions{
 				session:     id,
 				profileType: engine.ProfileCPU,
 				top:         20,
@@ -159,7 +159,7 @@ func TestShowProfile(t *testing.T) {
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 			env.Format = execenv.FormatJSON
 
-			err := runShowProfile(t.Context(), env, showProfileOptions{
+			err := runShowProfile(env, showProfileOptions{
 				session:     id,
 				bench:       "BenchmarkFoo",
 				profileType: engine.ProfileCPU,
@@ -177,7 +177,7 @@ func TestShowProfile(t *testing.T) {
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 			env.Format = execenv.FormatJSON
 
-			err := runShowProfile(t.Context(), env, showProfileOptions{
+			err := runShowProfile(env, showProfileOptions{
 				session:     id,
 				bench:       "",
 				profileType: engine.ProfileCPU,
@@ -190,7 +190,7 @@ func TestShowProfile(t *testing.T) {
 			storage, id := setupMultiBenchProfileSession(t)
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 
-			err := runShowProfile(t.Context(), env, showProfileOptions{
+			err := runShowProfile(env, showProfileOptions{
 				session:     id,
 				bench:       "BenchmarkNonExistent",
 				profileType: engine.ProfileCPU,

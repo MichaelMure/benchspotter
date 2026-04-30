@@ -2,7 +2,6 @@ package commands
 
 import (
 	"cmp"
-	"context"
 	"fmt"
 	"io"
 
@@ -28,7 +27,7 @@ func newShowDiffCommand(env *execenv.Env) *cobra.Command {
 		Short:   "Show the (git) source diff when the benchmark was run",
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runShowDiffCommand(cmd.Context(), env, options)
+			return runShowDiffCommand(env, options)
 		},
 	}
 
@@ -39,14 +38,14 @@ func newShowDiffCommand(env *execenv.Env) *cobra.Command {
 	return cmd
 }
 
-func runShowDiffCommand(ctx context.Context, env *execenv.Env, options showDiffOptions) error {
+func runShowDiffCommand(env *execenv.Env, options showDiffOptions) error {
 	var err error
 	var selection *engine.SessionInfo
 
 	if len(options.session) == 0 {
 		const recallKey = "show_diff_session"
 		preSelected := env.Repo.GetRecall(recallKey)
-		selection, err = inputs.SelectSession(ctx, env, preSelected,
+		selection, err = inputs.SelectSession(env, preSelected,
 			func(info *engine.SessionInfo) bool {
 				return info.HasGitDiff()
 			})
@@ -98,7 +97,7 @@ func runShowDiffCommand(ctx context.Context, env *execenv.Env, options showDiffO
 		if err != nil {
 			return err
 		}
-		viewport, runFn := env.Viewport(ctx)
+		viewport, runFn := env.Viewport()
 		if line := engine.FormatMachineLine(selection.Machine, selection.GoVersion); line != "" {
 			fmt.Fprintln(viewport, env.Style.TonedDown(line))
 			fmt.Fprintln(viewport)

@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -28,7 +27,7 @@ func newShowEscapeCommand(env *execenv.Env) *cobra.Command {
 		Short:   "Show compiler escape analysis recorded for a session",
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runShowEscape(cmd.Context(), env, options)
+			return runShowEscape(env, options)
 		},
 	}
 
@@ -40,14 +39,14 @@ func newShowEscapeCommand(env *execenv.Env) *cobra.Command {
 	return cmd
 }
 
-func runShowEscape(ctx context.Context, env *execenv.Env, options showEscapeOptions) error {
+func runShowEscape(env *execenv.Env, options showEscapeOptions) error {
 	var selection *engine.SessionInfo
 
 	if options.session == "" {
 		const recallKey = "show_escape_session"
 		preSelected := env.Repo.GetRecall(recallKey)
 		var err error
-		selection, err = inputs.SelectSession(ctx, env, preSelected,
+		selection, err = inputs.SelectSession(env, preSelected,
 			func(info *engine.SessionInfo) bool { return info.HasProfile(engine.ProfileEscape) })
 		if err != nil {
 			return err
@@ -137,7 +136,7 @@ func runShowEscape(ctx context.Context, env *execenv.Env, options showEscapeOpti
 			showAll:       options.all,
 			projectOnly:   !options.includeDeps,
 		}
-		return env.ViewportWithKeys(ctx, model)()
+		return env.ViewportWithKeys(model)()
 
 	default:
 		return fmt.Errorf("unsupported format %v for show escape (text, json)", env.Format)
@@ -191,7 +190,7 @@ func (m *escapeViewModel) Status() string {
 	if m.showFlow {
 		flow = "on"
 	}
-	return fmt.Sprintf("[a] filter: %s    [p] scope: %s    [f] flow: %s    [⇥] next  [⇤] prev    [ctrl+s] search    [q] quit", filter, scope, flow)
+	return fmt.Sprintf("[a] filter: %s    [p] scope: %s    [f] flow: %s    [⇥] next  [⇤] prev    [ctrl+f] search    [q] quit", filter, scope, flow)
 }
 
 func (m *escapeViewModel) Render() string {

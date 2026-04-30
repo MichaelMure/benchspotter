@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -27,7 +26,7 @@ func newShowInlineCommand(env *execenv.Env) *cobra.Command {
 		Short:   "Show compiler inlining decisions recorded for a session",
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runShowInline(cmd.Context(), env, options)
+			return runShowInline(env, options)
 		},
 	}
 
@@ -39,14 +38,14 @@ func newShowInlineCommand(env *execenv.Env) *cobra.Command {
 	return cmd
 }
 
-func runShowInline(ctx context.Context, env *execenv.Env, options showInlineOptions) error {
+func runShowInline(env *execenv.Env, options showInlineOptions) error {
 	var selection *engine.SessionInfo
 
 	if options.session == "" {
 		const recallKey = "show_inline_session"
 		preSelected := env.Repo.GetRecall(recallKey)
 		var err error
-		selection, err = inputs.SelectSession(ctx, env, preSelected,
+		selection, err = inputs.SelectSession(env, preSelected,
 			func(info *engine.SessionInfo) bool { return info.HasProfile(engine.ProfileInline) })
 		if err != nil {
 			return err
@@ -142,7 +141,7 @@ func runShowInline(ctx context.Context, env *execenv.Env, options showInlineOpti
 			showAll:       options.all,
 			projectOnly:   !options.includeDeps,
 		}
-		return env.ViewportWithKeys(ctx, model)()
+		return env.ViewportWithKeys(model)()
 
 	default:
 		return fmt.Errorf("unsupported format %v for show inline (text, json)", env.Format)
@@ -188,7 +187,7 @@ func (m *inlineViewModel) Status() string {
 	if !m.projectOnly {
 		scope = "all (incl. deps)"
 	}
-	return fmt.Sprintf("[a] filter: %s    [p] scope: %s    [⇥] next  [⇤] prev    [ctrl+s] search    [q] quit", filter, scope)
+	return fmt.Sprintf("[a] filter: %s    [p] scope: %s    [⇥] next  [⇤] prev    [ctrl+f] search    [q] quit", filter, scope)
 }
 
 func (m *inlineViewModel) Render() string {

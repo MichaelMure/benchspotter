@@ -209,7 +209,7 @@ func newShowProfileCommand(env *execenv.Env, profileType engine.Profile, use, sh
 		Short:   short,
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runShowProfile(cmd.Context(), env, options)
+			return runShowProfile(env, options)
 		},
 	}
 
@@ -223,7 +223,7 @@ func newShowProfileCommand(env *execenv.Env, profileType engine.Profile, use, sh
 	return cmd
 }
 
-func runShowProfile(ctx context.Context, env *execenv.Env, options showProfileOptions) error {
+func runShowProfile(env *execenv.Env, options showProfileOptions) error {
 	var selection *engine.SessionInfo
 	var err error
 
@@ -233,7 +233,7 @@ func runShowProfile(ctx context.Context, env *execenv.Env, options showProfileOp
 
 	if interactive {
 		preSelected := env.Repo.GetRecall(sessionRecallKey)
-		selection, err = inputs.SelectSession(ctx, env, preSelected,
+		selection, err = inputs.SelectSession(env, preSelected,
 			func(info *engine.SessionInfo) bool {
 				return info.HasProfile(options.profileType)
 			})
@@ -281,7 +281,7 @@ func runShowProfile(ctx context.Context, env *execenv.Env, options showProfileOp
 				benchOpts[i] = inputs.BenchOption{Name: s.Name, Label: formatBenchSummary(s, options.profileType)}
 			}
 			preSelected := env.Repo.GetRecall(benchRecallKey)
-			options.bench, err = inputs.SelectProfileBench(ctx, env, benchOpts, preSelected)
+			options.bench, err = inputs.SelectProfileBench(env, benchOpts, preSelected)
 			if err != nil {
 				return err
 			}
@@ -352,11 +352,11 @@ func runShowProfile(ctx context.Context, env *execenv.Env, options showProfileOp
 		profilePath, _ := engine.ProfileFilePath(env.Repo.Storage(), selection.Path, options.profileType, options.bench)
 		if profilePath != "" {
 			model.startPprof = func() (url string, err error) {
-				return launchPprof(ctx, profilePath)
+				return launchPprof(env.Ctx, profilePath)
 			}
 		}
 
-		return env.ViewportWithKeys(ctx, model)()
+		return env.ViewportWithKeys(model)()
 
 	default:
 		return fmt.Errorf("unsupported format %v for show %s (text, json, raw)", env.Format, engine.ProfileDir(options.profileType))
@@ -476,13 +476,12 @@ func launchPprof(ctx context.Context, profilePath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("locate pprof: %w", err)
 	}
+
 	cmd := execabs.CommandContext(ctx, strings.TrimSpace(string(pprofBin)), "-http="+addr, profilePath)
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
-	go func() {
-		_ = cmd.Run()
-	}()
-	return "http://" + addr, nil
+
+	return "http://" + addr, cmd.Start()
 }
 
 // findFreePort returns an available TCP port on localhost.

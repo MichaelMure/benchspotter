@@ -36,7 +36,7 @@ func newTrendCommand(env *execenv.Env) *cobra.Command {
 		Short:   "Show benchmark trends over time",
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runTrend(cmd.Context(), env, opts)
+			return runTrend(env, opts)
 		},
 	}
 
@@ -49,7 +49,7 @@ func newTrendCommand(env *execenv.Env) *cobra.Command {
 	return cmd
 }
 
-func runTrend(ctx context.Context, env *execenv.Env, opts trendOptions) error {
+func runTrend(env *execenv.Env, opts trendOptions) error {
 	var sessions []*engine.SessionInfo
 	var data *engine.TrendData
 
@@ -64,7 +64,7 @@ func runTrend(ctx context.Context, env *execenv.Env, opts trendOptions) error {
 		}
 		data, err = engine.LoadTrendData(sessions, opts.confidence)
 		return err
-	}).Context(ctx).Run()
+	}).Context(env.Ctx).Run()
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func runTrend(ctx context.Context, env *execenv.Env, opts trendOptions) error {
 		if !env.Out.IsTerminal() {
 			return renderTrendTextPlain(env, data, opts)
 		}
-		return env.RunModel(ctx, newTrendModel(data, opts, env.Style))
+		return env.RunModel(newTrendModel(data, opts, env.Style))
 	default:
 		return fmt.Errorf("unsupported format %v for trend (text, json)", env.Format)
 	}

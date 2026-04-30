@@ -56,7 +56,7 @@ engine/foo.go:30:1: can inline Qux
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 			env.Format = execenv.FormatJSON
 
-			err := runShowInline(t.Context(), env, showInlineOptions{session: sessionID})
+			err := runShowInline(env, showInlineOptions{session: sessionID})
 			require.NoError(t, err)
 
 			out := env.Out.String()
@@ -70,7 +70,7 @@ engine/foo.go:30:1: can inline Qux
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 			env.Format = execenv.FormatJSON
 
-			err := runShowInline(t.Context(), env, showInlineOptions{session: sessionID, all: true})
+			err := runShowInline(env, showInlineOptions{session: sessionID, all: true})
 			require.NoError(t, err)
 
 			out := env.Out.String()
@@ -92,7 +92,7 @@ engine/foo.go:30:1: can inline Qux
 				env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 				env.Format = execenv.FormatJSON
 
-				err := runShowInline(t.Context(), env, showInlineOptions{session: sessionID})
+				err := runShowInline(env, showInlineOptions{session: sessionID})
 				require.NoError(t, err)
 				out := env.Out.String()
 				assert.Contains(t, out, "engine/foo.go")
@@ -103,7 +103,7 @@ engine/foo.go:30:1: can inline Qux
 				env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 				env.Format = execenv.FormatJSON
 
-				err := runShowInline(t.Context(), env, showInlineOptions{session: sessionID, includeDeps: true})
+				err := runShowInline(env, showInlineOptions{session: sessionID, includeDeps: true})
 				require.NoError(t, err)
 				assert.Contains(t, env.Out.String(), "fmt/format.go")
 			})
@@ -133,7 +133,7 @@ func callHelper() {}
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, gitSrc))
 			env.Format = execenv.FormatText
 
-			err := runShowInline(t.Context(), env, showInlineOptions{session: sessionID, all: true})
+			err := runShowInline(env, showInlineOptions{session: sessionID, all: true})
 			require.NoError(t, err)
 
 			out := env.Out.String()
@@ -173,7 +173,7 @@ func oldHelper() {}
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, gitSrc))
 			env.Format = execenv.FormatText
 
-			err := runShowInline(t.Context(), env, showInlineOptions{session: sessionID, all: true})
+			err := runShowInline(env, showInlineOptions{session: sessionID, all: true})
 			require.NoError(t, err)
 
 			out := env.Out.String()
@@ -189,7 +189,7 @@ func oldHelper() {}
 		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 		env.Format = execenv.FormatJSON
 
-		err := runShowInline(t.Context(), env, showInlineOptions{session: sessionID})
+		err := runShowInline(env, showInlineOptions{session: sessionID})
 		assert.ErrorContains(t, err, "no inline analysis recorded")
 	})
 
@@ -200,7 +200,7 @@ func oldHelper() {}
 		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 		env.Format = execenv.FormatJSON
 
-		err := runShowInline(t.Context(), env, showInlineOptions{session: "nonexistent-id"})
+		err := runShowInline(env, showInlineOptions{session: "nonexistent-id"})
 		assert.ErrorContains(t, err, `"nonexistent-id" not found`)
 	})
 }
@@ -246,7 +246,7 @@ func helperB() int { return 2 }
 	env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, gitSrc))
 	env.Format = execenv.FormatText
 
-	err := runShowInline(t.Context(), env, showInlineOptions{session: sessionID})
+	err := runShowInline(env, showInlineOptions{session: sessionID})
 	require.NoError(t, err)
 
 	out := env.Out.String()
