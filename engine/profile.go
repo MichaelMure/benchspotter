@@ -198,6 +198,32 @@ func ReadProfileRaw(fs billy.Filesystem, sessionPath string, p Profile, bench st
 	return buf.Bytes(), nil
 }
 
+// ProfileFilePath returns the absolute OS path to the pprof file for the given
+// session, profile type, and benchmark. The storage filesystem must be an OS
+// filesystem (osfs), which is always the case in production.
+func ProfileFilePath(fs billy.Filesystem, sessionPath string, p Profile, bench string) (string, error) {
+	dir := filepath.Join(sessionPath, ProfileDir(p))
+	entries, err := fs.ReadDir(dir)
+	if err != nil {
+		return "", fmt.Errorf("no %s profile found for this session", ProfileDir(p))
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".profile") {
+			continue
+		}
+		decoded := reverseReplacer.Replace(strings.TrimSuffix(e.Name(), ".profile"))
+		name := decoded
+		if idx := strings.LastIndex(decoded, "."); idx >= 0 {
+			name = decoded[idx+1:]
+		}
+		if name != bench {
+			continue
+		}
+		return filepath.Join(fs.Root(), dir, e.Name()), nil
+	}
+	return "", fmt.Errorf("no %s profile found for benchmark %q in this session", ProfileDir(p), bench)
+}
+
 // readProfile opens the single pprof file for bench and parses it.
 // bench must be a non-empty name returned by ListProfileBenchmarks.
 func readProfile(fs billy.Filesystem, sessionPath string, p Profile, bench string) (*profile.Profile, error) {

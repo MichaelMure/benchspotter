@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -13,6 +15,7 @@ import (
 	"github.com/google/pprof/profile"
 	"github.com/spf13/cobra"
 	"github.com/thediveo/enumflag/v2"
+	"golang.org/x/sys/execabs"
 
 	"benchspotter/commands/execenv"
 	"benchspotter/commands/inputs"
@@ -31,6 +34,7 @@ var memMetricIds = map[engine.MemMetric][]string{
 // For mem profiles, [m] cycles through the four available metrics.
 // [s] cycles through sort orders for all profile types.
 // [a] toggles source line annotations (when sourcesRoot is set).
+// [o] opens the profile in pprof's web UI (go tool pprof -http).
 type profileViewModel struct {
 	prof          *profile.Profile
 	profileType   engine.Profile
@@ -42,6 +46,10 @@ type profileViewModel struct {
 	sourcesRoot string
 	sourceCache map[string][]byte // relPath → file content (nil = not found)
 	annotate    bool
+	// pprof web UI; lifecycle is managed by the context passed to startPprof.
+	startPprof func() (url string, err error) // nil if unavailable
+	pprofURL   string                         // set once pprof is running
+	pprofErr   string                         // last error launching pprof
 }
 
 func (m *profileViewModel) Render() string {
@@ -106,10 +114,19 @@ func (m *profileViewModel) Status() string {
 			annotateHint = "    [a] source: off"
 		}
 	}
-	if m.profileType == engine.ProfileMem {
-		return fmt.Sprintf("[s] sort: %s    [m] metric: %s%s    [q] quit", m.sort, m.metric, annotateHint)
+	pprofHint := ""
+	switch {
+	case m.pprofURL != "":
+		pprofHint = "    pprof: " + m.pprofURL
+	case m.pprofErr != "":
+		pprofHint = "    pprof error: " + m.pprofErr
+	case m.startPprof != nil:
+		pprofHint = "    [o] open in pprof"
 	}
-	return fmt.Sprintf("[s] sort: %s%s    [q] quit", m.sort, annotateHint)
+	if m.profileType == engine.ProfileMem {
+		return fmt.Sprintf("[s] sort: %s    [m] metric: %s%s%s    [q] quit", m.sort, m.metric, annotateHint, pprofHint)
+	}
+	return fmt.Sprintf("[s] sort: %s%s%s    [q] quit", m.sort, annotateHint, pprofHint)
 }
 
 func (m *profileViewModel) HandleKey(key string) bool {
@@ -125,6 +142,16 @@ func (m *profileViewModel) HandleKey(key string) bool {
 	case "a":
 		if m.sourcesRoot != "" {
 			m.annotate = !m.annotate
+			return true
+		}
+	case "o":
+		if m.startPprof != nil && m.pprofURL == "" {
+			url, err := m.startPprof()
+			if err != nil {
+				m.pprofErr = err.Error()
+			} else {
+				m.pprofURL = url
+			}
 			return true
 		}
 	}
@@ -310,6 +337,7 @@ func runShowProfile(ctx context.Context, env *execenv.Env, options showProfileOp
 		if err != nil {
 			return err
 		}
+
 		model := &profileViewModel{
 			prof:          prof,
 			profileType:   options.profileType,
@@ -320,6 +348,14 @@ func runShowProfile(ctx context.Context, env *execenv.Env, options showProfileOp
 			sourcesRoot:   env.Repo.Sources().Root(),
 			sourceCache:   make(map[string][]byte),
 		}
+
+		profilePath, _ := engine.ProfileFilePath(env.Repo.Storage(), selection.Path, options.profileType, options.bench)
+		if profilePath != "" {
+			model.startPprof = func() (url string, err error) {
+				return launchPprof(ctx, profilePath)
+			}
+		}
+
 		return env.ViewportWithKeys(ctx, model)()
 
 	default:
@@ -426,4 +462,36 @@ func formatDuration(d time.Duration, p engine.Profile) string {
 			return fmt.Sprintf("%dB", b)
 		}
 	}
+}
+
+// launchPprof starts `go tool pprof -http` for profilePath on a random free
+// port and returns the URL once the process is running.
+func launchPprof(ctx context.Context, profilePath string) (string, error) {
+	port, err := findFreePort()
+	if err != nil {
+		return "", fmt.Errorf("no free port: %w", err)
+	}
+	addr := fmt.Sprintf("localhost:%d", port)
+	pprofBin, err := execabs.Command("go", "tool", "-n", "pprof").Output()
+	if err != nil {
+		return "", fmt.Errorf("locate pprof: %w", err)
+	}
+	cmd := execabs.CommandContext(ctx, strings.TrimSpace(string(pprofBin)), "-http="+addr, profilePath)
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
+	go func() {
+		_ = cmd.Run()
+	}()
+	return "http://" + addr, nil
+}
+
+// findFreePort returns an available TCP port on localhost.
+func findFreePort() (int, error) {
+	l, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		return 0, err
+	}
+	port := l.Addr().(*net.TCPAddr).Port
+	l.Close()
+	return port, nil
 }
