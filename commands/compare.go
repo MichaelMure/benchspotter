@@ -9,10 +9,10 @@ import (
 func newCompareCommand(env *execenv.Env) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "compare",
-		Short: "Compare benchmark results across sessions",
+		Short: "Compare results across sessions",
 	}
 
-	cmd.AddCommand(newCompareStatCommand(env))
+	cmd.AddCommand(newCompareBenchCommand(env))
 
 	return cmd
 }

@@ -25,8 +25,8 @@ func setupCompareStorage(t *testing.T) (billy.Filesystem, string, string) {
 	return storage, id1, id2
 }
 
-func compareStatOpts(id1, id2 string) compareStatOptions {
-	return compareStatOptions{
+func compareBenchOpts(id1, id2 string) compareBenchOptions {
+	return compareBenchOptions{
 		sessions:   []string{id1, id2},
 		table:      ".config",
 		row:        ".fullname",
@@ -36,14 +36,14 @@ func compareStatOpts(id1, id2 string) compareStatOptions {
 	}
 }
 
-func TestCompareStats(t *testing.T) {
+func TestCompareBench(t *testing.T) {
 	t.Run("text", func(t *testing.T) {
 		// benchfmt.Files reads from real disk paths via BenchFullPath(), so storage
 		// must be backed by a real directory rather than memfs.
 		storage, id1, id2 := setupCompareStorage(t)
 		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 
-		err := runCompareStat(t.Context(), env, compareStatOpts(id1, id2))
+		err := runCompareBench(t.Context(), env, compareBenchOpts(id1, id2))
 		require.NoError(t, err)
 
 		out := env.Out.String()
@@ -57,7 +57,7 @@ func TestCompareStats(t *testing.T) {
 		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 		env.Format = execenv.FormatJSON
 
-		err := runCompareStat(t.Context(), env, compareStatOpts(id1, id2))
+		err := runCompareBench(t.Context(), env, compareBenchOpts(id1, id2))
 		require.NoError(t, err)
 
 		out := env.Out.String()
@@ -75,7 +75,7 @@ func TestCompareStats(t *testing.T) {
 		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 		env.Format = execenv.FormatRaw
 
-		err := runCompareStat(t.Context(), env, compareStatOpts(id1, id2))
+		err := runCompareBench(t.Context(), env, compareBenchOpts(id1, id2))
 		require.NoError(t, err)
 
 		out := env.Out.String()

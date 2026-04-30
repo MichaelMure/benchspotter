@@ -17,7 +17,7 @@ import (
 	"benchspotter/engine"
 )
 
-type compareStatOptions struct {
+type compareBenchOptions struct {
 	sessions         []string
 	thresholds       benchmath.Thresholds
 	table            string
@@ -29,17 +29,17 @@ type compareStatOptions struct {
 	skipMachineCheck bool
 }
 
-func newCompareStatCommand(env *execenv.Env) *cobra.Command {
-	options := compareStatOptions{
+func newCompareBenchCommand(env *execenv.Env) *cobra.Command {
+	options := compareBenchOptions{
 		thresholds: benchmath.DefaultThresholds,
 	}
 
 	cmd := &cobra.Command{
-		Use:     "stat",
+		Use:     "bench",
 		Short:   "Compare benchmark results with x/perf/cmd/benchstat",
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCompareStat(cmd.Context(), env, options)
+			return runCompareBench(cmd.Context(), env, options)
 		},
 	}
 
@@ -58,7 +58,7 @@ func newCompareStatCommand(env *execenv.Env) *cobra.Command {
 	return cmd
 }
 
-func runCompareStat(ctx context.Context, env *execenv.Env, options compareStatOptions) error {
+func runCompareBench(ctx context.Context, env *execenv.Env, options compareBenchOptions) error {
 	// Note: largely taken from golang.org/x/perf/cmd/benchstat/main.go
 	// at revision v0.0.0-20250909190841-7e13e04d9366/
 
@@ -66,7 +66,7 @@ func runCompareStat(ctx context.Context, env *execenv.Env, options compareStatOp
 	var selection []*engine.SessionInfo
 
 	if len(options.sessions) == 0 {
-		const recallKey = "compare_stat_sessions"
+		const recallKey = "compare_bench_sessions"
 		preSelected := env.Repo.GetRecalls(recallKey)
 
 		selection, err = inputs.SelectSessions(ctx, env, preSelected)
@@ -194,7 +194,7 @@ func runCompareStat(ctx context.Context, env *execenv.Env, options compareStatOp
 		return runFn()
 	case execenv.FormatJSON:
 		tables := stat.ToTables(tableOpts)
-		return env.Out.PrintJSON(compareStatToJSON(tables))
+		return env.Out.PrintJSON(compareBenchToJSON(tables))
 	case execenv.FormatRaw:
 		for _, info := range selection {
 			fmt.Fprintf(env.Out, "file: %s\n", info.HumanName)
@@ -210,21 +210,21 @@ func runCompareStat(ctx context.Context, env *execenv.Env, options compareStatOp
 		}
 		return nil
 	default:
-		return fmt.Errorf("unsupported format %v for compare stat (text, json, raw)", env.Format)
+		return fmt.Errorf("unsupported format %v for compare bench (text, json, raw)", env.Format)
 	}
 }
 
-type compareStatJSONTable struct {
+type compareBenchJSONTable struct {
 	Unit       string                     `json:"unit"`
-	Benchmarks []compareStatJSONBenchmark `json:"benchmarks"`
+	Benchmarks []compareBenchJSONBenchmark `json:"benchmarks"`
 }
 
-type compareStatJSONBenchmark struct {
+type compareBenchJSONBenchmark struct {
 	Name     string                   `json:"name"`
-	Sessions []compareStatJSONSession `json:"sessions"`
+	Sessions []compareBenchJSONSession `json:"sessions"`
 }
 
-type compareStatJSONSession struct {
+type compareBenchJSONSession struct {
 	Name   string  `json:"name"`
 	Center float64 `json:"center"`
 	Range  string  `json:"range,omitempty"`
@@ -232,14 +232,14 @@ type compareStatJSONSession struct {
 	Stats  string  `json:"stats,omitempty"`
 }
 
-func compareStatToJSON(tables *benchtab.Tables) []compareStatJSONTable {
-	result := make([]compareStatJSONTable, len(tables.Tables))
+func compareBenchToJSON(tables *benchtab.Tables) []compareBenchJSONTable {
+	result := make([]compareBenchJSONTable, len(tables.Tables))
 	for i, t := range tables.Tables {
-		jTable := compareStatJSONTable{
+		jTable := compareBenchJSONTable{
 			Unit: t.Unit,
 		}
 		for _, row := range t.Rows {
-			jBench := compareStatJSONBenchmark{
+			jBench := compareBenchJSONBenchmark{
 				Name: row.StringValues(),
 			}
 			for _, col := range t.Cols {
@@ -247,7 +247,7 @@ func compareStatToJSON(tables *benchtab.Tables) []compareStatJSONTable {
 				if !ok {
 					continue
 				}
-				jSess := compareStatJSONSession{
+				jSess := compareBenchJSONSession{
 					Name:   col.StringValues(),
 					Center: cell.Summary.Center,
 					Range:  cell.Summary.PctRangeString(),
