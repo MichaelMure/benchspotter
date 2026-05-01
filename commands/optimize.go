@@ -8,6 +8,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
@@ -26,6 +27,7 @@ type optimizeOptions struct {
 	params    []string
 	count     int
 	maxTrials int
+	timeout   time.Duration
 	metric    string
 	strategy  string
 	maximize  bool
@@ -86,6 +88,7 @@ Any interactive prompt can be bypassed with the corresponding flags.`,
 	flags.StringArrayVarP(&opts.params, "param", "p", nil, "input parameter name(s) to sweep (repeatable)")
 	flags.IntVarP(&opts.count, "count", "c", 1, "benchmark iterations per trial")
 	flags.IntVar(&opts.maxTrials, "max-trials", 0, "stop after this many trials (0 = unlimited)")
+	flags.DurationVar(&opts.timeout, "timeout", 0, "stop optimization after this duration (e.g. 30s, 5m); 0 means no timeout")
 	flags.StringVarP(&opts.metric, "metric", "m", "", "metric to optimize (prompt if not set)")
 	strategyKeys := make([]string, len(engine.StrategyDefs))
 	for i, d := range engine.StrategyDefs {
@@ -245,6 +248,12 @@ func runOptimize(env *execenv.Env, opts optimizeOptions) error {
 
 	optCtx, cancelOpt := context.WithCancel(env.Ctx)
 	defer cancelOpt()
+
+	if opts.timeout > 0 {
+		var timeoutCancel context.CancelFunc
+		optCtx, timeoutCancel = context.WithTimeout(optCtx, opts.timeout)
+		defer timeoutCancel()
+	}
 
 	resultCh := engine.RunOptimize(optCtx, bench, strategy, opts.count, opts.maxTrials)
 

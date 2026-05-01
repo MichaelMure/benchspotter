@@ -128,6 +128,30 @@ func TestTrend(t *testing.T) {
 		out := env.Out.String()
 		assert.Contains(t, out, `"BenchmarkFoo"`)
 	})
+
+	t.Run("session filter", func(t *testing.T) {
+		storage := memfs.New()
+		id1 := createTestSession(t, storage, "session-a", []string{"BenchmarkFoo"}, "", false)
+		id2 := createTestSession(t, storage, "session-b", []string{"BenchmarkFoo"}, "", false)
+		createTestSession(t, storage, "session-c", []string{"BenchmarkFoo"}, "", false)
+		writeBenchResults(t, storage, id1, "BenchmarkFoo-8\t1000000\t100 ns/op\n")
+		writeBenchResults(t, storage, id2, "BenchmarkFoo-8\t1000000\t90 ns/op\n")
+		// session-c intentionally has no bench results to confirm it is excluded
+
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+		env.Format = execenv.FormatJSON
+
+		err := runTrend(env, trendOptions{
+			sessions:   []string{id1, "session-b"}, // mix of ID and name
+			confidence: 0.95,
+		})
+		require.NoError(t, err)
+
+		out := env.Out.String()
+		assert.Contains(t, out, "session-a")
+		assert.Contains(t, out, "session-b")
+		assert.NotContains(t, out, "session-c")
+	})
 }
 
 func TestFormatMetricValue(t *testing.T) {

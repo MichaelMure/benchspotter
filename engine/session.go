@@ -117,6 +117,54 @@ type SessionInfo struct {
 	fs  billy.Filesystem
 }
 
+// readSession reads meta.json for session id and returns a SessionInfo.
+// HumanName is set to a simple fallback (Name, or date if unnamed); call GenerateNames
+// on the full list to assign de-duplicated names when showing multiple sessions together.
+func readSession(fs billy.Filesystem, id string) (*SessionInfo, error) {
+	f, err := fs.Open(filepath.Join(sessionDir, id, metaFilename))
+	if err != nil {
+		return nil, fmt.Errorf(`failed to open meta file for session "%s": %w`, id, err)
+	}
+	meta := &sessionMeta{}
+	if err = json.NewDecoder(f).Decode(meta); err != nil {
+		return nil, fmt.Errorf(`failed to decode meta file for session "%s": %w`, id, err)
+	}
+	uid, err := uuid.Parse(id)
+	if err != nil {
+		return nil, fmt.Errorf("invalid id: %w", err)
+	}
+	if uid.Version() != 7 {
+		return nil, fmt.Errorf("invalid id: uuid is not v7")
+	}
+
+	// Extract the first 48 bits (6 bytes) as timestamp in milliseconds.
+	// UUIDv7 stores timestamp as big-endian uint48 in the first 48 bits.
+	timestampMilli := int64(binary.BigEndian.Uint32(uid[0:4]))<<16 |
+		int64(binary.BigEndian.Uint16(uid[4:6]))
+	t := time.UnixMilli(timestampMilli)
+
+	humanName := meta.Name
+	if humanName == "" {
+		humanName = t.Format("06-Jan-02")
+	}
+
+	return &SessionInfo{
+		Id:        id,
+		Name:      meta.Name,
+		HumanName: humanName,
+		Root:      fs.Root(),
+		Path:      filepath.Join(sessionDir, id),
+		Time:      t,
+		Benches:   meta.Benches,
+		GitCommit: meta.GitCommit,
+		Tags:      meta.Tags,
+		Machine:   meta.Machine,
+		GoVersion: meta.GoVersion,
+		uid:       uid,
+		fs:        fs,
+	}, nil
+}
+
 // LocateSessions reads all sessions from fs, assigns human-readable de-duplicated
 // names, and returns them sorted by creation time (oldest first).
 // Optional tagFilter values restrict results to sessions carrying any of those tags.
@@ -131,48 +179,14 @@ func LocateSessions(fs billy.Filesystem, tagFilter ...string) ([]*SessionInfo, e
 
 	res := make([]*SessionInfo, len(dirs))
 	for i, dir := range dirs {
-		f, err := fs.Open(filepath.Join(sessionDir, dir.Name(), metaFilename))
+		s, err := readSession(fs, dir.Name())
 		if err != nil {
-			return nil, fmt.Errorf(`failed to open meta file for session "%s": %w`, dir.Name(), err)
+			return nil, err
 		}
-		meta := &sessionMeta{}
-		err = json.NewDecoder(f).Decode(meta)
-		if err != nil {
-			return nil, fmt.Errorf(`failed to decode meta file for session "%s": %w`, dir.Name(), err)
-		}
-
-		uid, err := uuid.Parse(dir.Name())
-		if err != nil {
-			return nil, fmt.Errorf("invalid id: %w", err)
-		}
-		if uid.Version() != 7 {
-			return nil, fmt.Errorf("invalid id: uuid is not v7")
-		}
-
-		// Extract the first 48 bits (6 bytes) as timestamp in milliseconds
-		// UUIDv7 stores timestamp as big-endian uint48 in the first 48 bits
-		timestampMilli := int64(binary.BigEndian.Uint32(uid[0:4]))<<16 |
-			int64(binary.BigEndian.Uint16(uid[4:6]))
-
-		res[i] = &SessionInfo{
-			Id:        dir.Name(),
-			Name:      meta.Name,
-			Root:      fs.Root(),
-			Path:      filepath.Join(sessionDir, dir.Name()),
-			Time:      time.UnixMilli(timestampMilli),
-			Benches:   meta.Benches,
-			GitCommit: meta.GitCommit,
-			Tags:      meta.Tags,
-			Machine:   meta.Machine,
-			GoVersion: meta.GoVersion,
-
-			uid: uid,
-			fs:  fs,
-		}
+		res[i] = s
 	}
 
-	err = generateNames(res)
-	if err != nil {
+	if err = GenerateNames(res); err != nil {
 		return nil, err
 	}
 
@@ -196,7 +210,53 @@ func LocateSessions(fs billy.Filesystem, tagFilter ...string) ([]*SessionInfo, e
 	return res, nil
 }
 
-func generateNames(res []*SessionInfo) error {
+// LocateSession returns the session matching query (UUID or name).
+// It is an error if query matches nothing, or if a name matches multiple sessions.
+// HumanName is set to a simple fallback; call GenerateNames on the assembled list
+// when displaying multiple sessions together to get de-duplicated names.
+func LocateSession(fs billy.Filesystem, query string) (*SessionInfo, error) {
+	uid, err := uuid.Parse(query)
+	if err == nil && uid.Version() == 7 {
+		s, err := readSession(fs, query)
+		if err != nil {
+			return nil, fmt.Errorf("session %q not found", query)
+		}
+		return s, nil
+	}
+
+	dirs, err := fs.ReadDir(sessionDir)
+	if os.IsNotExist(err) {
+		return nil, fmt.Errorf("no sessions found, use the `bench` command to create one")
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var matches []*SessionInfo
+	for _, dir := range dirs {
+		s, err := readSession(fs, dir.Name())
+		if err != nil {
+			return nil, err
+		}
+		if s.Name == query {
+			matches = append(matches, s)
+		}
+	}
+
+	switch len(matches) {
+	case 0:
+		return nil, fmt.Errorf("session %q not found", query)
+	case 1:
+		return matches[0], nil
+	default:
+		return nil, fmt.Errorf("session name %q is ambiguous (%d matches); use a session ID instead", query, len(matches))
+	}
+}
+
+// GenerateNames assigns de-duplicated HumanNames to a list of sessions.
+// Call this after assembling a multi-session list from LocateSession calls.
+// LocateSessions calls this automatically; LocateSession does not.
+func GenerateNames(res []*SessionInfo) error {
 	// There are two schemes:
 	// 1. for user-defined names we quote them ("foo") or add a number if there is a conflict ("foo"-1)
 	// 2. for auto-generated names we use the timestamp ("")

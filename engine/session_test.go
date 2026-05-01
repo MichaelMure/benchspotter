@@ -8,6 +8,7 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-billy/v5/util"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -92,6 +93,51 @@ func TestRenameSession_preservesTags(t *testing.T) {
 	meta := readMeta(t, fs, path)
 	assert.Equal(t, "new-name", meta.Name)
 	assert.Equal(t, []string{"baseline"}, meta.Tags)
+}
+
+func makeSession(t *testing.T, fs billy.Filesystem, name string) string {
+	t.Helper()
+	uid, err := uuid.NewV7()
+	require.NoError(t, err)
+	id := uid.String()
+	dir := filepath.Join(sessionDir, id)
+	require.NoError(t, fs.MkdirAll(dir, 0755))
+	data, err := json.Marshal(sessionMeta{Name: name})
+	require.NoError(t, err)
+	require.NoError(t, util.WriteFile(fs, filepath.Join(dir, metaFilename), data, 0644))
+	return id
+}
+
+func TestLocateSession(t *testing.T) {
+	fs := memfs.New()
+	id1 := makeSession(t, fs, "alpha")
+	id2 := makeSession(t, fs, "beta")
+	id3 := makeSession(t, fs, "alpha") // duplicate name
+
+	t.Run("by_id", func(t *testing.T) {
+		s, err := LocateSession(fs, id1)
+		require.NoError(t, err)
+		assert.Equal(t, id1, s.Id)
+	})
+
+	t.Run("by_name_unique", func(t *testing.T) {
+		s, err := LocateSession(fs, "beta")
+		require.NoError(t, err)
+		assert.Equal(t, id2, s.Id)
+	})
+
+	t.Run("by_name_ambiguous", func(t *testing.T) {
+		_, err := LocateSession(fs, "alpha")
+		assert.ErrorContains(t, err, "ambiguous")
+		assert.ErrorContains(t, err, "2")
+	})
+
+	t.Run("not_found", func(t *testing.T) {
+		_, err := LocateSession(fs, "nonexistent")
+		assert.ErrorContains(t, err, "not found")
+	})
+
+	_ = id3
 }
 
 func TestRemoveSession(t *testing.T) {

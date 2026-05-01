@@ -74,6 +74,21 @@ func TestSession(t *testing.T) {
 			assert.NotContains(t, out, "untagged")
 		})
 
+		t.Run("filter_by_bench", func(t *testing.T) {
+			storage := memfs.New()
+			createTestSession(t, storage, "has-foo", []string{"BenchmarkFoo", "BenchmarkBar"}, "", false)
+			createTestSession(t, storage, "has-bar", []string{"BenchmarkBar"}, "", false)
+			createTestSession(t, storage, "has-baz", []string{"BenchmarkBaz"}, "", false)
+
+			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+			require.NoError(t, runSessionLs(env, sessionLsOptions{benchmark: "BenchmarkFoo"}))
+
+			out := env.Out.String()
+			assert.Contains(t, out, "has-foo")
+			assert.NotContains(t, out, "has-bar")
+			assert.NotContains(t, out, "has-baz")
+		})
+
 		t.Run("json", func(t *testing.T) {
 			storage := memfs.New()
 			id := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "abc1234def5678abc1234def5678abc1234def56", true)

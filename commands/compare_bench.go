@@ -18,6 +18,7 @@ import (
 
 type compareBenchOptions struct {
 	sessions         []string
+	baseline         string
 	thresholds       benchmath.Thresholds
 	table            string
 	row              string
@@ -60,6 +61,8 @@ Any interactive prompt can be bypassed with the corresponding flags.`,
 
 	flags := cmd.Flags()
 
+	flags.StringSliceVar(&options.sessions, "session", nil, "session IDs or names to compare (repeatable; first is baseline unless --baseline is set)")
+	flags.StringVar(&options.baseline, "baseline", "", "session ID or name to use as baseline (overrides session order)")
 	flags.StringVar(&options.table, "table", ".config", "split results into tables by distinct values of `projection`")
 	flags.StringVar(&options.row, "row", ".fullname", "split results into rows by distinct values of `projection`")
 	flags.StringVar(&options.col, "col", ".file", "split results into columns by distinct values of `projection`")
@@ -103,21 +106,34 @@ func runCompareBench(env *execenv.Env, options compareBenchOptions) error {
 			return err
 		}
 	} else {
-		all, err := engine.LocateSessions(env.Repo.Storage())
-		if err != nil {
-			return err
+		for _, query := range options.sessions {
+			s, err := engine.LocateSession(env.Repo.Storage(), query)
+			if err != nil {
+				return err
+			}
+			selection = append(selection, s)
 		}
-		for _, id := range options.sessions {
-			for _, s := range all {
-				if s.Id == id {
-					selection = append(selection, s)
-					break
+		if options.baseline != "" {
+			base, err := engine.LocateSession(env.Repo.Storage(), options.baseline)
+			if err != nil {
+				return err
+			}
+			// Move baseline to front, inserting it if not already in selection.
+			filtered := make([]*engine.SessionInfo, 0, len(selection))
+			for _, s := range selection {
+				if s.Id != base.Id {
+					filtered = append(filtered, s)
 				}
 			}
+			selection = append([]*engine.SessionInfo{base}, filtered...)
 		}
-		if len(selection) == 0 {
-			return fmt.Errorf("no matching sessions found")
+		if err := engine.GenerateNames(selection); err != nil {
+			return err
 		}
+	}
+
+	if len(selection) == 0 {
+		return fmt.Errorf("no matching sessions found")
 	}
 
 	if !options.skipMachineCheck {

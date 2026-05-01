@@ -24,6 +24,7 @@ import (
 type trendOptions struct {
 	bench      string
 	tags       []string
+	sessions   []string
 	last       int
 	confidence float64
 }
@@ -51,6 +52,7 @@ limit to the most recent N sessions.`,
 	flags := cmd.Flags()
 	flags.StringVar(&opts.bench, "bench", "", "open detail view for a specific benchmark directly")
 	flags.StringArrayVar(&opts.tags, "tag", nil, "filter sessions to those with this tag (repeatable)")
+	flags.StringArrayVar(&opts.sessions, "session", nil, "limit to specific session IDs or names (repeatable)")
 	flags.IntVar(&opts.last, "last", 0, "limit to last N sessions (0 = all)")
 	flags.Float64Var(&opts.confidence, "confidence", 0.95, "confidence level for CI range")
 
@@ -66,6 +68,20 @@ func runTrend(env *execenv.Env, opts trendOptions) error {
 		sessions, err = engine.LocateSessions(env.Repo.Storage(), opts.tags...)
 		if err != nil {
 			return err
+		}
+		if len(opts.sessions) > 0 {
+			filtered := make([]*engine.SessionInfo, 0, len(opts.sessions))
+			for _, query := range opts.sessions {
+				s, err := engine.LocateSession(env.Repo.Storage(), query)
+				if err != nil {
+					return err
+				}
+				filtered = append(filtered, s)
+			}
+			sessions = filtered
+			if err := engine.GenerateNames(sessions); err != nil {
+				return err
+			}
 		}
 		if opts.last > 0 && len(sessions) > opts.last {
 			sessions = sessions[len(sessions)-opts.last:]

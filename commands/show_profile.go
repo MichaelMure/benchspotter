@@ -286,18 +286,9 @@ func runShowProfile(env *execenv.Env, options showProfileOptions) error {
 			return err
 		}
 	} else {
-		sessions, err := engine.LocateSessions(env.Repo.Storage())
+		selection, err = engine.LocateSession(env.Repo.Storage(), options.session)
 		if err != nil {
 			return err
-		}
-		for _, s := range sessions {
-			if s.Id == options.session {
-				selection = s
-				break
-			}
-		}
-		if selection == nil {
-			return fmt.Errorf("session %q not found", options.session)
 		}
 	}
 

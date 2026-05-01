@@ -43,7 +43,8 @@ tag related groups, or clean up old data.`,
 }
 
 type sessionLsOptions struct {
-	tag string
+	tag       string
+	benchmark string
 }
 
 func newSessionLsCommand(env *execenv.Env) *cobra.Command {
@@ -67,6 +68,7 @@ sessions with a given tag.`,
 		},
 	}
 	cmd.Flags().StringVar(&opts.tag, "tag", "", "Filter sessions by tag")
+	cmd.Flags().StringVar(&opts.benchmark, "benchmark", "", "Filter sessions that contain a specific benchmark")
 	return cmd
 }
 
@@ -92,6 +94,16 @@ func runSessionLs(env *execenv.Env, opts sessionLsOptions) error {
 		filtered := sessions[:0]
 		for _, s := range sessions {
 			if slices.Contains(s.Tags, opts.tag) {
+				filtered = append(filtered, s)
+			}
+		}
+		sessions = filtered
+	}
+
+	if opts.benchmark != "" {
+		filtered := sessions[:0]
+		for _, s := range sessions {
+			if slices.Contains(s.Benches, opts.benchmark) {
 				filtered = append(filtered, s)
 			}
 		}
