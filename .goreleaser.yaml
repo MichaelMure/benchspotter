@@ -1,0 +1,49 @@
+version: 2
+
+project_name: benchspotter
+
+builds:
+  - binary: benchspotter
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X benchspotter/commands.version={{.Tag}}
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - "7"
+    ignore:
+      - goos: darwin
+        goarch: arm
+      - goos: windows
+        goarch: arm
+
+archives:
+  - formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+sboms:
+  - artifacts: archive
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - Merge pull request
+      - Merge branch
