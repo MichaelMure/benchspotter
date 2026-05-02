@@ -75,18 +75,67 @@ func TestSession(t *testing.T) {
 		})
 
 		t.Run("filter_by_bench", func(t *testing.T) {
-			storage := memfs.New()
-			createTestSession(t, storage, "has-foo", []string{"BenchmarkFoo", "BenchmarkBar"}, "", false)
-			createTestSession(t, storage, "has-bar", []string{"BenchmarkBar"}, "", false)
-			createTestSession(t, storage, "has-baz", []string{"BenchmarkBaz"}, "", false)
+			t.Run("exact", func(t *testing.T) {
+				storage := memfs.New()
+				createTestSession(t, storage, "has-foo", []string{"BenchmarkFoo", "BenchmarkBar"}, "", false)
+				createTestSession(t, storage, "has-bar", []string{"BenchmarkBar"}, "", false)
+				createTestSession(t, storage, "has-baz", []string{"BenchmarkBaz"}, "", false)
 
-			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
-			require.NoError(t, runSessionLs(env, sessionLsOptions{benchmark: "BenchmarkFoo"}))
+				env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+				require.NoError(t, runSessionLs(env, sessionLsOptions{bench: "BenchmarkFoo"}))
 
-			out := env.Out.String()
-			assert.Contains(t, out, "has-foo")
-			assert.NotContains(t, out, "has-bar")
-			assert.NotContains(t, out, "has-baz")
+				out := env.Out.String()
+				assert.Contains(t, out, "has-foo")
+				assert.NotContains(t, out, "has-bar")
+				assert.NotContains(t, out, "has-baz")
+			})
+
+			t.Run("partial_regex", func(t *testing.T) {
+				storage := memfs.New()
+				createTestSession(t, storage, "has-foo", []string{"BenchmarkFoo"}, "", false)
+				createTestSession(t, storage, "has-bar", []string{"BenchmarkBar"}, "", false)
+
+				env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+				require.NoError(t, runSessionLs(env, sessionLsOptions{bench: "Foo"}))
+
+				out := env.Out.String()
+				assert.Contains(t, out, "has-foo")
+				assert.NotContains(t, out, "has-bar")
+			})
+
+			t.Run("multi_session_match", func(t *testing.T) {
+				storage := memfs.New()
+				createTestSession(t, storage, "has-foo", []string{"BenchmarkFoo"}, "", false)
+				createTestSession(t, storage, "has-bar", []string{"BenchmarkBar"}, "", false)
+				createTestSession(t, storage, "has-baz", []string{"BenchmarkBaz"}, "", false)
+
+				env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+				require.NoError(t, runSessionLs(env, sessionLsOptions{bench: "Foo|Bar"}))
+
+				out := env.Out.String()
+				assert.Contains(t, out, "has-foo")
+				assert.Contains(t, out, "has-bar")
+				assert.NotContains(t, out, "has-baz")
+			})
+
+			t.Run("no_match", func(t *testing.T) {
+				storage := memfs.New()
+				createTestSession(t, storage, "has-foo", []string{"BenchmarkFoo"}, "", false)
+
+				env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+				require.NoError(t, runSessionLs(env, sessionLsOptions{bench: "Zzz"}))
+
+				assert.NotContains(t, env.Out.String(), "has-foo")
+			})
+
+			t.Run("invalid_regex", func(t *testing.T) {
+				storage := memfs.New()
+				createTestSession(t, storage, "any", []string{"BenchmarkFoo"}, "", false)
+
+				env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+				err := runSessionLs(env, sessionLsOptions{bench: "["})
+				require.ErrorContains(t, err, "invalid --bench pattern")
+			})
 		})
 
 		t.Run("json", func(t *testing.T) {

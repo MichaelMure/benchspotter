@@ -34,15 +34,15 @@ func TestTrend(t *testing.T) {
 		data, err := engine.LoadTrendData(sessions, 0.95)
 		require.NoError(t, err)
 
-		err = renderTrendJSON(env, data, "")
+		err = renderTrendJSON(env, data, nil)
 		require.NoError(t, err)
 
 		out := env.Out.String()
 		assert.Contains(t, out, `"benchmarks"`)
 		assert.Contains(t, out, `"BenchmarkFoo"`)
 		assert.Contains(t, out, `"ns/op"`)
-		assert.Contains(t, out, `"center"`)
-		assert.Contains(t, out, `"session_id"`)
+		assert.Contains(t, out, `"sessions"`)
+		assert.Contains(t, out, `"101.0ns"`)
 	})
 
 	t.Run("json_single_bench", func(t *testing.T) {
@@ -55,7 +55,7 @@ func TestTrend(t *testing.T) {
 		data, err := engine.LoadTrendData(sessions, 0.95)
 		require.NoError(t, err)
 
-		err = renderTrendJSON(env, data, "BenchmarkFoo")
+		err = renderTrendJSON(env, data, []string{"BenchmarkFoo"})
 		require.NoError(t, err)
 
 		out := env.Out.String()
@@ -123,7 +123,7 @@ func TestTrend(t *testing.T) {
 		data, err := engine.LoadTrendData(sessions, 0.95)
 		require.NoError(t, err)
 
-		err = renderTrendJSON(env, data, "")
+		err = renderTrendJSON(env, data, nil)
 		require.NoError(t, err)
 		out := env.Out.String()
 		assert.Contains(t, out, `"BenchmarkFoo"`)
@@ -151,6 +151,83 @@ func TestTrend(t *testing.T) {
 		assert.Contains(t, out, "session-a")
 		assert.Contains(t, out, "session-b")
 		assert.NotContains(t, out, "session-c")
+	})
+}
+
+func setupTrendStorageMultiBench(t *testing.T) billy.Filesystem {
+	t.Helper()
+	storage := memfs.New()
+	id1 := createTestSession(t, storage, "s1", []string{"BenchmarkBar", "BenchmarkFoo"}, "", false)
+	id2 := createTestSession(t, storage, "s2", []string{"BenchmarkBar", "BenchmarkFoo"}, "", false)
+	writeBenchResults(t, storage, id1,
+		"BenchmarkBar-8\t1000000\t200 ns/op\n"+
+			"BenchmarkFoo-8\t1000000\t100 ns/op\n")
+	writeBenchResults(t, storage, id2,
+		"BenchmarkBar-8\t1000000\t180 ns/op\n"+
+			"BenchmarkFoo-8\t1000000\t90 ns/op\n")
+	return storage
+}
+
+func TestTrendBenchFlag(t *testing.T) {
+	t.Run("json_filters_to_matching", func(t *testing.T) {
+		storage := setupTrendStorageMultiBench(t)
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+		env.Format = execenv.FormatJSON
+
+		require.NoError(t, runTrend(env, trendOptions{bench: "Foo", confidence: 0.95}))
+
+		out := env.Out.String()
+		assert.Contains(t, out, `"BenchmarkFoo"`)
+		assert.NotContains(t, out, `"BenchmarkBar"`)
+	})
+
+	t.Run("json_multi_match_all_included", func(t *testing.T) {
+		storage := setupTrendStorageMultiBench(t)
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+		env.Format = execenv.FormatJSON
+
+		require.NoError(t, runTrend(env, trendOptions{bench: "Benchmark", confidence: 0.95}))
+
+		out := env.Out.String()
+		assert.Contains(t, out, `"BenchmarkBar"`)
+		assert.Contains(t, out, `"BenchmarkFoo"`)
+	})
+
+	t.Run("json_no_match_error", func(t *testing.T) {
+		storage := setupTrendStorageMultiBench(t)
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+		env.Format = execenv.FormatJSON
+
+		err := runTrend(env, trendOptions{bench: "Zzz", confidence: 0.95})
+		require.ErrorContains(t, err, "no benchmarks match")
+	})
+
+	t.Run("text_opens_detail_for_first_match", func(t *testing.T) {
+		// BenchNames are sorted, so BenchmarkBar < BenchmarkFoo: first match for "Benchmark" is BenchmarkBar.
+		storage := setupTrendStorageMultiBench(t)
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+
+		require.NoError(t, runTrend(env, trendOptions{bench: "Benchmark", confidence: 0.95}))
+
+		out := env.Out.String()
+		assert.Contains(t, out, "BenchmarkBar")
+		assert.NotContains(t, out, "BenchmarkFoo")
+	})
+
+	t.Run("text_no_match_error", func(t *testing.T) {
+		storage := setupTrendStorageMultiBench(t)
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+
+		err := runTrend(env, trendOptions{bench: "Zzz", confidence: 0.95})
+		require.ErrorContains(t, err, "no benchmarks match")
+	})
+
+	t.Run("invalid_regex_error", func(t *testing.T) {
+		storage := setupTrendStorageMultiBench(t)
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+
+		err := runTrend(env, trendOptions{bench: "[", confidence: 0.95})
+		require.ErrorContains(t, err, "invalid --bench pattern")
 	})
 }
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -84,7 +85,7 @@ Any interactive prompt can be bypassed with the corresponding flags.`,
 	}
 
 	flags := cmd.Flags()
-	flags.StringVarP(&opts.bench, "bench", "b", "", "benchmark to optimize (prompt if not set)")
+	flags.StringVarP(&opts.bench, "bench", "b", "", "benchmark to optimize, matched by regexp (like go test -bench); error if zero or multiple match (prompt if not set)")
 	flags.StringArrayVarP(&opts.params, "param", "p", nil, "input parameter name(s) to sweep (repeatable)")
 	flags.IntVarP(&opts.count, "count", "c", 1, "benchmark iterations per trial")
 	flags.IntVar(&opts.maxTrials, "max-trials", 0, "stop after this many trials (0 = unlimited)")
@@ -172,14 +173,27 @@ func runOptimize(env *execenv.Env, opts optimizeOptions) error {
 		if err != nil {
 			return err
 		}
+		re, err := regexp.Compile(opts.bench)
+		if err != nil {
+			return fmt.Errorf("invalid --bench pattern: %w", err)
+		}
+		var matches []engine.BenchInfo
 		for _, b := range allBenches {
-			if b.Name == opts.bench {
-				bench = b
-				break
+			if re.MatchString(b.Name) {
+				matches = append(matches, b)
 			}
 		}
-		if bench.Name == "" {
-			return fmt.Errorf("benchmark %q not found", opts.bench)
+		switch len(matches) {
+		case 0:
+			return fmt.Errorf("no benchmarks match --bench pattern %q", opts.bench)
+		case 1:
+			bench = matches[0]
+		default:
+			names := make([]string, len(matches))
+			for i, b := range matches {
+				names[i] = b.Name
+			}
+			return fmt.Errorf("--bench pattern %q is ambiguous: matches %s — use a more specific pattern", opts.bench, strings.Join(names, ", "))
 		}
 	} else {
 		const recallKey = "optimize_bench"

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -50,7 +51,7 @@ limit to the most recent N sessions.`,
 	}
 
 	flags := cmd.Flags()
-	flags.StringVar(&opts.bench, "bench", "", "open detail view for a specific benchmark directly")
+	flags.StringVar(&opts.bench, "bench", "", "open detail view for the first benchmark matching this regexp (like go test -bench); error if no match; in JSON all matching benchmarks are included")
 	flags.StringArrayVar(&opts.tags, "tag", nil, "filter sessions to those with this tag (repeatable)")
 	flags.StringArrayVar(&opts.sessions, "session", nil, "limit to specific session IDs or names (repeatable)")
 	flags.IntVar(&opts.last, "last", 0, "limit to last N sessions (0 = all)")
@@ -103,9 +104,28 @@ func runTrend(env *execenv.Env, opts trendOptions) error {
 		return fmt.Errorf("no benchmark results found in selected sessions")
 	}
 
+	// Resolve --bench regexp. matchedBenches is nil when --bench is not set (means all).
+	// opts.bench is overwritten with the first match for TUI/text paths.
+	var matchedBenches []string
+	if opts.bench != "" {
+		re, err := regexp.Compile(opts.bench)
+		if err != nil {
+			return fmt.Errorf("invalid --bench pattern: %w", err)
+		}
+		for _, name := range data.BenchNames {
+			if re.MatchString(name) {
+				matchedBenches = append(matchedBenches, name)
+			}
+		}
+		if len(matchedBenches) == 0 {
+			return fmt.Errorf("no benchmarks match --bench pattern %q", opts.bench)
+		}
+		opts.bench = matchedBenches[0]
+	}
+
 	switch env.Format {
 	case execenv.FormatJSON:
-		return renderTrendJSON(env, data, opts.bench)
+		return renderTrendJSON(env, data, matchedBenches)
 	case execenv.FormatText:
 		if !env.Out.IsTerminal() {
 			return renderTrendTextPlain(env, data, opts)
@@ -138,11 +158,8 @@ type trendJSONCompactBench struct {
 	Metrics map[string][]*string `json:"metrics"`
 }
 
-func renderTrendJSON(env *execenv.Env, data *engine.TrendData, bench string) error {
-	var benches []string
-	if bench != "" {
-		benches = []string{bench}
-	} else {
+func renderTrendJSON(env *execenv.Env, data *engine.TrendData, benches []string) error {
+	if len(benches) == 0 {
 		benches = data.BenchNames
 	}
 

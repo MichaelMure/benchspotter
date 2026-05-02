@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -43,8 +44,8 @@ tag related groups, or clean up old data.`,
 }
 
 type sessionLsOptions struct {
-	tag       string
-	benchmark string
+	tag   string
+	bench string
 }
 
 func newSessionLsCommand(env *execenv.Env) *cobra.Command {
@@ -68,7 +69,7 @@ sessions with a given tag.`,
 		},
 	}
 	cmd.Flags().StringVar(&opts.tag, "tag", "", "Filter sessions by tag")
-	cmd.Flags().StringVar(&opts.benchmark, "benchmark", "", "Filter sessions that contain a specific benchmark")
+	cmd.Flags().StringVar(&opts.bench, "bench", "", "filter sessions whose benchmark list contains a name matching this regexp (like go test -bench)")
 	return cmd
 }
 
@@ -100,11 +101,18 @@ func runSessionLs(env *execenv.Env, opts sessionLsOptions) error {
 		sessions = filtered
 	}
 
-	if opts.benchmark != "" {
+	if opts.bench != "" {
+		re, err := regexp.Compile(opts.bench)
+		if err != nil {
+			return fmt.Errorf("invalid --bench pattern: %w", err)
+		}
 		filtered := sessions[:0]
 		for _, s := range sessions {
-			if slices.Contains(s.Benches, opts.benchmark) {
-				filtered = append(filtered, s)
+			for _, b := range s.Benches {
+				if re.MatchString(b) {
+					filtered = append(filtered, s)
+					break
+				}
 			}
 		}
 		sessions = filtered

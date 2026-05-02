@@ -56,8 +56,8 @@ benchspotter session ls --format json
 # filter by tag
 benchspotter session ls --tag my-tag --format json
 
-# filter by benchmark name
-benchspotter session ls --benchmark BenchmarkFoo --format json
+# filter by benchmark name (regexp, like go test -bench)
+benchspotter session ls --bench Foo --format json
 
 # tag / untag / rename / delete (all accept id + value as args)
 benchspotter session tag    <id> <tag>
@@ -112,10 +112,17 @@ benchspotter trend --session <id1> --session <id2> --format json
 
 # scoped by tag and count
 benchspotter trend --tag my-tag --last 20 --format json
+
+# filter by benchmark regexp — in JSON all matching benchmarks are included;
+# in TUI/text the detail view opens on the first match (sorted order)
+benchspotter trend --bench Foo --format json
 ```
 
 JSON output: `benchmarks[]` → `units[]` → `points[]`, each point with
 `session_id`, `human_name`, `time`, `center`, `lo`, `hi`, `n`.
+
+`--bench` accepts a regexp (like `go test -bench`). Returns an error if the
+pattern matches nothing.
 
 ## Inspecting profiles
 
@@ -172,7 +179,7 @@ For headless use, supply all flags and use `--format json`. Stop the run with
 
 ```bash
 benchspotter optimize \
-  --bench BenchmarkFoo \
+  --bench BenchmarkFoo \   # regexp; error if zero or multiple benchmarks match
   --param size \
   --metric ns/op \
   --strategy random \
