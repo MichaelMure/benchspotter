@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"slices"
 	"strconv"
 	"time"
@@ -19,10 +20,11 @@ import (
 )
 
 type benchOptions struct {
-	profiles   []engine.Profile
-	benchmarks []string
-	name       string
-	count      int
+	profiles []engine.Profile
+	bench    []string
+	all      bool
+	name     string
+	count    int
 }
 
 var profileIds = map[engine.Profile][]string{
@@ -106,7 +108,8 @@ Any interactive prompt can be bypassed with the corresponding flags.`,
 		panic(err)
 	}
 
-	flags.StringSliceVarP(&options.benchmarks, "benchmarks", "b", []string{}, "Benchmarks to run")
+	flags.StringSliceVarP(&options.bench, "bench", "b", []string{}, "Run only benchmarks matching `regexp` (repeatable, patterns are OR-ed)")
+	flags.BoolVarP(&options.all, "all", "a", false, "Run all benchmarks")
 	flags.StringVarP(&options.name, "name", "n", unsetStringMarker, "A name for the benchmark session, for the user to record what is being tested")
 	flags.IntVarP(&options.count, "count", "c", -1, "Run benchmarks `n` times")
 
@@ -151,7 +154,7 @@ func runBench(env *execenv.Env, options benchOptions) error {
 	}
 
 	var selection []engine.BenchInfo
-	if len(options.benchmarks) == 0 {
+	if !options.all && len(options.bench) == 0 {
 		const recallKey = "bench_benchmarks"
 		preSelected := env.Repo.GetRecalls(recallKey)
 
@@ -171,6 +174,15 @@ func runBench(env *execenv.Env, options benchOptions) error {
 			return err
 		}
 	} else {
+		var patterns []*regexp.Regexp
+		for _, pat := range options.bench {
+			re, err := regexp.Compile(pat)
+			if err != nil {
+				return fmt.Errorf("invalid --bench pattern %q: %w", pat, err)
+			}
+			patterns = append(patterns, re)
+		}
+
 		var all []engine.BenchInfo
 		err = env.Spinner().Title("Finding benchmarks").ActionWithErr(func(ctx context.Context) error {
 			var locErr error
@@ -180,13 +192,21 @@ func runBench(env *execenv.Env, options benchOptions) error {
 		if err != nil {
 			return err
 		}
+
 		for _, info := range all {
-			if slices.Contains(options.benchmarks, info.Name) {
+			if options.all {
 				selection = append(selection, info)
+				continue
+			}
+			for _, re := range patterns {
+				if re.MatchString(info.Name) {
+					selection = append(selection, info)
+					break
+				}
 			}
 		}
 		if len(selection) == 0 {
-			return fmt.Errorf("no benchmarks found matching: %v", options.benchmarks)
+			return fmt.Errorf("no benchmarks found matching: %v", options.bench)
 		}
 	}
 

@@ -25,13 +25,20 @@ All interactive prompts can be bypassed with flags:
 
 ```bash
 # bench results only
-benchspotter bench -p bench -n "my session" -b BenchmarkFoo -c 5
+benchspotter bench -p bench -n "my session" --bench BenchmarkFoo -c 5
+
+# regex filter — run all benchmarks with "Read" in the name
+benchspotter bench -p bench -n "reads" --bench Read
+
+# run every benchmark
+benchspotter bench -p bench -n "full sweep" --all
 
 # multiple profile types at once
-benchspotter bench -p bench,cpu,mem,escape -n "baseline" -b BenchmarkFoo
+benchspotter bench -p bench,cpu,mem,escape -n "baseline" --bench BenchmarkFoo
 
 # -p accepts: bench, cpu, mem, mutex, block, escape, inline
-# -b accepts a benchmark name (repeatable)
+# --bench accepts a regexp (repeatable, patterns are OR-ed); -b is the short form
+# --all runs every discovered benchmark (shorthand for --bench .)
 # -n sets the session name
 # -c sets the iteration count (bench mode only)
 ```
