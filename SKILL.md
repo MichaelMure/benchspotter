@@ -31,14 +31,18 @@ benchspotter bench -p bench -n "my session" --bench BenchmarkFoo -c 5
 benchspotter bench -p bench -n "reads" --bench Read
 
 # run every benchmark
-benchspotter bench -p bench -n "full sweep" --all
+benchspotter bench -p bench -n "full sweep" --all-bench
+
+# run all profiling modes on all benchmarks
+benchspotter bench --all-profile --all-bench -n "full sweep"
 
 # multiple profile types at once
 benchspotter bench -p bench,cpu,mem,escape -n "baseline" --bench BenchmarkFoo
 
 # -p accepts: bench, cpu, mem, mutex, block, escape, inline
 # --bench accepts a regexp (repeatable, patterns are OR-ed); -b is the short form
-# --all runs every discovered benchmark (shorthand for --bench .)
+# --all-bench runs every discovered benchmark
+# --all-profile runs all profiling modes (bench, cpu, mem, mutex, block, escape, inline)
 # -n sets the session name
 # -c sets the iteration count (bench mode only)
 ```

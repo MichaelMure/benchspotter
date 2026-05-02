@@ -20,11 +20,12 @@ import (
 )
 
 type benchOptions struct {
-	profiles []engine.Profile
-	bench    []string
-	all      bool
-	name     string
-	count    int
+	profiles   []engine.Profile
+	allProfile bool
+	bench      []string
+	allBench   bool
+	name       string
+	count      int
 }
 
 var profileIds = map[engine.Profile][]string{
@@ -108,8 +109,9 @@ Any interactive prompt can be bypassed with the corresponding flags.`,
 		panic(err)
 	}
 
+	flags.BoolVar(&options.allProfile, "all-profile", false, "Run all profiling modes")
 	flags.StringSliceVarP(&options.bench, "bench", "b", []string{}, "Run only benchmarks matching `regexp` (repeatable, patterns are OR-ed)")
-	flags.BoolVarP(&options.all, "all", "a", false, "Run all benchmarks")
+	flags.BoolVarP(&options.allBench, "all-bench", "a", false, "Run all benchmarks")
 	flags.StringVarP(&options.name, "name", "n", unsetStringMarker, "A name for the benchmark session, for the user to record what is being tested")
 	flags.IntVarP(&options.count, "count", "c", -1, "Run benchmarks `n` times")
 
@@ -119,7 +121,12 @@ Any interactive prompt can be bypassed with the corresponding flags.`,
 func runBench(env *execenv.Env, options benchOptions) error {
 	var err error
 
-	if len(options.profiles) == 0 {
+	if options.allProfile {
+		options.profiles = []engine.Profile{
+			engine.ProfileBench, engine.ProfileCPU, engine.ProfileMem,
+			engine.ProfileMutex, engine.ProfileBlock, engine.ProfileEscape, engine.ProfileInline,
+		}
+	} else if len(options.profiles) == 0 {
 		const recallKey = "bench_profiles"
 		preSelected := env.Repo.GetRecalls(recallKey)
 		selected := func(p engine.Profile) bool { return slices.Contains(preSelected, strconv.Itoa(int(p))) }
@@ -154,7 +161,7 @@ func runBench(env *execenv.Env, options benchOptions) error {
 	}
 
 	var selection []engine.BenchInfo
-	if !options.all && len(options.bench) == 0 {
+	if !options.allBench && len(options.bench) == 0 {
 		const recallKey = "bench_benchmarks"
 		preSelected := env.Repo.GetRecalls(recallKey)
 
@@ -194,7 +201,7 @@ func runBench(env *execenv.Env, options benchOptions) error {
 		}
 
 		for _, info := range all {
-			if options.all {
+			if options.allBench {
 				selection = append(selection, info)
 				continue
 			}
