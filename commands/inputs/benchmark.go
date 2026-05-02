@@ -69,7 +69,7 @@ func SelectBenchmarks(env *execenv.Env, preSelect []string) ([]engine.BenchInfo,
 	var selection []engine.BenchInfo
 
 	err = env.FormSingle(huh.NewMultiSelect[engine.BenchInfo]().
-		Title("Select benchmarks (/ to filter)").
+		Title("Select benchmarks").
 		OptionsFunc(func() []huh.Option[engine.BenchInfo] {
 			opts := make([]huh.Option[engine.BenchInfo], len(benchs))
 			for i, info := range benchs {

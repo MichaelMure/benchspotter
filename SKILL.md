@@ -19,6 +19,19 @@ combination of:
 Sessions have a human name, a git commit hash, machine metadata, and
 optionally tags.
 
+## Agent / headless use
+
+Add `--no-prompt` (a persistent root flag) to any command to disable all
+interactive prompts. If a prompt would be triggered without a required flag,
+the command returns an error instead of hanging. Use this whenever driving
+benchspotter from a script or agent.
+
+```bash
+benchspotter --no-prompt bench -p bench -n "my session" --bench BenchmarkFoo
+benchspotter --no-prompt session ls --format json
+benchspotter --no-prompt compare bench --session <id1> --session <id2> --format json
+```
+
 ## Running benchmarks
 
 All interactive prompts can be bypassed with flags:

@@ -60,7 +60,6 @@ func SelectSession(env *execenv.Env, preSelect string, filter func(info *engine.
 		fields = append([]huh.Field{machineLegendNote(env, mc)}, fields...)
 	}
 	err = env.Form(huh.NewGroup(fields...)).
-		WithShowHelp(false).
 		RunWithContext(env.Ctx)
 	if err != nil {
 		return nil, err
@@ -91,7 +90,7 @@ func SelectSessions(env *execenv.Env, preSelect []string) ([]*engine.SessionInfo
 	var selection []*engine.SessionInfo
 	fields := []huh.Field{
 		huh.NewMultiSelect[*engine.SessionInfo]().
-			Title("Select sessions (/ to filter)").
+			Title("Select sessions").
 			OptionsFunc(func() []huh.Option[*engine.SessionInfo] {
 				opts := make([]huh.Option[*engine.SessionInfo], len(sessions))
 				for i, session := range sessions {
@@ -108,7 +107,6 @@ func SelectSessions(env *execenv.Env, preSelect []string) ([]*engine.SessionInfo
 		fields = append([]huh.Field{machineLegendNote(env, mc)}, fields...)
 	}
 	err = env.Form(huh.NewGroup(fields...)).
-		WithShowHelp(false).
 		RunWithContext(env.Ctx)
 	if err != nil {
 		return nil, err

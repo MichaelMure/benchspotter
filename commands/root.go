@@ -43,7 +43,7 @@ A typical session is as follow:
 	cmd.PersistentFlags().VarP(formatFlag, "format", "f", "output format (not all formats supported by every command)")
 	_ = formatFlag.RegisterCompletion(cmd, "format", execenv.FormatHelp)
 
-	// TODO: add a "non-interactive" flag to enforce not having prompt
+	cmd.PersistentFlags().BoolVar(&env.NoPrompt, "no-prompt", false, "disable interactive prompts; all required values must be supplied via flags")
 
 	addCmdWithGroup(newBenchCommand(env), mainGroup)
 	addCmdWithGroup(newSessionCommand(env), mainGroup)

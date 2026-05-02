@@ -17,13 +17,14 @@ import (
 
 // Env is the environment of a command
 type Env struct {
-	Ctx    context.Context
-	Repo   *repository.Repository
-	In     In
-	Out    Out
-	Err    Out
-	Style  Style
-	Format Format
+	Ctx      context.Context
+	Repo     *repository.Repository
+	In       In
+	Out      Out
+	Err      Out
+	Style    Style
+	Format   Format
+	NoPrompt bool
 }
 
 func NewEnv(ctx context.Context) *Env {
@@ -40,16 +41,24 @@ func NewEnv(ctx context.Context) *Env {
 	}
 }
 
-func (e Env) Form(groups ...*huh.Group) *huh.Form {
+func (e Env) Form(groups ...*huh.Group) Form {
+	if e.NoPrompt {
+		return new(ErrForm)
+	}
 	return huh.NewForm(groups...).
 		WithInput(e.In.Raw()).
 		WithOutput(e.Out.Raw()).
 		WithTheme(e.Style.themeFunc)
 }
 
-func (e Env) FormSingle(field huh.Field) *huh.Form {
-	group := huh.NewGroup(field)
-	return e.Form(group).WithShowHelp(false)
+func (e Env) FormSingle(field huh.Field) Form {
+	if e.NoPrompt {
+		return new(ErrForm)
+	}
+	return huh.NewForm(huh.NewGroup(field)).
+		WithInput(e.In.Raw()).
+		WithOutput(e.Out.Raw()).
+		WithTheme(e.Style.themeFunc)
 }
 
 func (e Env) Spinner() *spinner.Spinner {
