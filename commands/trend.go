@@ -64,6 +64,12 @@ func runTrend(env *execenv.Env, opts trendOptions) error {
 	var data *engine.TrendData
 
 	err := env.Spinner().Title("Loading trend data").ActionWithErr(func(ctx context.Context) error {
+		// HACK: bubbletea or huh suffers at the moment from an issue where, if the app runs
+		// and stops too fast, a race can happen where bubbletea query the terminal for info,
+		// the app stops, then the terminal print the response visibly to stdin as garbage.
+		// A small delay fix that.
+		time.Sleep(100 * time.Millisecond)
+
 		var err error
 		sessions, err = engine.LocateSessions(env.Repo.Storage(), opts.tags...)
 		if err != nil {
@@ -112,28 +118,24 @@ func runTrend(env *execenv.Env, opts trendOptions) error {
 
 // ── JSON output ───────────────────────────────────────────────────────────────
 
-type trendJSONOutput struct {
-	Benchmarks []trendJSONBench `json:"benchmarks"`
+// Compact format: sessions listed once at the top; benchmarks hold pre-formatted
+// string values indexed by session position (null = no data for that session).
+// This avoids repeating session metadata for every benchmark × unit combination.
+
+type trendJSONCompact struct {
+	Sessions   []trendJSONSession       `json:"sessions"`
+	Benchmarks []trendJSONCompactBench  `json:"benchmarks"`
 }
 
-type trendJSONBench struct {
-	Name  string          `json:"name"`
-	Units []trendJSONUnit `json:"units"`
+type trendJSONSession struct {
+	I    int    `json:"i"`
+	Name string `json:"name"`
+	Time string `json:"time"`
 }
 
-type trendJSONUnit struct {
-	Unit   string           `json:"unit"`
-	Points []trendJSONPoint `json:"points"`
-}
-
-type trendJSONPoint struct {
-	SessionID string    `json:"session_id"`
-	HumanName string    `json:"human_name"`
-	Time      time.Time `json:"time"`
-	Center    float64   `json:"center"`
-	Lo        float64   `json:"lo"`
-	Hi        float64   `json:"hi"`
-	N         int       `json:"n"`
+type trendJSONCompactBench struct {
+	Name    string               `json:"name"`
+	Metrics map[string][]*string `json:"metrics"`
 }
 
 func renderTrendJSON(env *execenv.Env, data *engine.TrendData, bench string) error {
@@ -144,29 +146,44 @@ func renderTrendJSON(env *execenv.Env, data *engine.TrendData, bench string) err
 		benches = data.BenchNames
 	}
 
-	out := trendJSONOutput{}
+	out := trendJSONCompact{}
+	for i, s := range data.Sessions {
+		out.Sessions = append(out.Sessions, trendJSONSession{
+			I:    i + 1,
+			Name: s.HumanName,
+			Time: s.Time.Format("06-Jan-02"),
+		})
+	}
+
+	sidIdx := make(map[string]int, len(data.Sessions))
+	for i, s := range data.Sessions {
+		sidIdx[s.Id] = i
+	}
+
 	for _, b := range benches {
-		jb := trendJSONBench{Name: b}
+		entry := trendJSONCompactBench{
+			Name:    b,
+			Metrics: make(map[string][]*string),
+		}
 		for _, unit := range data.Units {
 			pts := data.Points[b][unit]
 			if len(pts) == 0 {
 				continue
 			}
-			ju := trendJSONUnit{Unit: unit}
+			ptMap := make(map[string]engine.TrendPoint, len(pts))
 			for _, p := range pts {
-				ju.Points = append(ju.Points, trendJSONPoint{
-					SessionID: p.Session.Id,
-					HumanName: p.Session.HumanName,
-					Time:      p.Session.Time,
-					Center:    p.Center,
-					Lo:        p.Lo,
-					Hi:        p.Hi,
-					N:         p.N,
-				})
+				ptMap[p.Session.Id] = p
 			}
-			jb.Units = append(jb.Units, ju)
+			values := make([]*string, len(data.Sessions))
+			for i, s := range data.Sessions {
+				if p, ok := ptMap[s.Id]; ok {
+					v := formatMetricValue(p.Center, unit)
+					values[i] = &v
+				}
+			}
+			entry.Metrics[unit] = values
 		}
-		out.Benchmarks = append(out.Benchmarks, jb)
+		out.Benchmarks = append(out.Benchmarks, entry)
 	}
 	return env.Out.PrintJSON(out)
 }
