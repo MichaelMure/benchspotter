@@ -424,6 +424,18 @@ func (m trendViewModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.cursor++
 					m = m.clampScroll()
 				}
+			case "pgup":
+				m.cursor -= m.overviewBodyRows()
+				if m.cursor < 0 {
+					m.cursor = 0
+				}
+				m = m.clampScroll()
+			case "pgdown":
+				m.cursor += m.overviewBodyRows()
+				if m.cursor > len(m.data.BenchNames)-1 {
+					m.cursor = len(m.data.BenchNames) - 1
+				}
+				m = m.clampScroll()
 			case "enter":
 				if len(m.data.BenchNames) > 0 {
 					m.bench = m.data.BenchNames[m.cursor]
@@ -779,7 +791,7 @@ func (m trendViewModel) viewOverview() string {
 	}
 
 	statusParts := []string{
-		"[↑↓jk] select",
+		"[↑↓jk⇞⇟] select",
 		"[↵] detail",
 		"[←→hl] scroll cols",
 		"[m] cycle unit",
