@@ -248,7 +248,7 @@ func renderTrendOverviewText(env *execenv.Env, data *engine.TrendData) error {
 			val := formatMetricValue(p.Center, unit)
 			if i > 0 {
 				if prev, hasPrev := ptMap[data.Sessions[i-1].Id]; hasPrev {
-					val += trendArrow(p.Center, prev.Center)
+					val += env.Style.TrendArrow(p.Center, prev.Center)
 				}
 			}
 			fmt.Fprintf(tw, "\t%s", val)
@@ -321,7 +321,7 @@ func renderTrendDetailText(env *execenv.Env, data *engine.TrendData, bench strin
 			val := formatMetricValue(p.Center, unit)
 			if prevSID != "" {
 				if prev, hasPrev := ptMap[ptKey{unit, prevSID}]; hasPrev {
-					val += trendArrow(p.Center, prev.Center)
+					val += env.Style.TrendArrow(p.Center, prev.Center)
 				}
 			}
 			fmt.Fprintf(tw, "\t%s", val)
@@ -984,24 +984,6 @@ func formatMetricValue(v float64, unit string) string {
 	default:
 		return fmt.Sprintf("%.4g", v)
 	}
-}
-
-func trendArrow(curr, prev float64) string {
-	if prev == 0 {
-		return ""
-	}
-	ratio := curr / prev
-	switch {
-	case ratio > 1.10:
-		return " ↑↑"
-	case ratio > 1.02:
-		return " ↑"
-	case ratio < 0.90:
-		return " ↓↓"
-	case ratio < 0.98:
-		return " ↓"
-	}
-	return ""
 }
 
 // padRight pads s to at least width visible characters, accounting for ANSI codes.

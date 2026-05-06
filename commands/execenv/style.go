@@ -122,11 +122,16 @@ func (s Style) TrendArrow(curr, prev float64, bg ...color.Color) string {
 	}
 	red := lipgloss.NewStyle().Foreground(s.ld("160", "9")).Background(bgColor)
 	green := lipgloss.NewStyle().Foreground(s.ld("28", "10")).Background(bgColor)
+	blue := lipgloss.NewStyle().Foreground(s.ld("#0055cc", "#5fafff")).Background(bgColor)
 	switch {
+	case ratio > 1.50:
+		return blue.Render("✱↑")
 	case ratio > 1.15:
 		return red.Render("↑↑")
 	case ratio > 1.05:
 		return red.Render("↑")
+	case ratio < 0.50:
+		return blue.Render("✱↓")
 	case ratio < 0.85:
 		return green.Render("↓↓")
 	case ratio < 0.95:
