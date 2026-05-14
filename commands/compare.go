@@ -22,6 +22,8 @@ relative to the baseline (first) session, for each benchmark and metric.`,
 	cmd.AddCommand(newCompareMemCommand(env))
 	cmd.AddCommand(newCompareMutexCommand(env))
 	cmd.AddCommand(newCompareBlockCommand(env))
+	cmd.AddCommand(newCompareInlineCommand(env))
+	cmd.AddCommand(newCompareEscapeCommand(env))
 
 	return cmd
 }

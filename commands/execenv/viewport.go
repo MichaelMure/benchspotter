@@ -164,14 +164,24 @@ type SidebarProvider interface {
 	RenderSidebar(width, height int) string
 }
 
+// ViewportWidthSetter may optionally be implemented by an InteractiveModel to
+// receive the content viewport width whenever the terminal is resized or the
+// sidebar width changes. Models that adapt their layout to the available width
+// (e.g. side-by-side diff views) should implement this so they are re-rendered
+// with the correct column count on resize or on sidebar-width transitions.
+type ViewportWidthSetter interface {
+	SetViewportWidth(width int)
+}
+
 var _ tea.Model = &interactiveViewportModel{}
 
 type interactiveViewportModel struct {
-	model        InteractiveModel
-	viewport     viewport.Model
-	ready        bool
-	lastContent  string
-	sidebarWidth int
+	model         InteractiveModel
+	viewport      viewport.Model
+	ready         bool
+	lastContent   string
+	sidebarWidth  int
+	terminalWidth int
 }
 
 func (v *interactiveViewportModel) Init() tea.Cmd { return nil }
@@ -189,6 +199,21 @@ func (v *interactiveViewportModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		if v.model.HandleKey(k) {
+			// Re-evaluate sidebar width in case a key press changed the layout
+			// (e.g. toggling a split view). This must happen before Render().
+			if v.terminalWidth > 0 {
+				if sp, ok := v.model.(SidebarProvider); ok {
+					newSW := sp.SidebarWidth(v.terminalWidth)
+					if newSW != v.sidebarWidth {
+						v.sidebarWidth = newSW
+						vpWidth := v.terminalWidth - v.sidebarWidth
+						v.viewport.SetWidth(vpWidth)
+						if ws, ok := v.model.(ViewportWidthSetter); ok {
+							ws.SetViewportWidth(vpWidth)
+						}
+					}
+				}
+			}
 			oldContent := v.lastContent
 			oldOffset := v.viewport.YOffset()
 			newContent := v.model.Render()
@@ -206,10 +231,14 @@ func (v *interactiveViewportModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case tea.WindowSizeMsg:
+		v.terminalWidth = msg.Width
 		if sp, ok := v.model.(SidebarProvider); ok {
 			v.sidebarWidth = sp.SidebarWidth(msg.Width)
 		}
 		vpWidth := msg.Width - v.sidebarWidth
+		if ws, ok := v.model.(ViewportWidthSetter); ok {
+			ws.SetViewportWidth(vpWidth)
+		}
 		// Reserve one line for the status footer.
 		if !v.ready {
 			v.viewport = viewport.New(viewport.WithWidth(vpWidth), viewport.WithHeight(msg.Height-1))
@@ -219,6 +248,11 @@ func (v *interactiveViewportModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			v.viewport.SetWidth(vpWidth)
 			v.viewport.SetHeight(msg.Height - 1)
+			if _, ok := v.model.(ViewportWidthSetter); ok {
+				newContent := v.model.Render()
+				v.lastContent = newContent
+				v.viewport.SetContent(newContent)
+			}
 		}
 	}
 	var cmd tea.Cmd
