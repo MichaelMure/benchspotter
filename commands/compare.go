@@ -18,6 +18,10 @@ relative to the baseline (first) session, for each benchmark and metric.`,
 	}
 
 	cmd.AddCommand(newCompareBenchCommand(env))
+	cmd.AddCommand(newCompareCPUCommand(env))
+	cmd.AddCommand(newCompareMemCommand(env))
+	cmd.AddCommand(newCompareMutexCommand(env))
+	cmd.AddCommand(newCompareBlockCommand(env))
 
 	return cmd
 }

@@ -45,3 +45,20 @@ var sortOrderNames = [sortOrderCount]string{"flat", "cumulative", "name"}
 
 func (s SortOrder) String() string  { return sortOrderNames[s] }
 func (s SortOrder) Next() SortOrder { return (s + 1) % sortOrderCount }
+
+// DiffSortOrder controls how DiffProfileFuncs sorts its results.
+type DiffSortOrder int
+
+const (
+	DiffSortAbsFlat  DiffSortOrder = iota // |delta flat| descending (biggest movers first)
+	DiffSortSignFlat                      // delta flat descending (regressions first)
+	DiffSortAbsCum                        // |delta cum| descending
+	DiffSortSignCum                       // delta cum descending
+	DiffSortName                          // function name ascending
+	diffSortOrderCount
+)
+
+var diffSortOrderNames = [diffSortOrderCount]string{"|flat|", "flat", "|cum|", "cum", "name"}
+
+func (s DiffSortOrder) String() string      { return diffSortOrderNames[s] }
+func (s DiffSortOrder) Next() DiffSortOrder { return (s + 1) % diffSortOrderCount }

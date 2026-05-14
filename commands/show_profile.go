@@ -42,6 +42,7 @@ type profileViewModel struct {
 	sort          engine.SortOrder
 	top           int
 	machineHeader string
+	style         execenv.Style
 	// source annotation
 	sourcesRoot string
 	sourceCache map[string][]byte // relPath → file content (nil = not found)
@@ -64,7 +65,7 @@ func (m *profileViewModel) Render() string {
 	if m.annotate && m.sourcesRoot != "" {
 		getSource = m.getSourceLines
 	}
-	content := renderProfileTable(funcs, m.top, m.fmtValue(), m.sort, getSource)
+	content := renderProfileTable(funcs, m.top, m.fmtValue(), m.sort, m.style, getSource)
 	if m.machineHeader != "" {
 		return m.machineHeader + "\n\n" + content
 	}
@@ -180,6 +181,7 @@ type showProfileOptions struct {
 	sort        engine.SortOrder
 	profileType engine.Profile
 	top         int
+	web         bool
 }
 
 func newShowCPUCommand(env *execenv.Env) *cobra.Command {
@@ -261,6 +263,7 @@ func newShowProfileCommand(env *execenv.Env, profileType engine.Profile, use, sh
 	flags.Var(enumflag.New(&options.metric, "metric", memMetricIds, enumflag.EnumCaseInsensitive), "metric", "mem metric (alloc_space, alloc_objects, inuse_space, inuse_objects)")
 	flags.Var(enumflag.New(&options.sort, "sort", sortOrderIds, enumflag.EnumCaseInsensitive), "sort", "sort order (flat, cumulative, name)")
 	flags.IntVar(&options.top, "top", options.top, "Number of top functions to show")
+	flags.BoolVar(&options.web, "web", false, "Open profile in pprof web UI instead of TUI")
 
 	return cmd
 }
@@ -327,6 +330,20 @@ func runShowProfile(env *execenv.Env, options showProfileOptions) error {
 		}
 	}
 
+	if options.web {
+		profilePath, err := engine.ProfileFilePath(env.Repo.Storage(), selection.Path, options.profileType, options.bench)
+		if err != nil {
+			return err
+		}
+		url, err := launchPprof(env.Ctx, profilePath)
+		if err != nil {
+			return fmt.Errorf("launching pprof: %w", err)
+		}
+		fmt.Fprintf(env.Out, "session: %s\npprof:   %s\n\nPress Ctrl+C to stop.\n", selection.HumanName, url)
+		<-env.Ctx.Done()
+		return nil
+	}
+
 	switch env.Format {
 	case execenv.FormatRaw:
 		data, err := engine.ReadProfileRaw(env.Repo.Storage(), selection.Path, options.profileType, options.bench)
@@ -378,6 +395,7 @@ func runShowProfile(env *execenv.Env, options showProfileOptions) error {
 			sort:          options.sort,
 			top:           options.top,
 			machineHeader: engine.FormatMachineLine(selection.Machine, selection.GoVersion),
+			style:         env.Style,
 			sourcesRoot:   env.Repo.Sources().Root(),
 			sourceCache:   make(map[string][]byte),
 		}
@@ -396,7 +414,7 @@ func runShowProfile(env *execenv.Env, options showProfileOptions) error {
 	}
 }
 
-func renderProfileTable(funcs []engine.ProfileFunc, top int, fmtValue func(time.Duration) string, order engine.SortOrder, getSource func(file string, startLine int64) []string) string {
+func renderProfileTable(funcs []engine.ProfileFunc, top int, fmtValue func(time.Duration) string, order engine.SortOrder, style execenv.Style, getSource func(file string, startLine int64) []string) string {
 	top = min(top, len(funcs))
 	var buf bytes.Buffer
 	w := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
@@ -404,13 +422,13 @@ func renderProfileTable(funcs []engine.ProfileFunc, top int, fmtValue func(time.
 	flat, flatPct, cum, cumPct, name := "FLAT", "FLAT%", "CUM", "CUM%", "FUNCTION"
 	switch order {
 	case engine.SortFlat:
-		flat += " ▼"
-		flatPct += " ▼"
+		flat = style.Accent(flat + " ▼")
+		flatPct = style.Accent(flatPct + " ▼")
 	case engine.SortCumulative:
-		cum += " ▼"
-		cumPct += " ▼"
+		cum = style.Accent(cum + " ▼")
+		cumPct = style.Accent(cumPct + " ▼")
 	case engine.SortName:
-		name += " ▼"
+		name = style.Accent(name + " ▼")
 	}
 	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", flat, flatPct, cum, cumPct, name)
 

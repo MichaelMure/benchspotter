@@ -224,6 +224,180 @@ func ProfileFilePath(fs billy.Filesystem, sessionPath string, p Profile, bench s
 	return "", fmt.Errorf("no %s profile found for benchmark %q in this session", ProfileDir(p), bench)
 }
 
+// DiffProfileFunc holds per-function flat and cumulative deltas between two profiles.
+// Positive delta means regression (new > base).
+type DiffProfileFunc struct {
+	Name         string
+	File         string
+	StartLine    int64
+	BaseFlat     time.Duration
+	NewFlat      time.Duration
+	DeltaFlat    time.Duration // NewFlat - BaseFlat
+	DeltaFlatPct float64       // DeltaFlat / |BaseFlat| * 100; 0 if BaseFlat == 0
+	BaseCum      time.Duration
+	NewCum       time.Duration
+	DeltaCum     time.Duration
+	DeltaCumPct  float64
+}
+
+// DiffProfileFuncs computes per-function flat and cumulative deltas between base and new
+// at the given SampleType indices, then sorts by order.
+func DiffProfileFuncs(base, new *profile.Profile, baseIdx, newIdx int, order DiffSortOrder) []DiffProfileFunc {
+	type entry struct {
+		baseFlat, baseCum int64
+		newFlat, newCum   int64
+		file              string
+		startLine         int64
+	}
+	byFunc := make(map[string]*entry)
+
+	for _, s := range base.Sample {
+		if len(s.Value) <= baseIdx {
+			continue
+		}
+		v := s.Value[baseIdx]
+		if len(s.Location) > 0 {
+			for _, line := range s.Location[0].Line {
+				name := line.Function.Name
+				e := byFunc[name]
+				if e == nil {
+					e = &entry{file: line.Function.Filename, startLine: line.Function.StartLine}
+					byFunc[name] = e
+				}
+				e.baseFlat += v
+			}
+		}
+		seen := make(map[string]bool)
+		for _, loc := range s.Location {
+			for _, line := range loc.Line {
+				name := line.Function.Name
+				if seen[name] {
+					continue
+				}
+				seen[name] = true
+				e := byFunc[name]
+				if e == nil {
+					e = &entry{}
+					byFunc[name] = e
+				}
+				e.baseCum += v
+			}
+		}
+	}
+
+	for _, s := range new.Sample {
+		if len(s.Value) <= newIdx {
+			continue
+		}
+		v := s.Value[newIdx]
+		if len(s.Location) > 0 {
+			for _, line := range s.Location[0].Line {
+				name := line.Function.Name
+				e := byFunc[name]
+				if e == nil {
+					e = &entry{file: line.Function.Filename, startLine: line.Function.StartLine}
+					byFunc[name] = e
+				}
+				e.newFlat += v
+			}
+		}
+		seen := make(map[string]bool)
+		for _, loc := range s.Location {
+			for _, line := range loc.Line {
+				name := line.Function.Name
+				if seen[name] {
+					continue
+				}
+				seen[name] = true
+				e := byFunc[name]
+				if e == nil {
+					e = &entry{}
+					byFunc[name] = e
+				}
+				e.newCum += v
+			}
+		}
+	}
+
+	result := make([]DiffProfileFunc, 0, len(byFunc))
+	for name, e := range byFunc {
+		deltaFlat := e.newFlat - e.baseFlat
+		deltaCum := e.newCum - e.baseCum
+		var deltaFlatPct, deltaCumPct float64
+		if e.baseFlat != 0 {
+			deltaFlatPct = float64(deltaFlat) / float64(absInt64(e.baseFlat)) * 100
+		}
+		if e.baseCum != 0 {
+			deltaCumPct = float64(deltaCum) / float64(absInt64(e.baseCum)) * 100
+		}
+		result = append(result, DiffProfileFunc{
+			Name:         name,
+			File:         e.file,
+			StartLine:    e.startLine,
+			BaseFlat:     time.Duration(e.baseFlat),
+			NewFlat:      time.Duration(e.newFlat),
+			DeltaFlat:    time.Duration(deltaFlat),
+			DeltaFlatPct: deltaFlatPct,
+			BaseCum:      time.Duration(e.baseCum),
+			NewCum:       time.Duration(e.newCum),
+			DeltaCum:     time.Duration(deltaCum),
+			DeltaCumPct:  deltaCumPct,
+		})
+	}
+
+	absDur := func(d time.Duration) time.Duration {
+		if d < 0 {
+			return -d
+		}
+		return d
+	}
+	switch order {
+	case DiffSortAbsFlat:
+		sort.Slice(result, func(i, j int) bool {
+			ai, aj := absDur(result[i].DeltaFlat), absDur(result[j].DeltaFlat)
+			if ai != aj {
+				return ai > aj
+			}
+			return result[i].Name < result[j].Name
+		})
+	case DiffSortSignFlat:
+		sort.Slice(result, func(i, j int) bool {
+			if result[i].DeltaFlat != result[j].DeltaFlat {
+				return result[i].DeltaFlat > result[j].DeltaFlat
+			}
+			return result[i].Name < result[j].Name
+		})
+	case DiffSortAbsCum:
+		sort.Slice(result, func(i, j int) bool {
+			ai, aj := absDur(result[i].DeltaCum), absDur(result[j].DeltaCum)
+			if ai != aj {
+				return ai > aj
+			}
+			return result[i].Name < result[j].Name
+		})
+	case DiffSortSignCum:
+		sort.Slice(result, func(i, j int) bool {
+			if result[i].DeltaCum != result[j].DeltaCum {
+				return result[i].DeltaCum > result[j].DeltaCum
+			}
+			return result[i].Name < result[j].Name
+		})
+	default: // DiffSortName
+		sort.Slice(result, func(i, j int) bool {
+			return result[i].Name < result[j].Name
+		})
+	}
+
+	return result
+}
+
+func absInt64(v int64) int64 {
+	if v < 0 {
+		return -v
+	}
+	return v
+}
+
 // readProfile opens the single pprof file for bench and parses it.
 // bench must be a non-empty name returned by ListProfileBenchmarks.
 func readProfile(fs billy.Filesystem, sessionPath string, p Profile, bench string) (*profile.Profile, error) {
