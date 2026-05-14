@@ -62,7 +62,7 @@ func (e Env) FormSingle(field huh.Field) Form {
 }
 
 func (e Env) Spinner() *spinner.Spinner {
-	s := spinner.New().WithOutput(e.Out.Raw())
+	s := spinner.New().WithOutput(e.Err.Raw())
 	if !e.Out.IsTerminal() {
 		s = s.WithAccessible(true)
 	}
