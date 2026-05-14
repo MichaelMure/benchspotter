@@ -132,6 +132,24 @@ engine/foo.go:30:1: can inline Baz
 		})
 	})
 
+	t.Run("raw", func(t *testing.T) {
+		storage := memfs.New()
+		sessionID := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
+
+		escapeData := "engine/foo.go:10:5: bar escapes to heap\nengine/foo.go:20:3: leaking param: buf\n"
+		dir := filepath.Join("sessions", sessionID)
+		require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.EscapeFilename), []byte(escapeData), 0644))
+
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+		env.Format = execenv.FormatRaw
+
+		err := runShowEscape(env, showEscapeOptions{session: sessionID})
+		require.NoError(t, err)
+
+		out := env.Out.String()
+		assert.Equal(t, escapeData, out)
+	})
+
 	t.Run("text", func(t *testing.T) {
 		t.Run("git_source_loading", func(t *testing.T) {
 			const commit = "abc1234def5678abc1234def5678abc1234def56"

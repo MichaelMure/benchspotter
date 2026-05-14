@@ -39,7 +39,7 @@ func TestCompareEscape(t *testing.T) {
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 			env.Format = execenv.FormatJSON
 
-			err := runCompareEscape(env, compareAnalysisOptions{baseSession: baseID, newSession: newID})
+			err := runCompareEscape(env, compareAnalysisOptions{baseSession: baseID, newSession: newID, all: true})
 			require.NoError(t, err)
 
 			out := env.Out.String()
@@ -80,7 +80,7 @@ func TestCompareEscape(t *testing.T) {
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 			env.Format = execenv.FormatJSON
 
-			err := runCompareEscape(env, compareAnalysisOptions{baseSession: baseID, newSession: newID})
+			err := runCompareEscape(env, compareAnalysisOptions{baseSession: baseID, newSession: newID, all: true})
 			require.NoError(t, err)
 
 			out := env.Out.String()
@@ -88,6 +88,30 @@ func TestCompareEscape(t *testing.T) {
 			assert.Contains(t, out, `"base_line": 10`)
 			assert.Contains(t, out, `"new_line": 15`)
 		})
+	})
+
+	t.Run("raw", func(t *testing.T) {
+		storage := memfs.New()
+		baseID := createTestSession(t, storage, "base", []string{"BenchmarkFoo"}, "", false)
+		newID := createTestSession(t, storage, "new", []string{"BenchmarkFoo"}, "", false)
+
+		writeEscapeAnalysis(t, storage, baseID,
+			"foo.go:10:5: x escapes to heap\n"+
+				"foo.go:20:3: y escapes to heap\n")
+		writeEscapeAnalysis(t, storage, newID,
+			"foo.go:10:5: x escapes to heap\n"+ // same — must not appear
+				"foo.go:30:2: z escapes to heap\n") // added; y removed
+
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+		env.Format = execenv.FormatRaw
+
+		err := runCompareEscape(env, compareAnalysisOptions{baseSession: baseID, newSession: newID})
+		require.NoError(t, err)
+
+		out := env.Out.String()
+		assert.Contains(t, out, "+ foo.go:30:2: z escapes to heap")
+		assert.Contains(t, out, "- foo.go:20:3: y escapes to heap")
+		assert.NotContains(t, out, "x escapes")
 	})
 
 	t.Run("text", func(t *testing.T) {

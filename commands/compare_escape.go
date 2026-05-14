@@ -64,9 +64,11 @@ func runCompareEscape(env *execenv.Env, options compareAnalysisOptions) error {
 		}
 		return env.ViewportWithKeys(model)()
 	case execenv.FormatJSON:
-		return outputEscapeDiffJSON(env, diffs)
+		return outputEscapeDiffJSON(env, diffs, options.all)
+	case execenv.FormatRaw:
+		return outputEscapeDiffRaw(env, diffs)
 	default:
-		return fmt.Errorf("unsupported format %v for compare escape (text, json)", env.Format)
+		return fmt.Errorf("unsupported format %v for compare escape (raw, json, text)", env.Format)
 	}
 }
 
@@ -275,7 +277,22 @@ func (m *compareEscapeViewModel) renderEscapeDiffAnnots(sb *strings.Builder, sit
 
 // ── JSON output ───────────────────────────────────────────────────────────────
 
-func outputEscapeDiffJSON(env *execenv.Env, diffs []engine.DiffEscapeSite) error {
+func outputEscapeDiffRaw(env *execenv.Env, diffs []engine.DiffEscapeSite) error {
+	for _, d := range diffs {
+		if d.Status() == engine.DiffSame {
+			continue
+		}
+		s := d.Site()
+		prefix := "+"
+		if d.Status() == engine.DiffRemoved {
+			prefix = "-"
+		}
+		fmt.Fprintf(env.Out, "%s %s:%d:%d: %s\n", prefix, s.File, s.Line, s.Col, s.Message)
+	}
+	return nil
+}
+
+func outputEscapeDiffJSON(env *execenv.Env, diffs []engine.DiffEscapeSite, showSame bool) error {
 	type jsonDiff struct {
 		File         string   `json:"file"`
 		Line         int      `json:"line"`
@@ -298,8 +315,11 @@ func outputEscapeDiffJSON(env *execenv.Env, diffs []engine.DiffEscapeSite) error
 			return "same"
 		}
 	}
-	out := make([]jsonDiff, len(diffs))
-	for i, d := range diffs {
+	out := make([]jsonDiff, 0, len(diffs))
+	for _, d := range diffs {
+		if !showSame && d.Status() == engine.DiffSame {
+			continue
+		}
 		s := d.Site()
 		j := jsonDiff{
 			File:         s.File,
@@ -317,7 +337,7 @@ func outputEscapeDiffJSON(env *execenv.Env, diffs []engine.DiffEscapeSite) error
 		if d.New != nil {
 			j.NewLine = d.New.Line
 		}
-		out[i] = j
+		out = append(out, j)
 	}
 	return env.Out.PrintJSON(out)
 }

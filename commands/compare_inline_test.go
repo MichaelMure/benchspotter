@@ -39,7 +39,7 @@ func TestCompareInline(t *testing.T) {
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 			env.Format = execenv.FormatJSON
 
-			err := runCompareInline(env, compareAnalysisOptions{baseSession: baseID, newSession: newID})
+			err := runCompareInline(env, compareAnalysisOptions{baseSession: baseID, newSession: newID, all: true})
 			require.NoError(t, err)
 
 			out := env.Out.String()
@@ -85,7 +85,7 @@ func TestCompareInline(t *testing.T) {
 			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 			env.Format = execenv.FormatJSON
 
-			err := runCompareInline(env, compareAnalysisOptions{baseSession: baseID, newSession: newID})
+			err := runCompareInline(env, compareAnalysisOptions{baseSession: baseID, newSession: newID, all: true})
 			require.NoError(t, err)
 
 			out := env.Out.String()
@@ -93,6 +93,30 @@ func TestCompareInline(t *testing.T) {
 			assert.Contains(t, out, `"base_line": 10`)
 			assert.Contains(t, out, `"new_line": 12`)
 		})
+	})
+
+	t.Run("raw", func(t *testing.T) {
+		storage := memfs.New()
+		baseID := createTestSession(t, storage, "base", []string{"BenchmarkFoo"}, "", false)
+		newID := createTestSession(t, storage, "new", []string{"BenchmarkFoo"}, "", false)
+
+		writeInlineAnalysis(t, storage, baseID,
+			"foo.go:10:1: cannot inline Foo: too complex\n"+
+				"foo.go:20:1: inlining call to Bar\n")
+		writeInlineAnalysis(t, storage, newID,
+			"foo.go:10:1: cannot inline Foo: too complex\n"+ // same — must not appear
+				"foo.go:30:1: cannot inline Baz: function too large\n") // added; Bar removed
+
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+		env.Format = execenv.FormatRaw
+
+		err := runCompareInline(env, compareAnalysisOptions{baseSession: baseID, newSession: newID})
+		require.NoError(t, err)
+
+		out := env.Out.String()
+		assert.Contains(t, out, "+ foo.go:30:1: cannot inline Baz: function too large")
+		assert.Contains(t, out, "- foo.go:20:1: inlining call to Bar")
+		assert.NotContains(t, out, "Foo")
 	})
 
 	t.Run("text", func(t *testing.T) {

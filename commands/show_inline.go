@@ -86,6 +86,15 @@ func runShowInline(env *execenv.Env, options showInlineOptions) error {
 	sourcesRoot := env.Repo.Sources().Root()
 
 	switch env.Format {
+	case execenv.FormatRaw:
+		f, err := selection.OpenFile(engine.InlineFilename)
+		if err != nil {
+			return fmt.Errorf("opening inline data: %w", err)
+		}
+		defer f.Close()
+		_, err = io.Copy(env.Out, f)
+		return err
+
 	case execenv.FormatJSON:
 		type jsonSite struct {
 			File    string `json:"file"`
@@ -149,7 +158,7 @@ func runShowInline(env *execenv.Env, options showInlineOptions) error {
 		return env.ViewportWithKeys(model)()
 
 	default:
-		return fmt.Errorf("unsupported format %v for show inline (text, json)", env.Format)
+		return fmt.Errorf("unsupported format %v for show inline (raw, json, text)", env.Format)
 	}
 }
 

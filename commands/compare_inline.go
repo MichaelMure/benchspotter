@@ -65,9 +65,11 @@ func runCompareInline(env *execenv.Env, options compareAnalysisOptions) error {
 		}
 		return env.ViewportWithKeys(model)()
 	case execenv.FormatJSON:
-		return outputInlineDiffJSON(env, diffs)
+		return outputInlineDiffJSON(env, diffs, options.all)
+	case execenv.FormatRaw:
+		return outputInlineDiffRaw(env, diffs)
 	default:
-		return fmt.Errorf("unsupported format %v for compare inline (text, json)", env.Format)
+		return fmt.Errorf("unsupported format %v for compare inline (raw, json, text)", env.Format)
 	}
 }
 
@@ -267,7 +269,22 @@ func (m *compareInlineViewModel) renderInlineDiffAnnots(sb *strings.Builder, sit
 
 // ── JSON output ───────────────────────────────────────────────────────────────
 
-func outputInlineDiffJSON(env *execenv.Env, diffs []engine.DiffInlineSite) error {
+func outputInlineDiffRaw(env *execenv.Env, diffs []engine.DiffInlineSite) error {
+	for _, d := range diffs {
+		if d.Status() == engine.DiffSame {
+			continue
+		}
+		s := d.Site()
+		prefix := "+"
+		if d.Status() == engine.DiffRemoved {
+			prefix = "-"
+		}
+		fmt.Fprintf(env.Out, "%s %s:%d:%d: %s\n", prefix, s.File, s.Line, s.Col, s.Message)
+	}
+	return nil
+}
+
+func outputInlineDiffJSON(env *execenv.Env, diffs []engine.DiffInlineSite, showSame bool) error {
 	type jsonDiff struct {
 		File     string `json:"file"`
 		Line     int    `json:"line"`
@@ -298,8 +315,11 @@ func outputInlineDiffJSON(env *execenv.Env, diffs []engine.DiffInlineSite) error
 			return "same"
 		}
 	}
-	out := make([]jsonDiff, len(diffs))
-	for i, d := range diffs {
+	out := make([]jsonDiff, 0, len(diffs))
+	for _, d := range diffs {
+		if !showSame && d.Status() == engine.DiffSame {
+			continue
+		}
 		s := d.Site()
 		j := jsonDiff{
 			File:    s.File,
@@ -315,7 +335,7 @@ func outputInlineDiffJSON(env *execenv.Env, diffs []engine.DiffInlineSite) error
 		if d.New != nil {
 			j.NewLine = d.New.Line
 		}
-		out[i] = j
+		out = append(out, j)
 	}
 	return env.Out.PrintJSON(out)
 }

@@ -88,6 +88,15 @@ func runShowEscape(env *execenv.Env, options showEscapeOptions) error {
 	sourcesRoot := env.Repo.Sources().Root()
 
 	switch env.Format {
+	case execenv.FormatRaw:
+		f, err := selection.OpenFile(engine.EscapeFilename)
+		if err != nil {
+			return fmt.Errorf("opening escape data: %w", err)
+		}
+		defer f.Close()
+		_, err = io.Copy(env.Out, f)
+		return err
+
 	case execenv.FormatJSON:
 		type jsonSite struct {
 			File         string   `json:"file"`
@@ -145,7 +154,7 @@ func runShowEscape(env *execenv.Env, options showEscapeOptions) error {
 		return env.ViewportWithKeys(model)()
 
 	default:
-		return fmt.Errorf("unsupported format %v for show escape (text, json)", env.Format)
+		return fmt.Errorf("unsupported format %v for show escape (raw, json, text)", env.Format)
 	}
 }
 

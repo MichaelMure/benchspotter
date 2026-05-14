@@ -110,6 +110,22 @@ engine/foo.go:30:1: can inline Qux
 		})
 	})
 
+	t.Run("raw", func(t *testing.T) {
+		inlineData := "engine/foo.go:10:5: cannot inline Foo: too complex\nengine/foo.go:20:3: inlining call to bar.Baz\n"
+		storage := memfs.New()
+		sessionID := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
+		dir := filepath.Join("sessions", sessionID)
+		require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.InlineFilename), []byte(inlineData), 0644))
+
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+		env.Format = execenv.FormatRaw
+
+		err := runShowInline(env, showInlineOptions{session: sessionID})
+		require.NoError(t, err)
+
+		assert.Equal(t, inlineData, env.Out.String())
+	})
+
 	t.Run("text", func(t *testing.T) {
 		t.Run("git_source_loading", func(t *testing.T) {
 			const commit = "abc1234def5678abc1234def5678abc1234def56"

@@ -154,20 +154,39 @@ go tool pprof cpu.pprof
 # mem metrics: alloc_space (default) | alloc_objects | inuse_space | inuse_objects
 ```
 
+Comparing profiles between two sessions (same flags as `show`):
+
+```bash
+benchspotter compare cpu   --base <id> --new <id> --bench BenchmarkFoo --format json
+benchspotter compare mem   --base <id> --new <id> --bench BenchmarkFoo --format json
+benchspotter compare block --base <id> --new <id> --bench BenchmarkFoo --format json
+benchspotter compare mutex --base <id> --new <id> --bench BenchmarkFoo --format json
+# json fields: same as show, plus delta fields for flat/cum changes
+```
+
 ## Compiler analysis
 
 ```bash
-# escape analysis
+# escape analysis — single session
 benchspotter show escape --session <id> --format json
 # json fields: file, line, col, message, heap_escape, leaking_param, flow_chain
+# --format raw streams the raw compiler text (compact; no --all/--deps filtering applied)
 
-# inlining decisions
+# inlining decisions — single session
 benchspotter show inline --session <id> --format json
 # json fields: file, line, col, message, kind
 # kind: "cannot_inline" | "can_inline" | "inlining_call"
+# --format raw streams the raw compiler text
 
 # --all includes all compiler notes (not just actionable ones)
 # --deps includes stdlib and dependencies
+
+# diff between two sessions
+benchspotter compare escape --base <id> --new <id> --format json
+benchspotter compare inline --base <id> --new <id> --format json
+# json fields: status (added|removed), file, base_line, new_line, message, ...
+# "same" entries are omitted by default — use --all to include them
+# --format raw outputs one line per change: "+ file:line:col: msg" / "- file:line:col: msg"
 ```
 
 ## Git diff snapshot
