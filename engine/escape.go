@@ -3,7 +3,6 @@ package engine
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -87,12 +86,6 @@ func FindFunc(funcs []FuncBoundary, line int) *FuncBoundary {
 		}
 	}
 	return nil
-}
-
-// RecordEscape captures escape analysis for a session.
-// It delegates to RecordCompilerAnalysis with wantEscape=true.
-func RecordEscape(ctx context.Context, sourcesRoot string, storage billy.Filesystem, sessionID string) error {
-	return RecordCompilerAnalysis(ctx, sourcesRoot, storage, sessionID, true, false)
 }
 
 // ReadEscapeAnalysis reads and parses the saved escape analysis for a session.
