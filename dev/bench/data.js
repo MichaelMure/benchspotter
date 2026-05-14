@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778773505305,
+  "lastUpdate": 1778775898831,
   "repoUrl": "https://github.com/MichaelMure/benchspotter",
   "entries": {
     "Go Benchmark": [
@@ -9192,6 +9192,846 @@ window.BENCHMARK_DATA = {
             "value": 0,
             "unit": "allocs/op",
             "extra": "158210851 times\n2 procs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "batolettre@gmail.com",
+            "name": "Michael Muré",
+            "username": "MichaelMure"
+          },
+          "committer": {
+            "email": "batolettre@gmail.com",
+            "name": "Michael Muré",
+            "username": "MichaelMure"
+          },
+          "distinct": true,
+          "id": "22adfee67ab0d8002b6c80ec79a22d5c74a53bb7",
+          "message": "compare/profile: raw output",
+          "timestamp": "2026-05-14T18:23:17+02:00",
+          "tree_id": "e17c57a5dd3be0fd200d52c8c465e5b45b8d89f5",
+          "url": "https://github.com/MichaelMure/benchspotter/commit/22adfee67ab0d8002b6c80ec79a22d5c74a53bb7"
+        },
+        "date": 1778775898008,
+        "tool": "go",
+        "benches": [
+          {
+            "name": "BenchmarkTable/1x10/new (benchspotter/commands/tabwriter)",
+            "value": 1874,
+            "unit": "ns/op\t    2144 B/op\t      31 allocs/op",
+            "extra": "598497 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x10/new (benchspotter/commands/tabwriter) - ns/op",
+            "value": 1874,
+            "unit": "ns/op",
+            "extra": "598497 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x10/new (benchspotter/commands/tabwriter) - B/op",
+            "value": 2144,
+            "unit": "B/op",
+            "extra": "598497 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x10/new (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 31,
+            "unit": "allocs/op",
+            "extra": "598497 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x10/reuse (benchspotter/commands/tabwriter)",
+            "value": 1027,
+            "unit": "ns/op\t     640 B/op\t      10 allocs/op",
+            "extra": "1000000 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x10/reuse (benchspotter/commands/tabwriter) - ns/op",
+            "value": 1027,
+            "unit": "ns/op",
+            "extra": "1000000 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x10/reuse (benchspotter/commands/tabwriter) - B/op",
+            "value": 640,
+            "unit": "B/op",
+            "extra": "1000000 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x10/reuse (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 10,
+            "unit": "allocs/op",
+            "extra": "1000000 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x1000/new (benchspotter/commands/tabwriter)",
+            "value": 139755,
+            "unit": "ns/op\t  174944 B/op\t    2024 allocs/op",
+            "extra": "7549 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x1000/new (benchspotter/commands/tabwriter) - ns/op",
+            "value": 139755,
+            "unit": "ns/op",
+            "extra": "7549 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x1000/new (benchspotter/commands/tabwriter) - B/op",
+            "value": 174944,
+            "unit": "B/op",
+            "extra": "7549 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x1000/new (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 2024,
+            "unit": "allocs/op",
+            "extra": "7549 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x1000/reuse (benchspotter/commands/tabwriter)",
+            "value": 101571,
+            "unit": "ns/op\t   64011 B/op\t    1000 allocs/op",
+            "extra": "9992 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x1000/reuse (benchspotter/commands/tabwriter) - ns/op",
+            "value": 101571,
+            "unit": "ns/op",
+            "extra": "9992 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x1000/reuse (benchspotter/commands/tabwriter) - B/op",
+            "value": 64011,
+            "unit": "B/op",
+            "extra": "9992 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x1000/reuse (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 1000,
+            "unit": "allocs/op",
+            "extra": "9992 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x100000/new (benchspotter/commands/tabwriter)",
+            "value": 30873243,
+            "unit": "ns/op\t24685027 B/op\t  200056 allocs/op",
+            "extra": "48 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x100000/new (benchspotter/commands/tabwriter) - ns/op",
+            "value": 30873243,
+            "unit": "ns/op",
+            "extra": "48 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x100000/new (benchspotter/commands/tabwriter) - B/op",
+            "value": 24685027,
+            "unit": "B/op",
+            "extra": "48 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x100000/new (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 200056,
+            "unit": "allocs/op",
+            "extra": "48 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x100000/reuse (benchspotter/commands/tabwriter)",
+            "value": 11967081,
+            "unit": "ns/op\t 6586582 B/op\t  101020 allocs/op",
+            "extra": "98 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x100000/reuse (benchspotter/commands/tabwriter) - ns/op",
+            "value": 11967081,
+            "unit": "ns/op",
+            "extra": "98 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x100000/reuse (benchspotter/commands/tabwriter) - B/op",
+            "value": 6586582,
+            "unit": "B/op",
+            "extra": "98 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x100000/reuse (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 101020,
+            "unit": "allocs/op",
+            "extra": "98 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x10/new (benchspotter/commands/tabwriter)",
+            "value": 9130,
+            "unit": "ns/op\t   11440 B/op\t     131 allocs/op",
+            "extra": "130018 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x10/new (benchspotter/commands/tabwriter) - ns/op",
+            "value": 9130,
+            "unit": "ns/op",
+            "extra": "130018 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x10/new (benchspotter/commands/tabwriter) - B/op",
+            "value": 11440,
+            "unit": "B/op",
+            "extra": "130018 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x10/new (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 131,
+            "unit": "allocs/op",
+            "extra": "130018 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x10/reuse (benchspotter/commands/tabwriter)",
+            "value": 6965,
+            "unit": "ns/op\t    6400 B/op\t     100 allocs/op",
+            "extra": "162158 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x10/reuse (benchspotter/commands/tabwriter) - ns/op",
+            "value": 6965,
+            "unit": "ns/op",
+            "extra": "162158 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x10/reuse (benchspotter/commands/tabwriter) - B/op",
+            "value": 6400,
+            "unit": "B/op",
+            "extra": "162158 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x10/reuse (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 100,
+            "unit": "allocs/op",
+            "extra": "162158 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x1000/new (benchspotter/commands/tabwriter)",
+            "value": 851835,
+            "unit": "ns/op\t 1035122 B/op\t   11038 allocs/op",
+            "extra": "1384 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x1000/new (benchspotter/commands/tabwriter) - ns/op",
+            "value": 851835,
+            "unit": "ns/op",
+            "extra": "1384 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x1000/new (benchspotter/commands/tabwriter) - B/op",
+            "value": 1035122,
+            "unit": "B/op",
+            "extra": "1384 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x1000/new (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 11038,
+            "unit": "allocs/op",
+            "extra": "1384 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x1000/reuse (benchspotter/commands/tabwriter)",
+            "value": 711954,
+            "unit": "ns/op\t  640241 B/op\t   10000 allocs/op",
+            "extra": "1646 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x1000/reuse (benchspotter/commands/tabwriter) - ns/op",
+            "value": 711954,
+            "unit": "ns/op",
+            "extra": "1646 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x1000/reuse (benchspotter/commands/tabwriter) - B/op",
+            "value": 640241,
+            "unit": "B/op",
+            "extra": "1646 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x1000/reuse (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 10000,
+            "unit": "allocs/op",
+            "extra": "1646 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x100000/new (benchspotter/commands/tabwriter)",
+            "value": 108738376,
+            "unit": "ns/op\t111012729 B/op\t 1100072 allocs/op",
+            "extra": "12 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x100000/new (benchspotter/commands/tabwriter) - ns/op",
+            "value": 108738376,
+            "unit": "ns/op",
+            "extra": "12 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x100000/new (benchspotter/commands/tabwriter) - B/op",
+            "value": 111012729,
+            "unit": "B/op",
+            "extra": "12 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x100000/new (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 1100072,
+            "unit": "allocs/op",
+            "extra": "12 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x100000/reuse (benchspotter/commands/tabwriter)",
+            "value": 79256591,
+            "unit": "ns/op\t67358052 B/op\t 1007148 allocs/op",
+            "extra": "14 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x100000/reuse (benchspotter/commands/tabwriter) - ns/op",
+            "value": 79256591,
+            "unit": "ns/op",
+            "extra": "14 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x100000/reuse (benchspotter/commands/tabwriter) - B/op",
+            "value": 67358052,
+            "unit": "B/op",
+            "extra": "14 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x100000/reuse (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 1007148,
+            "unit": "allocs/op",
+            "extra": "14 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x10/new (benchspotter/commands/tabwriter)",
+            "value": 74179,
+            "unit": "ns/op\t  103280 B/op\t    1041 allocs/op",
+            "extra": "16143 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x10/new (benchspotter/commands/tabwriter) - ns/op",
+            "value": 74179,
+            "unit": "ns/op",
+            "extra": "16143 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x10/new (benchspotter/commands/tabwriter) - B/op",
+            "value": 103280,
+            "unit": "B/op",
+            "extra": "16143 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x10/new (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 1041,
+            "unit": "allocs/op",
+            "extra": "16143 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x10/reuse (benchspotter/commands/tabwriter)",
+            "value": 64979,
+            "unit": "ns/op\t   64002 B/op\t    1000 allocs/op",
+            "extra": "18516 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x10/reuse (benchspotter/commands/tabwriter) - ns/op",
+            "value": 64979,
+            "unit": "ns/op",
+            "extra": "18516 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x10/reuse (benchspotter/commands/tabwriter) - B/op",
+            "value": 64002,
+            "unit": "B/op",
+            "extra": "18516 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x10/reuse (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 1000,
+            "unit": "allocs/op",
+            "extra": "18516 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x1000/new (benchspotter/commands/tabwriter)",
+            "value": 8461400,
+            "unit": "ns/op\t 9670546 B/op\t  101052 allocs/op",
+            "extra": "138 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x1000/new (benchspotter/commands/tabwriter) - ns/op",
+            "value": 8461400,
+            "unit": "ns/op",
+            "extra": "138 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x1000/new (benchspotter/commands/tabwriter) - B/op",
+            "value": 9670546,
+            "unit": "B/op",
+            "extra": "138 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x1000/new (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 101052,
+            "unit": "allocs/op",
+            "extra": "138 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x1000/reuse (benchspotter/commands/tabwriter)",
+            "value": 6682277,
+            "unit": "ns/op\t 6418582 B/op\t  100005 allocs/op",
+            "extra": "176 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x1000/reuse (benchspotter/commands/tabwriter) - ns/op",
+            "value": 6682277,
+            "unit": "ns/op",
+            "extra": "176 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x1000/reuse (benchspotter/commands/tabwriter) - B/op",
+            "value": 6418582,
+            "unit": "B/op",
+            "extra": "176 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x1000/reuse (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 100005,
+            "unit": "allocs/op",
+            "extra": "176 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x100000/new (benchspotter/commands/tabwriter)",
+            "value": 850498928,
+            "unit": "ns/op\t974041976 B/op\t10100088 allocs/op",
+            "extra": "2 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x100000/new (benchspotter/commands/tabwriter) - ns/op",
+            "value": 850498928,
+            "unit": "ns/op",
+            "extra": "2 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x100000/new (benchspotter/commands/tabwriter) - B/op",
+            "value": 974041976,
+            "unit": "B/op",
+            "extra": "2 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x100000/new (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 10100088,
+            "unit": "allocs/op",
+            "extra": "2 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x100000/reuse (benchspotter/commands/tabwriter)",
+            "value": 819787331,
+            "unit": "ns/op\t807020992 B/op\t10050044 allocs/op",
+            "extra": "2 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x100000/reuse (benchspotter/commands/tabwriter) - ns/op",
+            "value": 819787331,
+            "unit": "ns/op",
+            "extra": "2 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x100000/reuse (benchspotter/commands/tabwriter) - B/op",
+            "value": 807020992,
+            "unit": "B/op",
+            "extra": "2 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x100000/reuse (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 10050044,
+            "unit": "allocs/op",
+            "extra": "2 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/10 (benchspotter/commands/tabwriter)",
+            "value": 5582,
+            "unit": "ns/op\t    7736 B/op\t      80 allocs/op",
+            "extra": "189252 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/10 (benchspotter/commands/tabwriter) - ns/op",
+            "value": 5582,
+            "unit": "ns/op",
+            "extra": "189252 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/10 (benchspotter/commands/tabwriter) - B/op",
+            "value": 7736,
+            "unit": "B/op",
+            "extra": "189252 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/10 (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 80,
+            "unit": "allocs/op",
+            "extra": "189252 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/100 (benchspotter/commands/tabwriter)",
+            "value": 418322,
+            "unit": "ns/op\t  727331 B/op\t    5180 allocs/op",
+            "extra": "2926 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/100 (benchspotter/commands/tabwriter) - ns/op",
+            "value": 418322,
+            "unit": "ns/op",
+            "extra": "2926 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/100 (benchspotter/commands/tabwriter) - B/op",
+            "value": 727331,
+            "unit": "B/op",
+            "extra": "2926 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/100 (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 5180,
+            "unit": "allocs/op",
+            "extra": "2926 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/1000 (benchspotter/commands/tabwriter)",
+            "value": 45257000,
+            "unit": "ns/op\t67574862 B/op\t  501554 allocs/op",
+            "extra": "31 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/1000 (benchspotter/commands/tabwriter) - ns/op",
+            "value": 45257000,
+            "unit": "ns/op",
+            "extra": "31 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/1000 (benchspotter/commands/tabwriter) - B/op",
+            "value": 67574862,
+            "unit": "B/op",
+            "extra": "31 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/1000 (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 501554,
+            "unit": "allocs/op",
+            "extra": "31 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkRagged/10 (benchspotter/commands/tabwriter)",
+            "value": 6068,
+            "unit": "ns/op\t    7888 B/op\t      87 allocs/op",
+            "extra": "199816 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkRagged/10 (benchspotter/commands/tabwriter) - ns/op",
+            "value": 6068,
+            "unit": "ns/op",
+            "extra": "199816 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkRagged/10 (benchspotter/commands/tabwriter) - B/op",
+            "value": 7888,
+            "unit": "B/op",
+            "extra": "199816 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkRagged/10 (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 87,
+            "unit": "allocs/op",
+            "extra": "199816 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkRagged/100 (benchspotter/commands/tabwriter)",
+            "value": 57287,
+            "unit": "ns/op\t   78368 B/op\t     750 allocs/op",
+            "extra": "20925 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkRagged/100 (benchspotter/commands/tabwriter) - ns/op",
+            "value": 57287,
+            "unit": "ns/op",
+            "extra": "20925 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkRagged/100 (benchspotter/commands/tabwriter) - B/op",
+            "value": 78368,
+            "unit": "B/op",
+            "extra": "20925 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkRagged/100 (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 750,
+            "unit": "allocs/op",
+            "extra": "20925 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkRagged/1000 (benchspotter/commands/tabwriter)",
+            "value": 567291,
+            "unit": "ns/op\t  768986 B/op\t    7285 allocs/op",
+            "extra": "2138 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkRagged/1000 (benchspotter/commands/tabwriter) - ns/op",
+            "value": 567291,
+            "unit": "ns/op",
+            "extra": "2138 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkRagged/1000 (benchspotter/commands/tabwriter) - B/op",
+            "value": 768986,
+            "unit": "B/op",
+            "extra": "2138 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkRagged/1000 (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 7285,
+            "unit": "allocs/op",
+            "extra": "2138 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkCode (benchspotter/commands/tabwriter)",
+            "value": 1918,
+            "unit": "ns/op\t    1344 B/op\t      33 allocs/op",
+            "extra": "582235 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkCode (benchspotter/commands/tabwriter) - ns/op",
+            "value": 1918,
+            "unit": "ns/op",
+            "extra": "582235 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkCode (benchspotter/commands/tabwriter) - B/op",
+            "value": 1344,
+            "unit": "B/op",
+            "extra": "582235 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkCode (benchspotter/commands/tabwriter) - allocs/op",
+            "value": 33,
+            "unit": "allocs/op",
+            "extra": "582235 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkFoo (benchspotter/engine/internal)",
+            "value": 147.1,
+            "unit": "ns/op\t     456 B/op\t       3 allocs/op",
+            "extra": "8276476 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkFoo (benchspotter/engine/internal) - ns/op",
+            "value": 147.1,
+            "unit": "ns/op",
+            "extra": "8276476 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkFoo (benchspotter/engine/internal) - B/op",
+            "value": 456,
+            "unit": "B/op",
+            "extra": "8276476 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkFoo (benchspotter/engine/internal) - allocs/op",
+            "value": 3,
+            "unit": "allocs/op",
+            "extra": "8276476 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBar (benchspotter/engine/internal)",
+            "value": 144.7,
+            "unit": "ns/op\t     456 B/op\t       3 allocs/op",
+            "extra": "8174990 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBar (benchspotter/engine/internal) - ns/op",
+            "value": 144.7,
+            "unit": "ns/op",
+            "extra": "8174990 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBar (benchspotter/engine/internal) - B/op",
+            "value": 456,
+            "unit": "B/op",
+            "extra": "8174990 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBar (benchspotter/engine/internal) - allocs/op",
+            "value": 3,
+            "unit": "allocs/op",
+            "extra": "8174990 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBaz/foo/bar (benchspotter/engine/internal)",
+            "value": 166.1,
+            "unit": "ns/op\t     456 B/op\t       3 allocs/op",
+            "extra": "7065170 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBaz/foo/bar (benchspotter/engine/internal) - ns/op",
+            "value": 166.1,
+            "unit": "ns/op",
+            "extra": "7065170 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBaz/foo/bar (benchspotter/engine/internal) - B/op",
+            "value": 456,
+            "unit": "B/op",
+            "extra": "7065170 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBaz/foo/bar (benchspotter/engine/internal) - allocs/op",
+            "value": 3,
+            "unit": "allocs/op",
+            "extra": "7065170 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/first (benchspotter/engine/internal)",
+            "value": 7.678,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "154276502 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/first (benchspotter/engine/internal) - ns/op",
+            "value": 7.678,
+            "unit": "ns/op",
+            "extra": "154276502 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/first (benchspotter/engine/internal) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "154276502 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/first (benchspotter/engine/internal) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "154276502 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/second (benchspotter/engine/internal)",
+            "value": 7.904,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "147299240 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/second (benchspotter/engine/internal) - ns/op",
+            "value": 7.904,
+            "unit": "ns/op",
+            "extra": "147299240 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/second (benchspotter/engine/internal) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "147299240 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/second (benchspotter/engine/internal) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "147299240 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkHybridSort (benchspotter/engine/internal)",
+            "value": 533724,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "2240 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkHybridSort (benchspotter/engine/internal) - ns/op",
+            "value": 533724,
+            "unit": "ns/op",
+            "extra": "2240 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkHybridSort (benchspotter/engine/internal) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "2240 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkHybridSort (benchspotter/engine/internal) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "2240 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkMapOps (benchspotter/engine/internal)",
+            "value": 153299,
+            "unit": "ns/op\t  295552 B/op\t      33 allocs/op",
+            "extra": "6831 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkMapOps (benchspotter/engine/internal) - ns/op",
+            "value": 153299,
+            "unit": "ns/op",
+            "extra": "6831 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkMapOps (benchspotter/engine/internal) - B/op",
+            "value": 295552,
+            "unit": "B/op",
+            "extra": "6831 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkMapOps (benchspotter/engine/internal) - allocs/op",
+            "value": 33,
+            "unit": "allocs/op",
+            "extra": "6831 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBaz (benchspotter/engine/internal/anotherpackage)",
+            "value": 7.563,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "158117426 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBaz (benchspotter/engine/internal/anotherpackage) - ns/op",
+            "value": 7.563,
+            "unit": "ns/op",
+            "extra": "158117426 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBaz (benchspotter/engine/internal/anotherpackage) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "158117426 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBaz (benchspotter/engine/internal/anotherpackage) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "158117426 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBoz (benchspotter/engine/internal/anotherpackage)",
+            "value": 7.774,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "158715064 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBoz (benchspotter/engine/internal/anotherpackage) - ns/op",
+            "value": 7.774,
+            "unit": "ns/op",
+            "extra": "158715064 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBoz (benchspotter/engine/internal/anotherpackage) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "158715064 times\n2 procs"
+          },
+          {
+            "name": "BenchmarkBoz (benchspotter/engine/internal/anotherpackage) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "158715064 times\n2 procs"
           }
         ]
       }
