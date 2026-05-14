@@ -77,7 +77,7 @@ func (v *viewportModel) View() tea.View {
 	}
 	view := tea.NewView(content)
 	view.AltScreen = true
-	view.MouseMode = tea.MouseModeCellMotion
+	view.MouseMode = tea.MouseModeNone
 	return view
 }
 
@@ -243,6 +243,6 @@ func (v *interactiveViewportModel) View() tea.View {
 	}
 	view := tea.NewView(content)
 	view.AltScreen = true
-	view.MouseMode = tea.MouseModeCellMotion
+	view.MouseMode = tea.MouseModeNone
 	return view
 }
