@@ -28,6 +28,7 @@ type sessionMeta struct {
 	Benches   []string     `json:"benchs,omitempty"`
 	GitCommit string       `json:"git_commit,omitempty"`
 	Tags      []string     `json:"tags,omitempty"`
+	Notes     string       `json:"notes,omitempty"`
 	Machine   *MachineInfo `json:"machine,omitempty"`
 	GoVersion string       `json:"go_version,omitempty"`
 }
@@ -110,6 +111,7 @@ type SessionInfo struct {
 	Benches   []string
 	GitCommit string
 	Tags      []string
+	Notes     string
 	Machine   *MachineInfo
 	GoVersion string
 
@@ -158,6 +160,7 @@ func readSession(fs billy.Filesystem, id string) (*SessionInfo, error) {
 		Benches:   meta.Benches,
 		GitCommit: meta.GitCommit,
 		Tags:      meta.Tags,
+		Notes:     meta.Notes,
 		Machine:   meta.Machine,
 		GoVersion: meta.GoVersion,
 		uid:       uid,
@@ -402,6 +405,12 @@ func updateMeta(fs billy.Filesystem, sessionPath string, fn func(*sessionMeta)) 
 // RenameSession updates the human-readable name stored in the session's meta.json.
 func RenameSession(fs billy.Filesystem, sessionPath string, name string) error {
 	return updateMeta(fs, sessionPath, func(meta *sessionMeta) { meta.Name = name })
+}
+
+// NoteSession sets the free-form notes on a session's meta.json. Pass an empty
+// string to clear the note.
+func NoteSession(fs billy.Filesystem, sessionPath string, notes string) error {
+	return updateMeta(fs, sessionPath, func(meta *sessionMeta) { meta.Notes = notes })
 }
 
 // RemoveSession deletes a session directory and all its contents.

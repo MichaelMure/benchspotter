@@ -156,6 +156,52 @@ func TestSession(t *testing.T) {
 			assert.Contains(t, out, `"abc1234def5678abc1234def5678abc1234def56"`)
 			assert.Contains(t, out, `"baseline"`)
 		})
+
+		t.Run("notes", func(t *testing.T) {
+			storage := memfs.New()
+			id := createTestSession(t, storage, "noted", []string{"BenchmarkFoo"}, "", false)
+			setNoteOnSession(t, storage, id, "this is my note")
+
+			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+			require.NoError(t, runSessionLs(env, sessionLsOptions{}))
+			assert.Contains(t, env.Out.String(), "this is my note")
+		})
+
+		t.Run("notes_truncated", func(t *testing.T) {
+			storage := memfs.New()
+			id := createTestSession(t, storage, "noted", []string{"BenchmarkFoo"}, "", false)
+			long := "this note is way too long and should be truncated in the table view"
+			setNoteOnSession(t, storage, id, long)
+
+			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+			require.NoError(t, runSessionLs(env, sessionLsOptions{}))
+			out := env.Out.String()
+			assert.NotContains(t, out, long)
+			assert.Contains(t, out, "…")
+		})
+
+		t.Run("notes_newlines_collapsed", func(t *testing.T) {
+			storage := memfs.New()
+			id := createTestSession(t, storage, "noted", []string{"BenchmarkFoo"}, "", false)
+			setNoteOnSession(t, storage, id, "line one\nline two")
+
+			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+			require.NoError(t, runSessionLs(env, sessionLsOptions{}))
+			out := env.Out.String()
+			assert.NotContains(t, out, "\n\n") // no raw newline breaking the table row
+			assert.Contains(t, out, "line one line two")
+		})
+
+		t.Run("json_notes", func(t *testing.T) {
+			storage := memfs.New()
+			id := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
+			setNoteOnSession(t, storage, id, "important context")
+
+			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+			env.Format = execenv.FormatJSON
+			require.NoError(t, runSessionLs(env, sessionLsOptions{}))
+			assert.Contains(t, env.Out.String(), `"important context"`)
+		})
 	})
 
 	t.Run("tag", func(t *testing.T) {
@@ -180,6 +226,31 @@ func TestSession(t *testing.T) {
 
 		meta := readSessionMeta(t, storage, id)
 		assert.Equal(t, []interface{}{"fast"}, meta["tags"])
+	})
+
+	t.Run("note", func(t *testing.T) {
+		t.Run("set", func(t *testing.T) {
+			storage := memfs.New()
+			id := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
+
+			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+			require.NoError(t, runSessionNote(env, []string{id, "my note text"}))
+
+			meta := readSessionMeta(t, storage, id)
+			assert.Equal(t, "my note text", meta["notes"])
+		})
+
+		t.Run("clear", func(t *testing.T) {
+			storage := memfs.New()
+			id := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
+			setNoteOnSession(t, storage, id, "existing note")
+
+			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+			require.NoError(t, runSessionNote(env, []string{id, ""}))
+
+			meta := readSessionMeta(t, storage, id)
+			assert.Empty(t, meta["notes"])
+		})
 	})
 
 	t.Run("rename", func(t *testing.T) {
@@ -261,6 +332,23 @@ func addTagToSession(t *testing.T, storage billy.Filesystem, id, tag string) {
 
 	tags, _ := meta["tags"].([]interface{})
 	meta["tags"] = append(tags, tag)
+
+	out, err := storage.Create(metaPath)
+	require.NoError(t, err)
+	require.NoError(t, json.NewEncoder(out).Encode(meta))
+	_ = out.Close()
+}
+
+func setNoteOnSession(t *testing.T, storage billy.Filesystem, id, note string) {
+	t.Helper()
+	metaPath := filepath.Join("sessions", id, "meta.json")
+	f, err := storage.Open(metaPath)
+	require.NoError(t, err)
+	var meta map[string]interface{}
+	require.NoError(t, json.NewDecoder(f).Decode(&meta))
+	_ = f.Close()
+
+	meta["notes"] = note
 
 	out, err := storage.Create(metaPath)
 	require.NoError(t, err)

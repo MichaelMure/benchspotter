@@ -37,6 +37,7 @@ tag related groups, or clean up old data.`,
 		newSessionTagCommand(env),
 		newSessionUntagCommand(env),
 		newSessionRenameCommand(env),
+		newSessionNoteCommand(env),
 		newSessionRmCommand(env),
 	)
 
@@ -123,7 +124,7 @@ func runSessionLs(env *execenv.Env, opts sessionLsOptions) error {
 	switch env.Format {
 	case execenv.FormatText:
 		w := tabwriter.NewWriter(env.Out, 0, 0, 2, ' ', 0)
-		header := "NAME\tTIME\tCOMMIT\tBENCH\tCPU\tMEM\tBLOCK\tMUTEX\tESCAPE\tINLINE\tBENCHMARKS\tTAGS"
+		header := "NAME\tTIME\tCOMMIT\tBENCH\tCPU\tMEM\tBLOCK\tMUTEX\tESCAPE\tINLINE\tBENCHMARKS\tTAGS\tNOTES"
 		if mc != nil {
 			header += "\tMACHINE"
 		}
@@ -142,7 +143,13 @@ func runSessionLs(env *execenv.Env, opts sessionLsOptions) error {
 				}
 				return env.Style.Negative("-")
 			}
-			row := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%s",
+			note := s.Notes
+			if len(note) > 40 {
+				note = note[:40] + "…"
+			}
+			// collapse newlines for the table view
+			note = strings.ReplaceAll(note, "\n", " ")
+			row := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%s\t%s",
 				s.HumanName,
 				s.Time.Format("2006-01-02 15:04"),
 				commit,
@@ -155,6 +162,7 @@ func runSessionLs(env *execenv.Env, opts sessionLsOptions) error {
 				check(s.HasProfile(engine.ProfileInline)),
 				len(s.Benches),
 				strings.Join(s.Tags, ", "),
+				note,
 			)
 			if mc != nil {
 				if n := mc.Labels[s.Id]; n != 0 {
@@ -185,6 +193,7 @@ func runSessionLs(env *execenv.Env, opts sessionLsOptions) error {
 			HasDiff    bool                `json:"has_diff"`
 			Profiles   []string            `json:"profiles"`
 			Tags       []string            `json:"tags"`
+			Notes      string              `json:"notes,omitempty"`
 			Benchmarks []string            `json:"benchmarks"`
 			Machine    *engine.MachineInfo `json:"machine,omitempty"`
 			GoVersion  string              `json:"go_version,omitempty"`
@@ -204,6 +213,7 @@ func runSessionLs(env *execenv.Env, opts sessionLsOptions) error {
 				HasDiff:    s.HasGitDiff(),
 				Profiles:   sessionProfiles(s),
 				Tags:       tags,
+				Notes:      s.Notes,
 				Benchmarks: s.Benches,
 				Machine:    s.Machine,
 				GoVersion:  s.GoVersion,
@@ -420,6 +430,67 @@ func runSessionRename(env *execenv.Env, args []string) error {
 	for _, s := range sessions {
 		if s.Id == sessionID {
 			return engine.RenameSession(env.Repo.Storage(), s.Path, name)
+		}
+	}
+	return fmt.Errorf("session %q not found", sessionID)
+}
+
+func newSessionNoteCommand(env *execenv.Env) *cobra.Command {
+	return &cobra.Command{
+		Use:   "note [id] [note]",
+		Short: "Set a note on a session",
+		Long: `Attach a free-form text note to a session.
+
+Notes can hold any context you want to remember: what you were testing, why
+results changed, or observations for an LLM to act on. The note replaces any
+previously stored text. Pass an empty string to clear it.
+
+If the session ID and note text are not provided as arguments, an interactive
+prompt is shown with the current note pre-filled.`,
+		PreRunE: execenv.LoadRepo(env),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runSessionNote(env, args)
+		},
+	}
+}
+
+func runSessionNote(env *execenv.Env, args []string) error {
+	var sessionID, note string
+
+	if len(args) >= 2 {
+		sessionID, note = args[0], strings.Join(args[1:], " ")
+	} else {
+		selection, err := inputs.SelectSession(env, "Select session to annotate", env.Repo.GetRecall("session_note_session"), nil)
+		if err != nil {
+			return err
+		}
+		if err = env.Repo.SetRecall("session_note_session", selection.Id); err != nil {
+			return err
+		}
+		sessionID = selection.Id
+
+		if len(args) == 1 {
+			note = args[0]
+		} else {
+			note = selection.Notes
+			err = env.FormSingle(huh.NewText().
+				Title("Note").
+				ExternalEditor(true).
+				Value(&note)).
+				RunWithContext(env.Ctx)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	sessions, err := engine.LocateSessions(env.Repo.Storage())
+	if err != nil {
+		return err
+	}
+	for _, s := range sessions {
+		if s.Id == sessionID {
+			return engine.NoteSession(env.Repo.Storage(), s.Path, note)
 		}
 	}
 	return fmt.Errorf("session %q not found", sessionID)
