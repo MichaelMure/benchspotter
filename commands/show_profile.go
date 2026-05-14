@@ -346,12 +346,7 @@ func runShowProfile(env *execenv.Env, options showProfileOptions) error {
 
 	switch env.Format {
 	case execenv.FormatRaw:
-		data, err := engine.ReadProfileRaw(env.Repo.Storage(), selection.Path, options.profileType, options.bench)
-		if err != nil {
-			return err
-		}
-		_, err = env.Out.Write(data)
-		return err
+		return engine.ReadProfileRaw(env.Repo.Storage(), selection.Path, options.profileType, options.bench, env.Out)
 
 	case execenv.FormatJSON:
 		funcs, err := engine.ReadProfileFunctions(env.Repo.Storage(), selection.Path, options.profileType, options.bench)

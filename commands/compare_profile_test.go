@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/google/pprof/profile"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -62,6 +63,42 @@ func TestCompareProfile(t *testing.T) {
 		})
 		require.NoError(t, err)
 		assert.Contains(t, env.Out.String(), `"name"`)
+	})
+
+	t.Run("raw/cpu_produces_valid_diff_pprof", func(t *testing.T) {
+		storage := memfs.New()
+		baseID := createTestSession(t, storage, "base", []string{"BenchmarkFoo"}, "", false)
+		newID := createTestSession(t, storage, "new", []string{"BenchmarkFoo"}, "", false)
+		writeProfile(t, storage, baseID, "cpu", ".", "BenchmarkFoo",
+			makeCPUProfile([]string{"mypackage.BaseOnly", "mypackage.Both"}))
+		writeProfile(t, storage, newID, "cpu", ".", "BenchmarkFoo",
+			makeCPUProfile([]string{"mypackage.NewOnly", "mypackage.Both"}))
+
+		env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+		env.Format = execenv.FormatRaw
+
+		err := runCompareProfile(env, compareProfileOptions{
+			baseSession: baseID,
+			newSession:  newID,
+			bench:       "BenchmarkFoo",
+			profileType: engine.ProfileCPU,
+			sort:        engine.DiffSortAbsFlat,
+			top:         20,
+		})
+		require.NoError(t, err)
+
+		// Output must be a valid parseable pprof binary.
+		data := []byte(env.Out.String())
+		prof, err := profile.ParseData(data)
+		require.NoError(t, err)
+
+		// Collect all function names in the diff profile.
+		names := make(map[string]bool)
+		for _, fn := range prof.Function {
+			names[fn.Name] = true
+		}
+		assert.True(t, names["mypackage.BaseOnly"] || names["mypackage.NewOnly"],
+			"diff pprof should contain functions from at least one session")
 	})
 
 	t.Run("text/cpu", func(t *testing.T) {

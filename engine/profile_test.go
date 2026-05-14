@@ -122,10 +122,11 @@ func TestReadProfileRaw_validPprof(t *testing.T) {
 	fs := memfs.New()
 	makeTestProfile(t, fs, testSessionPath, "cpu", ".", "BenchmarkFoo", simpleCPUProfile([]string{"pkg.Func"}))
 
-	data, err := ReadProfileRaw(fs, testSessionPath, ProfileCPU, "BenchmarkFoo")
+	var buf bytes.Buffer
+	err := ReadProfileRaw(fs, testSessionPath, ProfileCPU, "BenchmarkFoo", &buf)
 	require.NoError(t, err)
 
-	_, err = profile.ParseData(data)
+	_, err = profile.ParseData(buf.Bytes())
 	assert.NoError(t, err)
 }
 

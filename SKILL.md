@@ -161,7 +161,12 @@ benchspotter compare cpu   --base <id> --new <id> --bench BenchmarkFoo --format 
 benchspotter compare mem   --base <id> --new <id> --bench BenchmarkFoo --format json
 benchspotter compare block --base <id> --new <id> --bench BenchmarkFoo --format json
 benchspotter compare mutex --base <id> --new <id> --bench BenchmarkFoo --format json
-# json fields: same as show, plus delta fields for flat/cum changes
+# json fields: name, file, line, base_flat_ns, new_flat_ns, delta_flat_ns, delta_flat_pct, ...
+
+# --format raw emits a diff pprof binary (new − base): positive = regression, negative = improvement
+# pipe directly into go tool pprof for interactive exploration of what changed
+benchspotter compare cpu --base <id> --new <id> --bench BenchmarkFoo --format raw > diff.pprof
+go tool pprof diff.pprof
 ```
 
 ## Compiler analysis

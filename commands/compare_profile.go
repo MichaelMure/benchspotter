@@ -332,6 +332,9 @@ func runCompareProfile(env *execenv.Env, options compareProfileOptions) error {
 	}
 
 	switch env.Format {
+	case execenv.FormatRaw:
+		return engine.DiffProfileRaw(env.Repo.Storage(), baseInfo.Path, newInfo.Path, options.profileType, options.bench, env.Out)
+
 	case execenv.FormatText:
 		model := &compareProfileViewModel{
 			baseProf:    baseProf,
@@ -389,7 +392,7 @@ func runCompareProfile(env *execenv.Env, options compareProfileOptions) error {
 		return env.Out.PrintJSON(out)
 
 	default:
-		return fmt.Errorf("unsupported format %v for compare %s (text, json)", env.Format, profileDir)
+		return fmt.Errorf("unsupported format %v for compare %s (raw, json, text)", env.Format, profileDir)
 	}
 }
 

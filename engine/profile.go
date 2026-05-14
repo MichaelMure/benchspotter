@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -184,18 +183,36 @@ func ReadParsedProfile(fs billy.Filesystem, sessionPath string, p Profile, bench
 }
 
 // ReadProfileRaw parses the pprof file for the given session, profile type, and
-// benchmark name, and returns the re-serialized binary suitable for piping to
-// go tool pprof. Use ListProfileBenchmarks to enumerate valid bench values.
-func ReadProfileRaw(fs billy.Filesystem, sessionPath string, p Profile, bench string) ([]byte, error) {
+// benchmark name, and writes the re-serialized binary to w, suitable for piping
+// to go tool pprof. Use ListProfileBenchmarks to enumerate valid bench values.
+func ReadProfileRaw(fs billy.Filesystem, sessionPath string, p Profile, bench string, w io.Writer) error {
 	prof, err := readProfile(fs, sessionPath, p, bench)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	var buf bytes.Buffer
-	if err := prof.Write(&buf); err != nil {
-		return nil, err
+	return prof.Write(w)
+}
+
+// DiffProfileRaw computes new − base as a pprof binary and writes it to w,
+// suitable for piping to go tool pprof. Positive sample values represent
+// regressions; negative values represent improvements. The result is produced
+// by scaling base by -1 then merging with new, which is the same strategy
+// pprof uses for -diff_base.
+func DiffProfileRaw(fs billy.Filesystem, basePath, newPath string, p Profile, bench string, w io.Writer) error {
+	baseProf, err := readProfile(fs, basePath, p, bench)
+	if err != nil {
+		return fmt.Errorf("reading base profile: %w", err)
 	}
-	return buf.Bytes(), nil
+	newProf, err := readProfile(fs, newPath, p, bench)
+	if err != nil {
+		return fmt.Errorf("reading new profile: %w", err)
+	}
+	baseProf.Scale(-1)
+	merged, err := profile.Merge([]*profile.Profile{baseProf, newProf})
+	if err != nil {
+		return fmt.Errorf("merging profiles: %w", err)
+	}
+	return merged.Write(w)
 }
 
 // ProfileFilePath returns the absolute OS path to the pprof file for the given
