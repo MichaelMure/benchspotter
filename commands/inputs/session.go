@@ -12,7 +12,7 @@ import (
 	"benchspotter/engine"
 )
 
-func SelectSession(env *execenv.Env, preSelect string, filter func(info *engine.SessionInfo) bool) (*engine.SessionInfo, error) {
+func SelectSession(env *execenv.Env, title, preSelect string, filter func(info *engine.SessionInfo) bool) (*engine.SessionInfo, error) {
 	var sessions []*engine.SessionInfo
 
 	err := env.Spinner().Title("Finding sessions").
@@ -41,7 +41,7 @@ func SelectSession(env *execenv.Env, preSelect string, filter func(info *engine.
 	var selection *engine.SessionInfo
 	fields := []huh.Field{
 		huh.NewSelect[*engine.SessionInfo]().
-			Title("Select a session").
+			Title(title).
 			OptionsFunc(func() []huh.Option[*engine.SessionInfo] {
 				opts := make([]huh.Option[*engine.SessionInfo], 0, len(sessions))
 				for _, session := range sessions {

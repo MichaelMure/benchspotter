@@ -256,7 +256,7 @@ func runSessionTag(env *execenv.Env, args []string) error {
 	if len(args) >= 2 {
 		sessionID, tag = args[0], args[1]
 	} else {
-		selection, err := inputs.SelectSession(env, env.Repo.GetRecall("session_tag_session"), nil)
+		selection, err := inputs.SelectSession(env, "Select session to tag", env.Repo.GetRecall("session_tag_session"), nil)
 		if err != nil {
 			return err
 		}
@@ -322,7 +322,7 @@ func runSessionUntag(env *execenv.Env, args []string) error {
 	if len(args) >= 2 {
 		sessionID, tag = args[0], args[1]
 	} else {
-		selection, err := inputs.SelectSession(env, env.Repo.GetRecall("session_untag_session"),
+		selection, err := inputs.SelectSession(env, "Select session to untag", env.Repo.GetRecall("session_untag_session"),
 			func(s *engine.SessionInfo) bool { return len(s.Tags) > 0 })
 		if err != nil {
 			return err
@@ -386,7 +386,7 @@ func runSessionRename(env *execenv.Env, args []string) error {
 	if len(args) >= 2 {
 		sessionID, name = args[0], args[1]
 	} else {
-		selection, err := inputs.SelectSession(env, env.Repo.GetRecall("session_rename_session"), nil)
+		selection, err := inputs.SelectSession(env, "Select session to rename", env.Repo.GetRecall("session_rename_session"), nil)
 		if err != nil {
 			return err
 		}
@@ -466,7 +466,7 @@ func runSessionRm(env *execenv.Env, args []string, opts sessionRmOptions) error 
 		}
 	} else {
 		var err error
-		target, err = inputs.SelectSession(env, env.Repo.GetRecall("session_rm_session"), nil)
+		target, err = inputs.SelectSession(env, "Select session to remove", env.Repo.GetRecall("session_rm_session"), nil)
 		if err != nil {
 			return err
 		}
