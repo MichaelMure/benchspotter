@@ -25,6 +25,7 @@ type Env struct {
 	Style    Style
 	Format   Format
 	NoPrompt bool
+	Dir      string
 }
 
 func NewEnv(ctx context.Context) *Env {

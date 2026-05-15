@@ -48,6 +48,7 @@ A typical session is as follow:
 	_ = formatFlag.RegisterCompletion(cmd, "format", execenv.FormatHelp)
 
 	cmd.PersistentFlags().BoolVar(&env.NoPrompt, "no-prompt", false, "disable interactive prompts; all required values must be supplied via flags")
+	cmd.PersistentFlags().StringVarP(&env.Dir, "dir", "C", "", "run as if started in `dir` instead of the current directory")
 
 	addCmdWithGroup(newBenchCommand(env), mainGroup)
 	addCmdWithGroup(newSessionCommand(env), mainGroup)

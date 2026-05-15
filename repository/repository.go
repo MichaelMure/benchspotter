@@ -83,6 +83,29 @@ func AutoDetect() (*Repository, error) {
 	return &repo, repo.init()
 }
 
+// Open opens a repository rooted at dir. dir is used as the project sources
+// root; storage is placed at dir/.benchspotter.
+func Open(dir string) (*Repository, error) {
+	const repoDir = ".benchspotter"
+
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve %q: %w", dir, err)
+	}
+	fi, err := os.Lstat(abs)
+	if err != nil {
+		return nil, fmt.Errorf("%q: %w", abs, err)
+	}
+	if !fi.IsDir() {
+		return nil, fmt.Errorf("%q is not a directory", abs)
+	}
+
+	var repo Repository
+	repo.sources = osfs.New(abs, osfs.WithBoundOS())
+	repo.storage, _ = repo.sources.Chroot(repoDir)
+	return &repo, repo.init()
+}
+
 func (repo *Repository) init() error {
 	const perm = 0755
 
