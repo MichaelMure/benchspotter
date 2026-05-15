@@ -110,7 +110,7 @@ Any interactive prompt can be bypassed with the corresponding flags.`,
 	}
 
 	flags.BoolVar(&options.allProfile, "all-profile", false, "Run all profiling modes")
-	flags.StringSliceVarP(&options.bench, "bench", "b", []string{}, "Run only benchmarks matching `regexp` (repeatable, patterns are OR-ed)")
+	flags.StringArrayVarP(&options.bench, "bench", "b", []string{}, "Run only benchmarks matching `regexp` (repeatable, patterns are OR-ed)")
 	flags.BoolVarP(&options.allBench, "all-bench", "a", false, "Run all benchmarks")
 	flags.StringVarP(&options.name, "name", "n", unsetStringMarker, "A name for the benchmark session, for the user to record what is being tested")
 	flags.IntVarP(&options.count, "count", "c", -1, "Run benchmarks `n` times")

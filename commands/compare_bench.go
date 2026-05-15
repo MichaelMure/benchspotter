@@ -61,7 +61,7 @@ Any interactive prompt can be bypassed with the corresponding flags.`,
 
 	flags := cmd.Flags()
 
-	flags.StringSliceVar(&options.sessions, "session", nil, "session IDs or names to compare (repeatable; first is baseline unless --baseline is set)")
+	flags.StringArrayVar(&options.sessions, "session", nil, "session IDs or names to compare (repeatable; first is baseline unless --baseline is set)")
 	flags.StringVar(&options.baseline, "baseline", "", "session ID or name to use as baseline (overrides session order)")
 	flags.StringVar(&options.table, "table", ".config", "split results into tables by distinct values of `projection`")
 	flags.StringVar(&options.row, "row", ".fullname", "split results into rows by distinct values of `projection`")
