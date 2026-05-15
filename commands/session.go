@@ -34,6 +34,7 @@ tag related groups, or clean up old data.`,
 
 	cmd.AddCommand(
 		newSessionLsCommand(env),
+		newSessionShowCommand(env),
 		newSessionTagCommand(env),
 		newSessionUntagCommand(env),
 		newSessionRenameCommand(env),
@@ -124,10 +125,11 @@ func runSessionLs(env *execenv.Env, opts sessionLsOptions) error {
 	switch env.Format {
 	case execenv.FormatText:
 		w := tabwriter.NewWriter(env.Out, 0, 0, 2, ' ', 0)
-		header := "NAME\tTIME\tCOMMIT\tBENCH\tCPU\tMEM\tBLOCK\tMUTEX\tESCAPE\tINLINE\tBENCHMARKS\tTAGS\tNOTES"
+		header := "NAME\tTIME\tCOMMIT\tBENCH\tCPU\tMEM\tBLOCK\tMUTEX\tESCAPE\tINLINE\tBENCHMARKS\tTAGS"
 		if mc != nil {
 			header += "\tMACHINE"
 		}
+		header += "\tNOTES"
 		_, _ = fmt.Fprintln(w, header)
 		for _, s := range sessions {
 			commit := ""
@@ -149,7 +151,7 @@ func runSessionLs(env *execenv.Env, opts sessionLsOptions) error {
 			}
 			// collapse newlines for the table view
 			note = strings.ReplaceAll(note, "\n", " ")
-			row := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%s\t%s",
+			row := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%s",
 				s.HumanName,
 				s.Time.Format("2006-01-02 15:04"),
 				commit,
@@ -162,7 +164,6 @@ func runSessionLs(env *execenv.Env, opts sessionLsOptions) error {
 				check(s.HasProfile(engine.ProfileInline)),
 				len(s.Benches),
 				strings.Join(s.Tags, ", "),
-				note,
 			)
 			if mc != nil {
 				if n := mc.Labels[s.Id]; n != 0 {
@@ -171,6 +172,7 @@ func runSessionLs(env *execenv.Env, opts sessionLsOptions) error {
 					row += "\t"
 				}
 			}
+			row += "\t" + note
 			_, _ = fmt.Fprintln(w, row)
 		}
 		if err := w.Flush(); err != nil {
@@ -239,6 +241,112 @@ func sessionProfiles(s *engine.SessionInfo) []string {
 		out = append(out, "inline")
 	}
 	return out
+}
+
+func newSessionShowCommand(env *execenv.Env) *cobra.Command {
+	return &cobra.Command{
+		Use:   "show [id]",
+		Short: "Show session details",
+		Long: `Show all metadata for a session: name, time, git commit, tags, machine info,
+and the full note text.
+
+If no session ID is given as an argument, an interactive selector is shown.`,
+		PreRunE: execenv.LoadRepo(env),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runSessionShow(env, args)
+		},
+	}
+}
+
+func runSessionShow(env *execenv.Env, args []string) error {
+	var s *engine.SessionInfo
+
+	if len(args) >= 1 {
+		sessions, err := engine.LocateSessions(env.Repo.Storage())
+		if err != nil {
+			return err
+		}
+		for _, candidate := range sessions {
+			if candidate.Id == args[0] {
+				s = candidate
+				break
+			}
+		}
+		if s == nil {
+			return fmt.Errorf("session %q not found", args[0])
+		}
+	} else {
+		var err error
+		s, err = inputs.SelectSession(env, "Select session to show", env.Repo.GetRecall("session_show_session"), nil)
+		if err != nil {
+			return err
+		}
+		if err = env.Repo.SetRecall("session_show_session", s.Id); err != nil {
+			return err
+		}
+	}
+
+	switch env.Format {
+	case execenv.FormatText:
+		commit := s.GitCommit
+		if commit != "" && s.HasGitDiff() {
+			commit += "±"
+		}
+		fields := []struct{ k, v string }{
+			{"ID", s.Id},
+			{"Name", s.Name},
+			{"Time", s.Time.Format("2006-01-02 15:04:05")},
+			{"Commit", commit},
+			{"Tags", strings.Join(s.Tags, ", ")},
+			{"Benchmarks", strings.Join(s.Benches, ", ")},
+			{"Profiles", strings.Join(sessionProfiles(s), ", ")},
+		}
+		if s.Machine != nil {
+			fields = append(fields, struct{ k, v string }{"Machine", engine.FormatMachineLine(s.Machine, s.GoVersion)})
+		}
+		for _, f := range fields {
+			_, _ = fmt.Fprintf(env.Out, "%-12s %s\n", f.k+":", f.v)
+		}
+		if s.Notes != "" {
+			_, _ = fmt.Fprintf(env.Out, "\nNotes:\n%s\n", s.Notes)
+		}
+		return nil
+	case execenv.FormatJSON:
+		type showJSON struct {
+			ID         string              `json:"id"`
+			Name       string              `json:"name,omitempty"`
+			HumanName  string              `json:"human_name"`
+			Time       time.Time           `json:"time"`
+			Commit     string              `json:"commit,omitempty"`
+			HasDiff    bool                `json:"has_diff"`
+			Profiles   []string            `json:"profiles"`
+			Tags       []string            `json:"tags"`
+			Notes      string              `json:"notes,omitempty"`
+			Benchmarks []string            `json:"benchmarks"`
+			Machine    *engine.MachineInfo `json:"machine,omitempty"`
+			GoVersion  string              `json:"go_version,omitempty"`
+		}
+		tags := s.Tags
+		if tags == nil {
+			tags = []string{}
+		}
+		return env.Out.PrintJSON(showJSON{
+			ID:         s.Id,
+			Name:       s.Name,
+			HumanName:  s.HumanName,
+			Time:       s.Time,
+			Commit:     s.GitCommit,
+			HasDiff:    s.HasGitDiff(),
+			Profiles:   sessionProfiles(s),
+			Tags:       tags,
+			Notes:      s.Notes,
+			Benchmarks: s.Benches,
+			Machine:    s.Machine,
+			GoVersion:  s.GoVersion,
+		})
+	default:
+		return fmt.Errorf("unsupported format %v for session show (text, json)", env.Format)
+	}
 }
 
 func newSessionTagCommand(env *execenv.Env) *cobra.Command {

@@ -204,6 +204,50 @@ func TestSession(t *testing.T) {
 		})
 	})
 
+	t.Run("show", func(t *testing.T) {
+		t.Run("text", func(t *testing.T) {
+			storage := memfs.New()
+			id := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo", "BenchmarkBar"}, "abc1234def5678abc1234def5678abc1234def56", false)
+			setNoteOnSession(t, storage, id, "full note text\nwith newline")
+
+			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+			require.NoError(t, runSessionShow(env, []string{id}))
+
+			out := env.Out.String()
+			assert.Contains(t, out, "my-session")
+			assert.Contains(t, out, "abc1234def5678abc1234def5678abc1234def56")
+			assert.Contains(t, out, "BenchmarkFoo")
+			assert.Contains(t, out, "BenchmarkBar")
+			assert.Contains(t, out, "full note text\nwith newline")
+		})
+
+		t.Run("not_found", func(t *testing.T) {
+			storage := memfs.New()
+			createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
+
+			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+			err := runSessionShow(env, []string{"00000000-0000-0000-0000-000000000000"})
+			assert.ErrorContains(t, err, "not found")
+		})
+
+		t.Run("json", func(t *testing.T) {
+			storage := memfs.New()
+			id := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "abc1234def5678abc1234def5678abc1234def56", true)
+			addTagToSession(t, storage, id, "baseline")
+			setNoteOnSession(t, storage, id, "full note text")
+
+			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+			env.Format = execenv.FormatJSON
+			require.NoError(t, runSessionShow(env, []string{id}))
+
+			out := env.Out.String()
+			assert.Contains(t, out, `"my-session"`)
+			assert.Contains(t, out, `"has_diff": true`)
+			assert.Contains(t, out, `"baseline"`)
+			assert.Contains(t, out, `"full note text"`)
+		})
+	})
+
 	t.Run("tag", func(t *testing.T) {
 		storage := memfs.New()
 		id := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)

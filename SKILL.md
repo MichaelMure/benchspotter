@@ -72,6 +72,10 @@ benchspotter session ls --tag my-tag --format json
 # filter by benchmark name (regexp, like go test -bench)
 benchspotter session ls --bench Foo --format json
 
+# show full metadata for one session (full note text, profiles, machine, …)
+benchspotter session show <id>
+benchspotter session show <id> --format json
+
 # tag / untag / rename / delete (all accept id + value as args)
 benchspotter session tag    <id> <tag>
 benchspotter session untag  <id> <tag>
@@ -79,8 +83,13 @@ benchspotter session rename <id> <new-name>
 benchspotter session rm  -y <id>   # -y skips confirmation
 ```
 
-The JSON output of `session ls` includes: `id`, `human_name`, `time`,
-`commit`, `has_diff`, `profiles`, `tags`, `benchmarks`, `machine`, `go_version`.
+`session show` without an argument opens an interactive selector. The JSON
+output includes: `id`, `human_name`, `time`, `commit`, `has_diff`, `profiles`,
+`tags`, `notes` (full text), `benchmarks`, `machine`, `go_version`. Use it
+when you need the complete note or the exact profile list for a single session.
+
+The JSON output of `session ls` includes the same fields (with `notes`
+truncated in text mode); use `session show` when you need the full note.
 
 `--session` flags throughout benchspotter accept either a UUID session ID or a
 human name. Names that match multiple sessions return an error — use the ID in
