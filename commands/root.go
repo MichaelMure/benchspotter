@@ -37,6 +37,10 @@ A typical session is as follow:
 		child.GroupID = groupID
 	}
 
+	if v, err := getVersion(); err == nil {
+		cmd.Version = v
+	}
+
 	env := execenv.NewEnv(ctx)
 
 	formatFlag := enumflag.New(&env.Format, "format", execenv.FormatIds, enumflag.EnumCaseInsensitive)

@@ -44,7 +44,7 @@ Format Description:
 			if err != nil {
 				env.Err.Printf("failed to get version: %v\n", err)
 			} else {
-				env.Out.Printf("%s %s", RootCmdName, version)
+				env.Out.Printf("%s %s\n", RootCmdName, version)
 			}
 		},
 	}
@@ -115,5 +115,5 @@ func getVersion() (string, error) {
 		v.WriteString(fmt.Sprintf(" %s", arch))
 	}
 
-	return fmt.Sprint(v.String(), "\n"), nil
+	return v.String(), nil
 }
