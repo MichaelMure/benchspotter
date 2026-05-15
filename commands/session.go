@@ -386,7 +386,7 @@ func runSessionTag(env *execenv.Env, args []string) error {
 		if len(args) == 1 {
 			tag = args[0]
 		} else {
-			err = env.FormSingle(huh.NewInput().
+			err = env.FormSingle("<tag>", huh.NewInput().
 				Title("Tag name").
 				Value(&tag)).
 				RunWithContext(env.Ctx)
@@ -457,7 +457,7 @@ func runSessionUntag(env *execenv.Env, args []string) error {
 			for i, t := range selection.Tags {
 				opts[i] = huh.NewOption(t, t)
 			}
-			err = env.FormSingle(huh.NewSelect[string]().
+			err = env.FormSingle("<tag>", huh.NewSelect[string]().
 				Title("Tag to remove").
 				Options(opts...).
 				Value(&tag)).
@@ -517,7 +517,7 @@ func runSessionRename(env *execenv.Env, args []string) error {
 			name = args[0]
 		} else {
 			name = selection.Name
-			err = env.FormSingle(huh.NewInput().
+			err = env.FormSingle("<new-name>", huh.NewInput().
 				Title("New name").
 				Value(&name)).
 				RunWithContext(env.Ctx)
@@ -581,7 +581,7 @@ func runSessionNote(env *execenv.Env, args []string) error {
 			note = args[0]
 		} else {
 			note = selection.Notes
-			err = env.FormSingle(huh.NewText().
+			err = env.FormSingle("<note>", huh.NewText().
 				Title("Note").
 				ExternalEditor(true).
 				Value(&note)).
@@ -653,7 +653,7 @@ func runSessionRm(env *execenv.Env, args []string, opts sessionRmOptions) error 
 
 	if !opts.skipConfirmation {
 		var confirmed bool
-		err := env.FormSingle(huh.NewConfirm().
+		err := env.FormSingle("-y/--skip-confirmation", huh.NewConfirm().
 			Title(fmt.Sprintf("Delete session %q?", target.HumanName)).
 			Value(&confirmed)).
 			RunWithContext(env.Ctx)

@@ -59,7 +59,7 @@ func SelectSession(env *execenv.Env, title, preSelect string, filter func(info *
 	if mc != nil {
 		fields = append([]huh.Field{machineLegendNote(env, mc)}, fields...)
 	}
-	err = env.Form(huh.NewGroup(fields...)).
+	err = env.Form("--session", huh.NewGroup(fields...)).
 		RunWithContext(env.Ctx)
 	if err != nil {
 		return nil, err
@@ -106,7 +106,7 @@ func SelectSessions(env *execenv.Env, preSelect []string) ([]*engine.SessionInfo
 	if mc != nil {
 		fields = append([]huh.Field{machineLegendNote(env, mc)}, fields...)
 	}
-	err = env.Form(huh.NewGroup(fields...)).
+	err = env.Form("--session", huh.NewGroup(fields...)).
 		RunWithContext(env.Ctx)
 	if err != nil {
 		return nil, err

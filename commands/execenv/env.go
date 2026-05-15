@@ -41,9 +41,9 @@ func NewEnv(ctx context.Context) *Env {
 	}
 }
 
-func (e Env) Form(groups ...*huh.Group) Form {
+func (e Env) Form(flag string, groups ...*huh.Group) Form {
 	if e.NoPrompt {
-		return new(ErrForm)
+		return &errForm{flag: flag}
 	}
 	return huh.NewForm(groups...).
 		WithInput(e.In.Raw()).
@@ -51,9 +51,9 @@ func (e Env) Form(groups ...*huh.Group) Form {
 		WithTheme(e.Style.themeFunc)
 }
 
-func (e Env) FormSingle(field huh.Field) Form {
+func (e Env) FormSingle(flag string, field huh.Field) Form {
 	if e.NoPrompt {
-		return new(ErrForm)
+		return &errForm{flag: flag}
 	}
 	return huh.NewForm(huh.NewGroup(field)).
 		WithInput(e.In.Raw()).

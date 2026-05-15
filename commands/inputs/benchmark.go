@@ -29,7 +29,7 @@ func SelectBenchmark(env *execenv.Env, preSelect string) (engine.BenchInfo, erro
 	}
 
 	var selected engine.BenchInfo
-	err = env.FormSingle(huh.NewSelect[engine.BenchInfo]().
+	err = env.FormSingle("-b/--bench (or --all-bench)", huh.NewSelect[engine.BenchInfo]().
 		Title("Select benchmark").
 		OptionsFunc(func() []huh.Option[engine.BenchInfo] {
 			options := make([]huh.Option[engine.BenchInfo], len(benchs))
@@ -68,7 +68,7 @@ func SelectBenchmarks(env *execenv.Env, preSelect []string) ([]engine.BenchInfo,
 
 	var selection []engine.BenchInfo
 
-	err = env.FormSingle(huh.NewMultiSelect[engine.BenchInfo]().
+	err = env.FormSingle("-b/--bench (or --all-bench)", huh.NewMultiSelect[engine.BenchInfo]().
 		Title("Select benchmarks").
 		OptionsFunc(func() []huh.Option[engine.BenchInfo] {
 			opts := make([]huh.Option[engine.BenchInfo], len(benchs))

@@ -20,7 +20,7 @@ func SelectProfileBench(env *execenv.Env, opts []BenchOption, preSelect string) 
 	}
 
 	var selection string
-	err := env.FormSingle(huh.NewSelect[string]().
+	err := env.FormSingle("--bench", huh.NewSelect[string]().
 		Title("Select a benchmark").
 		Options(hopts...).
 		Value(&selection)).

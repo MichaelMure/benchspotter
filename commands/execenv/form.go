@@ -3,8 +3,7 @@ package execenv
 import (
 	"context"
 	"errors"
-
-	"charm.land/huh/v2"
+	"fmt"
 )
 
 var ErrNoPrompt = errors.New("interactive prompts are disabled (--no-prompt)")
@@ -15,8 +14,10 @@ type Form interface {
 	RunWithContext(ctx context.Context) error
 }
 
-// ErrForm is a Form that always returns ErrNoPrompt.
-type ErrForm huh.Form
+// errForm is a Form that always returns ErrNoPrompt, naming the missing flag.
+type errForm struct{ flag string }
 
-func (*ErrForm) Run() error                             { return ErrNoPrompt }
-func (*ErrForm) RunWithContext(_ context.Context) error { return ErrNoPrompt }
+func (f *errForm) Run() error { return fmt.Errorf("%w: use %s", ErrNoPrompt, f.flag) }
+func (f *errForm) RunWithContext(_ context.Context) error {
+	return fmt.Errorf("%w: use %s", ErrNoPrompt, f.flag)
+}

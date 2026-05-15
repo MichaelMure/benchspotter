@@ -134,7 +134,7 @@ func runOptimize(env *execenv.Env, opts optimizeOptions) error {
 		const recallKey = "optimize_params"
 		preSelected := env.Repo.GetRecalls(recallKey)
 
-		err = env.FormSingle(huh.NewMultiSelect[engine.InputInfo]().
+		err = env.FormSingle("--param", huh.NewMultiSelect[engine.InputInfo]().
 			Title("Select parameters to optimize").
 			OptionsFunc(func() []huh.Option[engine.InputInfo] {
 				options := make([]huh.Option[engine.InputInfo], len(allInputs))
@@ -208,7 +208,7 @@ func runOptimize(env *execenv.Env, opts optimizeOptions) error {
 	if opts.strategy == "" {
 		const recallKey = "optimize_strategy"
 		strat := env.Repo.GetRecall(recallKey)
-		err = env.FormSingle(huh.NewSelect[string]().
+		err = env.FormSingle("--strategy", huh.NewSelect[string]().
 			Title("Optimization strategy").
 			OptionsFunc(func() []huh.Option[string] {
 				options := make([]huh.Option[string], len(engine.StrategyDefs))
@@ -239,7 +239,7 @@ func runOptimize(env *execenv.Env, opts optimizeOptions) error {
 				}
 			}
 		}
-		err = env.FormSingle(huh.NewSelect[engine.BenchMetric]().
+		err = env.FormSingle("--metric", huh.NewSelect[engine.BenchMetric]().
 			Title("Metric to optimize").
 			OptionsFunc(func() []huh.Option[engine.BenchMetric] {
 				opts := make([]huh.Option[engine.BenchMetric], len(engine.KnownBenchMetrics))

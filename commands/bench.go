@@ -131,7 +131,7 @@ func runBench(env *execenv.Env, options benchOptions) error {
 		preSelected := env.Repo.GetRecalls(recallKey)
 		selected := func(p engine.Profile) bool { return slices.Contains(preSelected, strconv.Itoa(int(p))) }
 
-		err = env.FormSingle(huh.NewMultiSelect[engine.Profile]().
+		err = env.FormSingle("-p/--profile (or --all-profile)", huh.NewMultiSelect[engine.Profile]().
 			Title("Benchmarking profile(s)").
 			Options(
 				huh.NewOption("Benchmark", engine.ProfileBench).Selected(selected(engine.ProfileBench)),
@@ -218,7 +218,7 @@ func runBench(env *execenv.Env, options benchOptions) error {
 	}
 
 	if options.name == unsetStringMarker {
-		err = env.FormSingle(huh.NewInput().
+		err = env.FormSingle("-n/--name", huh.NewInput().
 			Title("Name of the session (optional)").
 			Validate(func(s string) error {
 				if !utf8.ValidString(s) {
@@ -235,7 +235,7 @@ func runBench(env *execenv.Env, options benchOptions) error {
 
 	if slices.Contains(options.profiles, engine.ProfileBench) && options.count == -1 {
 		var value string
-		err = env.FormSingle(huh.NewInput().
+		err = env.FormSingle("-c/--count", huh.NewInput().
 			Title("Run benchmarks `n` times").
 			Placeholder("1").
 			Validate(func(s string) error {
