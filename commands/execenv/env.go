@@ -63,11 +63,10 @@ func (e Env) FormSingle(flag string, field huh.Field) Form {
 }
 
 func (e Env) Spinner() *spinner.Spinner {
-	s := spinner.New().WithOutput(e.Err.Raw())
-	if !e.Out.IsTerminal() {
-		s = s.WithAccessible(true)
+	if !e.In.IsTerminal() || !e.Err.IsTerminal() {
+		return spinner.New().WithAccessible(true).WithOutput(io.Discard)
 	}
-	return s
+	return spinner.New().WithOutput(e.Err.Raw())
 }
 
 // RunModel runs m as a full-screen TUI. It is the caller's responsibility to

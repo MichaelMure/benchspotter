@@ -6,15 +6,14 @@ import (
 	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 	"unicode/utf8"
 
 	"charm.land/huh/v2"
 	"github.com/spf13/cobra"
 	"github.com/thediveo/enumflag/v2"
-	"golang.org/x/perf/benchfmt"
-
-	"benchspotter/commands/execenv"
+"benchspotter/commands/execenv"
 	"benchspotter/commands/inputs"
 	"benchspotter/engine"
 )
@@ -26,6 +25,7 @@ type benchOptions struct {
 	allBench   bool
 	name       string
 	count      int
+	printID    bool
 }
 
 var profileIds = map[engine.Profile][]string{
@@ -114,6 +114,7 @@ Any interactive prompt can be bypassed with the corresponding flags.`,
 	flags.BoolVarP(&options.allBench, "all-bench", "a", false, "Run all benchmarks")
 	flags.StringVarP(&options.name, "name", "n", unsetStringMarker, "A name for the benchmark session, for the user to record what is being tested")
 	flags.IntVarP(&options.count, "count", "c", -1, "Run benchmarks `n` times")
+	flags.BoolVar(&options.printID, "print-id", false, "Print only the session UUID to stdout (useful for scripting)")
 
 	return cmd
 }
@@ -266,111 +267,127 @@ func runBench(env *execenv.Env, options benchOptions) error {
 		return err
 	}
 
-	if slices.Contains(options.profiles, engine.ProfileBench) {
-		it := engine.RunBenches(env.Ctx, env.Repo.Storage(), id, selection, options.count)
-		for {
-			start := time.Now()
-			var res *benchfmt.Result
-			err = env.Spinner().Title("Running benchmarks...").ActionWithErr(func(ctx context.Context) error {
-				res, err = it()
-				return err
-			}).Run()
-			if err != nil {
-				return err
-			}
-			if res == nil {
-				break
-			}
-
-			env.Out.Printf("> Benchmark%s (", res.Name)
-			for i, value := range res.Values {
-				if i > 0 {
-					env.Out.Print(" | ")
-				}
-				if value.OrigUnit != "" {
-					env.Out.Printf("%v %s", value.OrigValue, value.OrigUnit)
-				} else {
-					env.Out.Printf("%v %s", value.Value, value.Unit)
-				}
-			}
-			env.Out.Printf(") done in %v\n", time.Since(start).Truncate(100*time.Millisecond))
+	// Pre-compute display widths shared across all printers.
+	nameWidth := 0
+	for _, info := range selection {
+		if w := len(displayBenchName(info.Name)); w > nameWidth {
+			nameWidth = w
 		}
 	}
+	nameWidth++ // ensure at least one space after the longest name
 
-	if slices.Contains(options.profiles, engine.ProfileCPU) {
-		it := engine.RunProfile(env.Ctx, env.Repo.Storage(), id, selection, engine.ProfileCPU)
-		for _, info := range selection {
-			start := time.Now()
-			err = env.Spinner().Title("CPU " + info.Name).ActionWithErr(func(ctx context.Context) error {
-				return it()
-			}).Context(env.Ctx).Run()
-			if err != nil {
-				return err
-			}
-			env.Out.Printf("> CPU profile for %s done in %v\n", info.Name, time.Since(start).Truncate(100*time.Millisecond))
-		}
-	}
-
-	if slices.Contains(options.profiles, engine.ProfileMem) {
-		it := engine.RunProfile(env.Ctx, env.Repo.Storage(), id, selection, engine.ProfileMem)
-		for _, info := range selection {
-			start := time.Now()
-			err = env.Spinner().Title("Memory " + info.Name).ActionWithErr(func(ctx context.Context) error {
-				return it()
-			}).Context(env.Ctx).Run()
-			if err != nil {
-				return err
-			}
-			env.Out.Printf("> Memory profile for %s done in %v\n", info.Name, time.Since(start).Truncate(100*time.Millisecond))
-		}
-	}
-
-	if slices.Contains(options.profiles, engine.ProfileMutex) {
-		it := engine.RunProfile(env.Ctx, env.Repo.Storage(), id, selection, engine.ProfileMutex)
-		for _, info := range selection {
-			start := time.Now()
-			err = env.Spinner().Title("Mutex " + info.Name).ActionWithErr(func(ctx context.Context) error {
-				return it()
-			}).Context(env.Ctx).Run()
-			if err != nil {
-				return err
-			}
-			env.Out.Printf("> Mutex profile for %s done in %v\n", info.Name, time.Since(start).Truncate(100*time.Millisecond))
-		}
-	}
-
-	if slices.Contains(options.profiles, engine.ProfileBlock) {
-		it := engine.RunProfile(env.Ctx, env.Repo.Storage(), id, selection, engine.ProfileBlock)
-		for _, info := range selection {
-			start := time.Now()
-			err = env.Spinner().Title("Block " + info.Name).ActionWithErr(func(ctx context.Context) error {
-				return it()
-			}).Context(env.Ctx).Run()
-			if err != nil {
-				return err
-			}
-			env.Out.Printf("> Block profile for %s done in %v\n", info.Name, time.Since(start).Truncate(100*time.Millisecond))
-		}
+	profileKinds := []struct {
+		p    engine.Profile
+		kind string
+	}{
+		{engine.ProfileCPU, "cpu"},
+		{engine.ProfileMem, "mem"},
+		{engine.ProfileMutex, "mutex"},
+		{engine.ProfileBlock, "block"},
 	}
 
 	wantEscape := slices.Contains(options.profiles, engine.ProfileEscape)
 	wantInline := slices.Contains(options.profiles, engine.ProfileInline)
+
+	kindWidth := len("bench")
+	for _, pk := range profileKinds {
+		if slices.Contains(options.profiles, pk.p) {
+			kindWidth = max(kindWidth, len(pk.kind))
+		}
+	}
+	if wantEscape && wantInline {
+		kindWidth = max(kindWidth, len("escape+inline"))
+	} else if wantEscape {
+		kindWidth = max(kindWidth, len("escape"))
+	} else if wantInline {
+		kindWidth = max(kindWidth, len("inline"))
+	}
+
+	if slices.Contains(options.profiles, engine.ProfileBench) {
+		it := engine.RunBenches(env.Ctx, env.Repo.Storage(), id, selection, options.count)
+		bp := newBenchPrinter(env, options.count, nameWidth, kindWidth)
+		for {
+			res, iterErr := bp.Next(env.Ctx, it)
+			if iterErr != nil {
+				return iterErr
+			}
+			if res == nil {
+				break
+			}
+			bp.Add(res)
+		}
+		bp.Flush()
+	}
+
+	for _, prof := range profileKinds {
+		if !slices.Contains(options.profiles, prof.p) {
+			continue
+		}
+		it := engine.RunProfile(env.Ctx, env.Repo.Storage(), id, selection, prof.p)
+		pp := newProfilePrinter(env, prof.kind, len(selection), nameWidth, kindWidth)
+		for _, info := range selection {
+			start := time.Now()
+			err = env.Spinner().Title(prof.kind+" "+info.Name).ActionWithErr(func(ctx context.Context) error {
+				return it()
+			}).Context(env.Ctx).Run()
+			if err != nil {
+				return err
+			}
+			pp.Done(info.Name, time.Since(start))
+		}
+	}
+
 	if wantEscape || wantInline {
-		title := "Compiler analysis"
+		kind := "escape+inline"
 		if wantEscape && !wantInline {
-			title = "Escape analysis"
+			kind = "escape"
 		} else if wantInline && !wantEscape {
-			title = "Inlining decisions"
+			kind = "inline"
 		}
 		start := time.Now()
-		err = env.Spinner().Title(title).ActionWithErr(func(ctx context.Context) error {
+		err = env.Spinner().Title("Compiler analysis").ActionWithErr(func(ctx context.Context) error {
 			return engine.RecordCompilerAnalysis(ctx, env.Repo.Sources().Root(), env.Repo.Storage(), id, wantEscape, wantInline)
 		}).Context(env.Ctx).Run()
 		if err != nil {
 			return err
 		}
-		env.Out.Printf("> %s done in %v\n", title, time.Since(start).Truncate(100*time.Millisecond))
+		styledKind := env.Style.Accent(kind)
+		kindPad := strings.Repeat(" ", max(0, kindWidth-len(kind)))
+		elapsed := time.Since(start).Truncate(10 * time.Millisecond)
+		env.Err.Printf("  %s%s  %s\n", styledKind, kindPad, env.Style.TonedDown(elapsed.String()))
 	}
 
+	switch env.Format {
+	case execenv.FormatText:
+		if options.printID {
+			env.Out.Println(id)
+		}
+	case execenv.FormatJSON:
+		if options.printID {
+			return fmt.Errorf("--print-id is only available with text format")
+		}
+		type benchRunJSON struct {
+			ID         string   `json:"id"`
+			Name       string   `json:"name,omitempty"`
+			Profiles   []string `json:"profiles"`
+			Benchmarks []string `json:"benchmarks"`
+		}
+		benchmarks := make([]string, len(selection))
+		for i, b := range selection {
+			benchmarks[i] = b.Name
+		}
+		profiles := make([]string, 0, len(options.profiles))
+		for _, p := range options.profiles {
+			profiles = append(profiles, profileIds[p][0])
+		}
+		return env.Out.PrintJSON(benchRunJSON{
+			ID:         id,
+			Name:       options.name,
+			Profiles:   profiles,
+			Benchmarks: benchmarks,
+		})
+	default:
+		return fmt.Errorf("unsupported format: %v", env.Format)
+	}
 	return nil
 }
