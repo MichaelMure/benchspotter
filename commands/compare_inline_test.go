@@ -43,12 +43,14 @@ func TestCompareInline(t *testing.T) {
 			require.NoError(t, err)
 
 			out := env.Out.String()
-			assert.Contains(t, out, `"added"`)
-			assert.Contains(t, out, `"removed"`)
-			assert.Contains(t, out, `"same"`)
-			assert.Contains(t, out, "Baz")
-			assert.Contains(t, out, "Bar")
-			assert.Contains(t, out, "Foo")
+			// summary counts
+			assert.Contains(t, out, `"added": 1`)
+			assert.Contains(t, out, `"removed": 1`)
+			assert.Contains(t, out, `"same": 1`)
+			// function names extracted from messages
+			assert.Contains(t, out, `"function": "Baz"`)
+			assert.Contains(t, out, `"function": "Bar"`)
+			assert.Contains(t, out, `"function": "Foo"`)
 		})
 
 		t.Run("kind_field", func(t *testing.T) {
@@ -69,9 +71,9 @@ func TestCompareInline(t *testing.T) {
 			require.NoError(t, err)
 
 			out := env.Out.String()
-			assert.Contains(t, out, `"cannot_inline"`)
-			assert.Contains(t, out, `"inlining_call"`)
-			assert.Contains(t, out, `"can_inline"`)
+			assert.Contains(t, out, `"kind": "cannot_inline"`)
+			assert.Contains(t, out, `"kind": "inlining_call"`)
+			assert.Contains(t, out, `"kind": "can_inline"`)
 		})
 
 		t.Run("base_new_lines_for_same_shifted", func(t *testing.T) {
@@ -89,9 +91,10 @@ func TestCompareInline(t *testing.T) {
 			require.NoError(t, err)
 
 			out := env.Out.String()
-			assert.Contains(t, out, `"same"`)
-			assert.Contains(t, out, `"base_line": 10`)
-			assert.Contains(t, out, `"new_line": 12`)
+			assert.Contains(t, out, `"same": 1`)
+			assert.Contains(t, out, `"base_line": 10`) // old location preserved
+			assert.Contains(t, out, `"line": 12`)      // new location is the primary line
+			assert.NotContains(t, out, `"new_line"`)   // old field name gone
 		})
 	})
 

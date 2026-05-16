@@ -35,9 +35,26 @@ omitted, the count prompt fires. Under `--no-prompt` that becomes an error.
 Always pass `-c`.
 
 ```bash
-benchspotter --no-prompt bench -p bench -n "my session" --bench BenchmarkFoo -c 5
+benchspotter --no-prompt bench -p bench -n "my session" --bench BenchmarkFoo -c 5 --format json
+# → {"id":"<uuid>","name":"my session","profiles":["bench"],"benchmarks":["BenchmarkFoo"]}
+
 benchspotter --no-prompt session ls --format json
 benchspotter --no-prompt compare bench --session <id1> --session <id2> --format json
+```
+
+**Capturing the session ID**: use `--print-id` (text format only) to print just the UUID to stdout —
+progress output goes to stderr, so the shell capture is clean:
+
+```bash
+ID=$(benchspotter --no-prompt bench -p bench -n "baseline" --all-bench -c 5 --print-id)
+benchspotter --no-prompt compare bench --session "$ID" --session "after refactor" --format json
+```
+
+`--format json` is an alternative when you also need the full session metadata:
+
+```bash
+benchspotter --no-prompt bench -p bench -n "baseline" --all-bench -c 5 --format json
+# → {"id":"<uuid>","name":"baseline","profiles":["bench"],"benchmarks":[...]}
 ```
 
 ## Running benchmarks
@@ -177,18 +194,27 @@ benchspotter bench -p inline
 
 # inspect
 benchspotter show escape --session <name> --format json
-# json fields: file, line, col, message, heap_escape, leaking_param, flow_chain
+# JSON: {"summary":{"heap_escape":N,"leaking_param":N,"other":N},"files":[{"file":"...","sites":[{"line":N,"kind":"heap_escape"|"leaking_param"|"other","message":"..."}]}]}
+# By default only heap_escape and leaking_param are shown; --all includes all compiler notes.
+# heap_escape and leaking_param are always shown from deps; other notes are project-only unless --deps.
 
 benchspotter show inline --session <name> --format json
-# json fields: file, line, col, message, kind: "cannot_inline" | "can_inline" | "inlining_call"
+# JSON: {"summary":{"cannot_inline":N,"inlining_call":N,"can_inline":N},"files":[{"file":"...","sites":[{"line":N,"kind":"cannot_inline"|"inlining_call"|"can_inline","function":"Foo","reason":"too complex"}]}]}
+# reason is omitted when empty; for can_inline the verbose "as: <body>" is stripped — cost only.
+# By default only cannot_inline sites are shown; --all includes all decisions.
+# cannot_inline is always shown from deps; others are project-only unless --deps.
 
-# --all: include all compiler notes; --deps: include stdlib and dependencies
+# --func: filter to entries whose function/message contains this string (repeatable, OR logic, case-insensitive)
+benchspotter show inline --session <name> --func Foo --func Bar --format json
+benchspotter show escape --session <name> --func escapes --format json
 
 # diff between two sessions
 benchspotter compare escape --base <name> --new <name> --format json
 benchspotter compare inline --base <name> --new <name> --format json
-# json fields: status (added|removed), file, base_line, new_line, message, ...
-# --all to include unchanged entries
+# JSON: {"summary":{"added":N,"removed":N,"same":N},"files":[{"file":"...","sites":[...]}]}
+# escape site fields: line, kind, message, status ("added"|"removed"|"same"), base_line (same-shifted only)
+# inline site fields: line, kind, function, reason, status, base_line (same-shifted only)
+# --all to include unchanged (same) entries; --deps and --func work the same as for show
 # --format raw: one line per change: "+ file:line:col: msg" / "- file:line:col: msg"
 ```
 
@@ -242,9 +268,9 @@ deciding which parameters actually matter.
 
 ## Scripting tips
 
-- **Pass session names directly** — `--session`, `--base`, and `--new` all
-  accept the human name (e.g. `--session "after refactor"`). Only reach for
-  the UUID when a name matches multiple sessions (the command will tell you).
+- **Session names as a fallback** — `--session`, `--base`, and `--new` also accept the human
+  name (e.g. `--session "after refactor"`). The command errors if the name matches multiple
+  sessions and tells you to use the UUID instead.
 - `--format raw` on profile commands yields binary pprof; pipe into `go tool pprof`.
 - `--format raw` on `compare bench` yields raw `.bench` text for `benchstat`.
 - For `optimize`, use `--max-trials` + `--timeout` together: trials caps total

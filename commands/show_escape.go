@@ -17,6 +17,7 @@ type showEscapeOptions struct {
 	session     string
 	all         bool
 	includeDeps bool
+	funcs       []string
 }
 
 func newShowEscapeCommand(env *execenv.Env) *cobra.Command {
@@ -49,6 +50,7 @@ Any interactive prompt can be bypassed with the corresponding flags.`,
 	flags.StringVar(&options.session, "session", "", "Session ID to inspect")
 	flags.BoolVar(&options.all, "all", false, "Show all compiler notes, not just heap escapes and leaking params")
 	flags.BoolVar(&options.includeDeps, "deps", false, "Include stdlib and dependencies (default: project code only)")
+	flags.StringArrayVar(&options.funcs, "func", nil, "Filter to entries whose message contains this string (repeatable, case-insensitive)")
 
 	return cmd
 }
@@ -98,34 +100,64 @@ func runShowEscape(env *execenv.Env, options showEscapeOptions) error {
 		return err
 
 	case execenv.FormatJSON:
-		type jsonSite struct {
-			File         string   `json:"file"`
-			Line         int      `json:"line"`
-			Col          int      `json:"col"`
-			Message      string   `json:"message"`
-			HeapEscape   bool     `json:"heap_escape"`
-			LeakingParam bool     `json:"leaking_param"`
-			FlowChain    []string `json:"flow_chain,omitempty"`
+		type jsonSummary struct {
+			HeapEscape   int `json:"heap_escape"`
+			LeakingParam int `json:"leaking_param"`
+			Other        int `json:"other"`
 		}
-		out := make([]jsonSite, 0, len(sites))
+		type jsonSite struct {
+			Line    int    `json:"line"`
+			Kind    string `json:"kind"`
+			Message string `json:"message"`
+		}
+		type jsonFileGroup struct {
+			File  string     `json:"file"`
+			Sites []jsonSite `json:"sites"`
+		}
+		type jsonOutput struct {
+			Summary jsonSummary     `json:"summary"`
+			Files   []jsonFileGroup `json:"files"`
+		}
+		var fileOrder []string
+		fileSites := make(map[string][]jsonSite)
+		var summary jsonSummary
 		for _, s := range sites {
-			if !options.all && !s.IsHeapEscape() && !s.IsLeakingParam() {
+			isKey := s.IsHeapEscape() || s.IsLeakingParam()
+			if !options.all && !isKey {
 				continue
 			}
-			if !options.includeDeps && !isProjectFile(sourcesRoot, s.File) {
+			// heap_escape and leaking_param are always shown regardless of the
+			// deps flag — they represent real allocation pressure on any caller.
+			// The scope filter only suppresses other (informational) notes from deps.
+			if !isKey && !options.includeDeps && !isProjectFile(sourcesRoot, s.File) {
 				continue
 			}
-			out = append(out, jsonSite{
-				File:         s.File,
-				Line:         s.Line,
-				Col:          s.Col,
-				Message:      s.Message,
-				HeapEscape:   s.IsHeapEscape(),
-				LeakingParam: s.IsLeakingParam(),
-				FlowChain:    s.FlowChain,
+			if !matchesFuncFilter(s.Message, options.funcs) {
+				continue
+			}
+			kind := escapeKind(s)
+			switch kind {
+			case "heap_escape":
+				summary.HeapEscape++
+			case "leaking_param":
+				summary.LeakingParam++
+			default:
+				summary.Other++
+			}
+			if _, seen := fileSites[s.File]; !seen {
+				fileOrder = append(fileOrder, s.File)
+			}
+			fileSites[s.File] = append(fileSites[s.File], jsonSite{
+				Line:    s.Line,
+				Kind:    kind,
+				Message: s.Message,
 			})
 		}
-		return env.Out.PrintJSON(out)
+		files := make([]jsonFileGroup, 0, len(fileOrder))
+		for _, f := range fileOrder {
+			files = append(files, jsonFileGroup{File: f, Sites: fileSites[f]})
+		}
+		return env.Out.PrintJSON(jsonOutput{Summary: summary, Files: files})
 
 	case execenv.FormatText:
 		var gitDiff []byte
@@ -150,6 +182,7 @@ func runShowEscape(env *execenv.Env, options showEscapeOptions) error {
 			sites:         sites,
 			showAll:       options.all,
 			projectOnly:   !options.includeDeps,
+			funcs:         options.funcs,
 		}
 		return env.ViewportWithKeys(model)()
 
@@ -165,6 +198,7 @@ type escapeViewModel struct {
 	showAll       bool
 	projectOnly   bool
 	showFlow      bool
+	funcs         []string
 }
 
 func (m *escapeViewModel) HandleKey(key string) bool {
@@ -197,13 +231,19 @@ func (m *escapeViewModel) Status() string {
 	if m.showAll {
 		filter = "all notes"
 	}
-	scope := "project"
-	if !m.projectOnly {
-		scope = "all (incl. deps)"
-	}
 	flow := "off"
 	if m.showFlow {
 		flow = "on"
+	}
+	// The scope toggle [p] only affects "other" compiler notes; heap_escape and
+	// leaking_param are always shown from all scopes, so don't surface [p] in
+	// the default mode where it would have no effect.
+	if !m.showAll {
+		return fmt.Sprintf("[a] filter: %s    [f] flow: %s    [⇥] next  [⇤] prev    [ctrl+f] search    [q] quit", filter, flow)
+	}
+	scope := "project"
+	if !m.projectOnly {
+		scope = "all (incl. deps)"
 	}
 	return fmt.Sprintf("[a] filter: %s    [p] scope: %s    [f] flow: %s    [⇥] next  [⇤] prev    [ctrl+f] search    [q] quit", filter, scope, flow)
 }
@@ -217,9 +257,9 @@ func (m *escapeViewModel) Render() string {
 		}
 		var hints []string
 		if !m.showAll {
+			// heap/leaking shown from all scopes, so no [p] hint here.
 			hints = append(hints, "[a] to show all compiler notes")
-		}
-		if m.projectOnly {
+		} else if m.projectOnly {
 			hints = append(hints, "[p] to include deps and stdlib")
 		}
 		msg := "(no results"
@@ -330,12 +370,18 @@ func (m *escapeViewModel) renderEscapeAnnotations(sb *strings.Builder, sites []e
 func (m *escapeViewModel) filteredSites() []engine.EscapeSite {
 	var out []engine.EscapeSite
 	for _, s := range m.sites {
-		if m.projectOnly && !isProjectFile(m.sourcesRoot, s.File) {
+		isKey := s.IsHeapEscape() || s.IsLeakingParam()
+		if !m.showAll && !isKey {
 			continue
 		}
-		if m.showAll || s.IsHeapEscape() || s.IsLeakingParam() {
-			out = append(out, s)
+		// heap_escape and leaking_param are always included regardless of scope.
+		if !isKey && m.projectOnly && !isProjectFile(m.sourcesRoot, s.File) {
+			continue
 		}
+		if !matchesFuncFilter(s.Message, m.funcs) {
+			continue
+		}
+		out = append(out, s)
 	}
 	return out
 }
@@ -386,6 +432,32 @@ func splitEscapeSubject(msg string) (prefix, subject, suffix string) {
 		return "", msg[:i], msg[i:]
 	}
 	return "", msg, ""
+}
+
+// escapeKind classifies an EscapeSite into one of three JSON kind strings.
+func escapeKind(s engine.EscapeSite) string {
+	if s.IsHeapEscape() {
+		return "heap_escape"
+	}
+	if s.IsLeakingParam() {
+		return "leaking_param"
+	}
+	return "other"
+}
+
+// matchesFuncFilter reports whether name matches any pattern (case-insensitive
+// substring). An empty list matches everything.
+func matchesFuncFilter(name string, funcs []string) bool {
+	if len(funcs) == 0 {
+		return true
+	}
+	lower := strings.ToLower(name)
+	for _, f := range funcs {
+		if strings.Contains(lower, strings.ToLower(f)) {
+			return true
+		}
+	}
+	return false
 }
 
 // isProjectFile reports whether file is within the project (not a dep or stdlib).

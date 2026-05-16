@@ -19,6 +19,7 @@ type compareAnalysisOptions struct {
 	newSession  string
 	all         bool
 	includeDeps bool
+	funcs       []string
 }
 
 func resolveAnalysisSessions(

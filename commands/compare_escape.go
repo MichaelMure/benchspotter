@@ -37,6 +37,7 @@ Any interactive prompt can be bypassed with the corresponding flags.`,
 	flags.StringVar(&options.newSession, "new", "", "New session ID or name")
 	flags.BoolVar(&options.all, "all", false, "Show unchanged sites in addition to diffs")
 	flags.BoolVar(&options.includeDeps, "deps", false, "Include stdlib and dependencies")
+	flags.StringArrayVar(&options.funcs, "func", nil, "Filter to entries whose message contains this string (repeatable, case-insensitive)")
 	return cmd
 }
 
@@ -61,10 +62,11 @@ func runCompareEscape(env *execenv.Env, options compareAnalysisOptions) error {
 		model := &compareEscapeViewModel{
 			compareBase: newCompareBase(env, sourcesRoot, baseInfo, newInfo, options),
 			diffs:       diffs,
+			funcs:       options.funcs,
 		}
 		return env.ViewportWithKeys(model)()
 	case execenv.FormatJSON:
-		return outputEscapeDiffJSON(env, diffs, options.all)
+		return outputEscapeDiffJSON(env, diffs, options)
 	case execenv.FormatRaw:
 		return outputEscapeDiffRaw(env, diffs)
 	default:
@@ -85,6 +87,7 @@ type compareEscapeViewModel struct {
 	compareBase
 	diffs    []engine.DiffEscapeSite
 	showFlow bool
+	funcs    []string
 }
 
 func (m *compareEscapeViewModel) HandleKey(key string) bool {
@@ -117,7 +120,12 @@ func (m *compareEscapeViewModel) filteredEscapeDiffs() []engine.DiffEscapeSite {
 		if !m.showAll && d.Status() == engine.DiffSame {
 			continue
 		}
-		if m.projectOnly && !isProjectFile(m.sourcesRoot, d.Site().File) {
+		s := d.Site()
+		// heap_escape and leaking_param diffs are always included regardless of scope.
+		if !s.IsHeapEscape() && !s.IsLeakingParam() && m.projectOnly && !isProjectFile(m.sourcesRoot, s.File) {
+			continue
+		}
+		if !matchesFuncFilter(s.Message, m.funcs) {
 			continue
 		}
 		out = append(out, d)
@@ -292,18 +300,27 @@ func outputEscapeDiffRaw(env *execenv.Env, diffs []engine.DiffEscapeSite) error 
 	return nil
 }
 
-func outputEscapeDiffJSON(env *execenv.Env, diffs []engine.DiffEscapeSite, showSame bool) error {
-	type jsonDiff struct {
-		File         string   `json:"file"`
-		Line         int      `json:"line"`
-		Col          int      `json:"col"`
-		Message      string   `json:"message"`
-		HeapEscape   bool     `json:"heap_escape"`
-		LeakingParam bool     `json:"leaking_param"`
-		Status       string   `json:"status"`
-		FlowChain    []string `json:"flow_chain,omitempty"`
-		BaseLine     int      `json:"base_line,omitempty"`
-		NewLine      int      `json:"new_line,omitempty"`
+func outputEscapeDiffJSON(env *execenv.Env, diffs []engine.DiffEscapeSite, options compareAnalysisOptions) error {
+	showSame := options.all
+	type jsonSummary struct {
+		Added   int `json:"added"`
+		Removed int `json:"removed"`
+		Same    int `json:"same"`
+	}
+	type jsonSite struct {
+		Line     int    `json:"line"`
+		Kind     string `json:"kind"`
+		Message  string `json:"message"`
+		Status   string `json:"status"`
+		BaseLine int    `json:"base_line,omitempty"`
+	}
+	type jsonFileGroup struct {
+		File  string     `json:"file"`
+		Sites []jsonSite `json:"sites"`
+	}
+	type jsonOutput struct {
+		Summary jsonSummary     `json:"summary"`
+		Files   []jsonFileGroup `json:"files"`
 	}
 	statusStr := func(s engine.DiffStatus) string {
 		switch s {
@@ -315,29 +332,44 @@ func outputEscapeDiffJSON(env *execenv.Env, diffs []engine.DiffEscapeSite, showS
 			return "same"
 		}
 	}
-	out := make([]jsonDiff, 0, len(diffs))
+	var fileOrder []string
+	fileSites := make(map[string][]jsonSite)
+	var summary jsonSummary
 	for _, d := range diffs {
 		if !showSame && d.Status() == engine.DiffSame {
 			continue
 		}
 		s := d.Site()
-		j := jsonDiff{
-			File:         s.File,
-			Line:         s.Line,
-			Col:          s.Col,
-			Message:      s.Message,
-			HeapEscape:   s.IsHeapEscape(),
-			LeakingParam: s.IsLeakingParam(),
-			Status:       statusStr(d.Status()),
-			FlowChain:    s.FlowChain,
+		if !matchesFuncFilter(s.Message, options.funcs) {
+			continue
 		}
-		if d.Base != nil {
-			j.BaseLine = d.Base.Line
+		switch d.Status() {
+		case engine.DiffAdded:
+			summary.Added++
+		case engine.DiffRemoved:
+			summary.Removed++
+		default:
+			summary.Same++
 		}
-		if d.New != nil {
-			j.NewLine = d.New.Line
+		var baseLine int
+		if d.Status() == engine.DiffSame && d.Base != nil && d.Base.Line != s.Line {
+			baseLine = d.Base.Line
 		}
-		out = append(out, j)
+		entry := jsonSite{
+			Line:     s.Line,
+			Kind:     escapeKind(s),
+			Message:  s.Message,
+			Status:   statusStr(d.Status()),
+			BaseLine: baseLine,
+		}
+		if _, seen := fileSites[s.File]; !seen {
+			fileOrder = append(fileOrder, s.File)
+		}
+		fileSites[s.File] = append(fileSites[s.File], entry)
 	}
-	return env.Out.PrintJSON(out)
+	files := make([]jsonFileGroup, 0, len(fileOrder))
+	for _, f := range fileOrder {
+		files = append(files, jsonFileGroup{File: f, Sites: fileSites[f]})
+	}
+	return env.Out.PrintJSON(jsonOutput{Summary: summary, Files: files})
 }

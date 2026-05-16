@@ -43,15 +43,15 @@ func TestCompareEscape(t *testing.T) {
 			require.NoError(t, err)
 
 			out := env.Out.String()
-			assert.Contains(t, out, `"added"`)
-			assert.Contains(t, out, `"removed"`)
-			assert.Contains(t, out, `"same"`)
-			assert.Contains(t, out, "z escapes")
-			assert.Contains(t, out, "y escapes")
-			assert.Contains(t, out, "x escapes")
+			assert.Contains(t, out, `"added": 1`)
+			assert.Contains(t, out, `"removed": 1`)
+			assert.Contains(t, out, `"same": 1`)
+			assert.Contains(t, out, `"message": "z escapes to heap"`)
+			assert.Contains(t, out, `"message": "y escapes to heap"`)
+			assert.Contains(t, out, `"message": "x escapes to heap"`)
 		})
 
-		t.Run("heap_escape_field", func(t *testing.T) {
+		t.Run("kind_field", func(t *testing.T) {
 			storage := memfs.New()
 			baseID := createTestSession(t, storage, "base", []string{"BenchmarkFoo"}, "", false)
 			newID := createTestSession(t, storage, "new", []string{"BenchmarkFoo"}, "", false)
@@ -66,7 +66,7 @@ func TestCompareEscape(t *testing.T) {
 			require.NoError(t, err)
 
 			out := env.Out.String()
-			assert.Contains(t, out, `"heap_escape": true`)
+			assert.Contains(t, out, `"kind": "heap_escape"`)
 		})
 
 		t.Run("base_new_lines_for_same_shifted", func(t *testing.T) {
@@ -84,9 +84,10 @@ func TestCompareEscape(t *testing.T) {
 			require.NoError(t, err)
 
 			out := env.Out.String()
-			assert.Contains(t, out, `"same"`)
-			assert.Contains(t, out, `"base_line": 10`)
-			assert.Contains(t, out, `"new_line": 15`)
+			assert.Contains(t, out, `"same": 1`)
+			assert.Contains(t, out, `"base_line": 10`) // old location preserved
+			assert.Contains(t, out, `"line": 15`)      // new location is the primary line
+			assert.NotContains(t, out, `"new_line"`)   // old field name gone
 		})
 	})
 

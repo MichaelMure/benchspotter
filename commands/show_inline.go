@@ -16,6 +16,7 @@ type showInlineOptions struct {
 	session     string
 	all         bool
 	includeDeps bool
+	funcs       []string
 }
 
 func newShowInlineCommand(env *execenv.Env) *cobra.Command {
@@ -47,6 +48,7 @@ Any interactive prompt can be bypassed with the corresponding flags.`,
 	flags.StringVar(&options.session, "session", "", "Session ID to inspect")
 	flags.BoolVar(&options.all, "all", false, "Show all inlining decisions, not just 'cannot inline'")
 	flags.BoolVar(&options.includeDeps, "deps", false, "Include stdlib and dependencies (default: project code only)")
+	flags.StringArrayVar(&options.funcs, "func", nil, "Filter to entries whose function name contains this string (repeatable, case-insensitive)")
 
 	return cmd
 }
@@ -96,12 +98,24 @@ func runShowInline(env *execenv.Env, options showInlineOptions) error {
 		return err
 
 	case execenv.FormatJSON:
+		type jsonSummary struct {
+			CannotInline int `json:"cannot_inline"`
+			InliningCall int `json:"inlining_call"`
+			CanInline    int `json:"can_inline"`
+		}
 		type jsonSite struct {
-			File    string `json:"file"`
-			Line    int    `json:"line"`
-			Col     int    `json:"col"`
-			Message string `json:"message"`
-			Kind    string `json:"kind"`
+			Line     int    `json:"line"`
+			Kind     string `json:"kind"`
+			Function string `json:"function"`
+			Reason   string `json:"reason,omitempty"`
+		}
+		type jsonFileGroup struct {
+			File  string     `json:"file"`
+			Sites []jsonSite `json:"sites"`
+		}
+		type jsonOutput struct {
+			Summary jsonSummary     `json:"summary"`
+			Files   []jsonFileGroup `json:"files"`
 		}
 		kindStr := func(k engine.InlineKind) string {
 			switch k {
@@ -113,23 +127,48 @@ func runShowInline(env *execenv.Env, options showInlineOptions) error {
 				return "can_inline"
 			}
 		}
-		out := make([]jsonSite, 0, len(sites))
+		var fileOrder []string
+		fileSites := make(map[string][]jsonSite)
+		var summary jsonSummary
 		for _, s := range sites {
-			if !options.all && s.Kind() != engine.InlineCannotInline {
+			kind := s.Kind()
+			if !options.all && kind != engine.InlineCannotInline {
 				continue
 			}
-			if !options.includeDeps && !isProjectFile(sourcesRoot, s.File) {
+			// cannot_inline is always shown regardless of the deps flag: a dep
+			// function that can't be inlined is real overhead for every project
+			// call site. The scope filter only suppresses noisy can_inline /
+			// inlining_call messages from dependencies.
+			if kind != engine.InlineCannotInline && !options.includeDeps && !isProjectFile(sourcesRoot, s.File) {
 				continue
 			}
-			out = append(out, jsonSite{
-				File:    s.File,
-				Line:    s.Line,
-				Col:     s.Col,
-				Message: s.Message,
-				Kind:    kindStr(s.Kind()),
+			fn, reason := inlineMessageParts(s.Message)
+			if !matchesFuncFilter(fn, options.funcs) {
+				continue
+			}
+			switch kind {
+			case engine.InlineCannotInline:
+				summary.CannotInline++
+			case engine.InlineInliningCall:
+				summary.InliningCall++
+			default:
+				summary.CanInline++
+			}
+			if _, seen := fileSites[s.File]; !seen {
+				fileOrder = append(fileOrder, s.File)
+			}
+			fileSites[s.File] = append(fileSites[s.File], jsonSite{
+				Line:     s.Line,
+				Kind:     kindStr(kind),
+				Function: fn,
+				Reason:   reason,
 			})
 		}
-		return env.Out.PrintJSON(out)
+		files := make([]jsonFileGroup, 0, len(fileOrder))
+		for _, f := range fileOrder {
+			files = append(files, jsonFileGroup{File: f, Sites: fileSites[f]})
+		}
+		return env.Out.PrintJSON(jsonOutput{Summary: summary, Files: files})
 
 	case execenv.FormatText:
 		var gitDiff []byte
@@ -154,6 +193,7 @@ func runShowInline(env *execenv.Env, options showInlineOptions) error {
 			sites:         sites,
 			showAll:       options.all,
 			projectOnly:   !options.includeDeps,
+			funcs:         options.funcs,
 		}
 		return env.ViewportWithKeys(model)()
 
@@ -168,6 +208,7 @@ type inlineViewModel struct {
 	sites         []engine.InlineSite
 	showAll       bool
 	projectOnly   bool
+	funcs         []string
 }
 
 func (m *inlineViewModel) HandleKey(key string) bool {
@@ -197,6 +238,12 @@ func (m *inlineViewModel) Status() string {
 	if m.showAll {
 		filter = "all decisions"
 	}
+	// The scope toggle [p] only affects can_inline / inlining_call entries;
+	// cannot_inline is always shown from all scopes, so don't surface [p] in
+	// the default (cannot-inline-only) mode where it would have no effect.
+	if !m.showAll {
+		return fmt.Sprintf("[a] filter: %s    [⇥] next  [⇤] prev    [ctrl+f] search    [q] quit", filter)
+	}
 	scope := "project"
 	if !m.projectOnly {
 		scope = "all (incl. deps)"
@@ -213,9 +260,9 @@ func (m *inlineViewModel) Render() string {
 		}
 		var hints []string
 		if !m.showAll {
+			// cannot_inline is shown from all scopes, so no [p] hint here.
 			hints = append(hints, "[a] to show all decisions")
-		}
-		if m.projectOnly {
+		} else if m.projectOnly {
 			hints = append(hints, "[p] to include deps and stdlib")
 		}
 		msg := "(no results"
@@ -310,12 +357,19 @@ func (m *inlineViewModel) renderInlineContext(sb *strings.Builder, absFile strin
 func (m *inlineViewModel) filteredSites() []engine.InlineSite {
 	var out []engine.InlineSite
 	for _, s := range m.sites {
-		if m.projectOnly && !isProjectFile(m.sourcesRoot, s.File) {
+		kind := s.Kind()
+		if !m.showAll && kind != engine.InlineCannotInline {
 			continue
 		}
-		if m.showAll || s.Kind() == engine.InlineCannotInline {
-			out = append(out, s)
+		// cannot_inline is always included regardless of scope.
+		if kind != engine.InlineCannotInline && m.projectOnly && !isProjectFile(m.sourcesRoot, s.File) {
+			continue
 		}
+		fn, _ := inlineMessageParts(s.Message)
+		if !matchesFuncFilter(fn, m.funcs) {
+			continue
+		}
+		out = append(out, s)
 	}
 	return out
 }
@@ -356,6 +410,27 @@ func inlineAnnotationStyle(style execenv.Style, s engine.InlineSite) string {
 		render = style.Info
 	}
 	return "↑ " + render(prefix) + style.Subject(subject) + render(suffix)
+}
+
+// inlineMessageParts extracts the function name and optional reason from a
+// compiler inline message.
+//
+//	"cannot inline Foo: too complex"   → ("Foo", "too complex")
+//	"inlining call to pkg.Foo"         → ("pkg.Foo", "")
+//	"can inline Foo with cost 64 as:"  → ("Foo", "with cost 64 as:")
+func inlineMessageParts(msg string) (fn, reason string) {
+	_, fn, suffix := splitInlineSubject(msg)
+	if r, ok := strings.CutPrefix(suffix, ": "); ok {
+		reason = r
+	} else {
+		reason = strings.TrimPrefix(suffix, " ")
+	}
+	// For can_inline the compiler appends "as: <inlined body>" which is very
+	// verbose. Strip everything from " as:" onward — the cost is sufficient.
+	if before, _, found := strings.Cut(reason, " as:"); found {
+		reason = before
+	}
+	return fn, reason
 }
 
 // splitInlineSubject splits an inline message so the function name is bolded.

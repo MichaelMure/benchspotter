@@ -28,6 +28,14 @@ type TrendData struct {
 // LoadTrendData reads each session file once and returns a TrendData covering
 // all benchmarks and units found.
 func LoadTrendData(sessions []*SessionInfo, confidence float64) (*TrendData, error) {
+	filtered := sessions[:0:0]
+	for _, s := range sessions {
+		if s.HasBench() {
+			filtered = append(filtered, s)
+		}
+	}
+	sessions = filtered
+
 	type accumKey struct {
 		bench string
 		unit  string
@@ -38,9 +46,6 @@ func LoadTrendData(sessions []*SessionInfo, confidence float64) (*TrendData, err
 	seenUnit := make(map[string]struct{})
 
 	for idx, s := range sessions {
-		if !s.HasBench() {
-			continue
-		}
 		f, err := s.OpenFile(benchFilename)
 		if err != nil {
 			continue

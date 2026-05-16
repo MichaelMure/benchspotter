@@ -38,6 +38,7 @@ Any interactive prompt can be bypassed with the corresponding flags.`,
 	flags.StringVar(&options.newSession, "new", "", "New session ID or name")
 	flags.BoolVar(&options.all, "all", false, "Show unchanged sites in addition to diffs")
 	flags.BoolVar(&options.includeDeps, "deps", false, "Include stdlib and dependencies")
+	flags.StringArrayVar(&options.funcs, "func", nil, "Filter to entries whose function name contains this string (repeatable, case-insensitive)")
 	return cmd
 }
 
@@ -62,10 +63,11 @@ func runCompareInline(env *execenv.Env, options compareAnalysisOptions) error {
 		model := &compareInlineViewModel{
 			compareBase: newCompareBase(env, sourcesRoot, baseInfo, newInfo, options),
 			diffs:       diffs,
+			funcs:       options.funcs,
 		}
 		return env.ViewportWithKeys(model)()
 	case execenv.FormatJSON:
-		return outputInlineDiffJSON(env, diffs, options.all)
+		return outputInlineDiffJSON(env, diffs, options)
 	case execenv.FormatRaw:
 		return outputInlineDiffRaw(env, diffs)
 	default:
@@ -85,6 +87,7 @@ type inlineDiffAnnot struct {
 type compareInlineViewModel struct {
 	compareBase
 	diffs []engine.DiffInlineSite
+	funcs []string
 }
 
 func (m *compareInlineViewModel) HandleKey(key string) bool {
@@ -109,7 +112,12 @@ func (m *compareInlineViewModel) filteredInlineDiffs() []engine.DiffInlineSite {
 		if !m.showAll && d.Status() == engine.DiffSame {
 			continue
 		}
-		if m.projectOnly && !isProjectFile(m.sourcesRoot, d.Site().File) {
+		// cannot_inline diffs are always included regardless of scope.
+		if d.Site().Kind() != engine.InlineCannotInline && m.projectOnly && !isProjectFile(m.sourcesRoot, d.Site().File) {
+			continue
+		}
+		fn, _ := inlineMessageParts(d.Site().Message)
+		if !matchesFuncFilter(fn, m.funcs) {
 			continue
 		}
 		out = append(out, d)
@@ -284,16 +292,28 @@ func outputInlineDiffRaw(env *execenv.Env, diffs []engine.DiffInlineSite) error 
 	return nil
 }
 
-func outputInlineDiffJSON(env *execenv.Env, diffs []engine.DiffInlineSite, showSame bool) error {
-	type jsonDiff struct {
-		File     string `json:"file"`
+func outputInlineDiffJSON(env *execenv.Env, diffs []engine.DiffInlineSite, options compareAnalysisOptions) error {
+	showSame := options.all
+	type jsonSummary struct {
+		Added   int `json:"added"`
+		Removed int `json:"removed"`
+		Same    int `json:"same"`
+	}
+	type jsonSite struct {
 		Line     int    `json:"line"`
-		Col      int    `json:"col"`
-		Message  string `json:"message"`
 		Kind     string `json:"kind"`
+		Function string `json:"function"`
+		Reason   string `json:"reason,omitempty"`
 		Status   string `json:"status"`
 		BaseLine int    `json:"base_line,omitempty"`
-		NewLine  int    `json:"new_line,omitempty"`
+	}
+	type jsonFileGroup struct {
+		File  string     `json:"file"`
+		Sites []jsonSite `json:"sites"`
+	}
+	type jsonOutput struct {
+		Summary jsonSummary     `json:"summary"`
+		Files   []jsonFileGroup `json:"files"`
 	}
 	kindStr := func(k engine.InlineKind) string {
 		switch k {
@@ -315,27 +335,47 @@ func outputInlineDiffJSON(env *execenv.Env, diffs []engine.DiffInlineSite, showS
 			return "same"
 		}
 	}
-	out := make([]jsonDiff, 0, len(diffs))
+	var fileOrder []string
+	fileSites := make(map[string][]jsonSite)
+	var summary jsonSummary
 	for _, d := range diffs {
 		if !showSame && d.Status() == engine.DiffSame {
 			continue
 		}
 		s := d.Site()
-		j := jsonDiff{
-			File:    s.File,
-			Line:    s.Line,
-			Col:     s.Col,
-			Message: s.Message,
-			Kind:    kindStr(s.Kind()),
-			Status:  statusStr(d.Status()),
+		fn, reason := inlineMessageParts(s.Message)
+		if !matchesFuncFilter(fn, options.funcs) {
+			continue
 		}
-		if d.Base != nil {
-			j.BaseLine = d.Base.Line
+		switch d.Status() {
+		case engine.DiffAdded:
+			summary.Added++
+		case engine.DiffRemoved:
+			summary.Removed++
+		default:
+			summary.Same++
 		}
-		if d.New != nil {
-			j.NewLine = d.New.Line
+		// base_line only when a same-status site has shifted lines.
+		var baseLine int
+		if d.Status() == engine.DiffSame && d.Base != nil && d.Base.Line != s.Line {
+			baseLine = d.Base.Line
 		}
-		out = append(out, j)
+		entry := jsonSite{
+			Line:     s.Line,
+			Kind:     kindStr(s.Kind()),
+			Function: fn,
+			Reason:   reason,
+			Status:   statusStr(d.Status()),
+			BaseLine: baseLine,
+		}
+		if _, seen := fileSites[s.File]; !seen {
+			fileOrder = append(fileOrder, s.File)
+		}
+		fileSites[s.File] = append(fileSites[s.File], entry)
 	}
-	return env.Out.PrintJSON(out)
+	files := make([]jsonFileGroup, 0, len(fileOrder))
+	for _, f := range fileOrder {
+		files = append(files, jsonFileGroup{File: f, Sites: fileSites[f]})
+	}
+	return env.Out.PrintJSON(jsonOutput{Summary: summary, Files: files})
 }

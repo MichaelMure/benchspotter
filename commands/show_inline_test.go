@@ -60,9 +60,14 @@ engine/foo.go:30:1: can inline Qux
 			require.NoError(t, err)
 
 			out := env.Out.String()
-			assert.Contains(t, out, `"cannot_inline"`)
-			assert.NotContains(t, out, `"inlining_call"`)
-			assert.NotContains(t, out, `"can_inline"`)
+			// summary and one site for cannot_inline only
+			assert.Contains(t, out, `"kind": "cannot_inline"`)
+			assert.Contains(t, out, `"function": "Foo"`)
+			assert.Contains(t, out, `"reason": "too complex"`)
+			assert.Contains(t, out, `"cannot_inline": 1`)
+			// no sites for other kinds
+			assert.NotContains(t, out, `"kind": "inlining_call"`)
+			assert.NotContains(t, out, `"kind": "can_inline"`)
 		})
 
 		t.Run("all", func(t *testing.T) {
@@ -74,21 +79,27 @@ engine/foo.go:30:1: can inline Qux
 			require.NoError(t, err)
 
 			out := env.Out.String()
-			assert.Contains(t, out, `"cannot_inline"`)
-			assert.Contains(t, out, `"inlining_call"`)
-			assert.Contains(t, out, `"can_inline"`)
+			assert.Contains(t, out, `"kind": "cannot_inline"`)
+			assert.Contains(t, out, `"kind": "inlining_call"`)
+			assert.Contains(t, out, `"kind": "can_inline"`)
+			assert.Contains(t, out, `"function": "Foo"`)
+			assert.Contains(t, out, `"function": "bar.Baz"`)
+			assert.Contains(t, out, `"function": "Qux"`)
 		})
 
 		t.Run("project_filter", func(t *testing.T) {
-			storage := memfs.New()
-			sessionID := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
-			mixed := `engine/foo.go:10:5: cannot inline Foo: too complex
+			t.Run("cannot_inline_always_shown_from_deps", func(t *testing.T) {
+				// cannot_inline from dep files is always included because a dep
+				// function that can't be inlined is real overhead for every
+				// project call site — regardless of --deps flag.
+				storage := memfs.New()
+				sessionID := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
+				mixed := `engine/foo.go:10:5: cannot inline Foo: too complex
 ../../.asdf/installs/golang/1.25/go/src/fmt/format.go:123:4: cannot inline Fprintf: too complex
 `
-			dir := filepath.Join("sessions", sessionID)
-			require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.InlineFilename), []byte(mixed), 0644))
+				dir := filepath.Join("sessions", sessionID)
+				require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.InlineFilename), []byte(mixed), 0644))
 
-			t.Run("default", func(t *testing.T) {
 				env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 				env.Format = execenv.FormatJSON
 
@@ -96,17 +107,52 @@ engine/foo.go:30:1: can inline Qux
 				require.NoError(t, err)
 				out := env.Out.String()
 				assert.Contains(t, out, "engine/foo.go")
-				assert.NotContains(t, out, "fmt/format.go")
+				assert.Contains(t, out, "fmt/format.go") // cannot_inline from deps always shown
 			})
 
-			t.Run("include_deps", func(t *testing.T) {
-				env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
-				env.Format = execenv.FormatJSON
+			t.Run("inlining_call_filtered_by_deps_flag", func(t *testing.T) {
+				// can_inline / inlining_call from deps are noisy and hidden
+				// unless --deps is explicitly passed.
+				storage := memfs.New()
+				sessionID := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
+				mixed := `engine/foo.go:10:5: inlining call to bar.Dep
+../../.asdf/installs/golang/1.25/go/src/fmt/format.go:123:4: inlining call to strconv.Itoa
+`
+				dir := filepath.Join("sessions", sessionID)
+				require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.InlineFilename), []byte(mixed), 0644))
 
-				err := runShowInline(env, showInlineOptions{session: sessionID, includeDeps: true})
-				require.NoError(t, err)
-				assert.Contains(t, env.Out.String(), "fmt/format.go")
+				t.Run("without_deps", func(t *testing.T) {
+					env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+					env.Format = execenv.FormatJSON
+					err := runShowInline(env, showInlineOptions{session: sessionID, all: true})
+					require.NoError(t, err)
+					out := env.Out.String()
+					assert.Contains(t, out, "engine/foo.go")
+					assert.NotContains(t, out, "fmt/format.go")
+				})
+
+				t.Run("with_deps", func(t *testing.T) {
+					env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+					env.Format = execenv.FormatJSON
+					err := runShowInline(env, showInlineOptions{session: sessionID, all: true, includeDeps: true})
+					require.NoError(t, err)
+					assert.Contains(t, env.Out.String(), "fmt/format.go")
+				})
 			})
+		})
+
+		t.Run("func_filter", func(t *testing.T) {
+			sessionID, storage := setup(t)
+			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+			env.Format = execenv.FormatJSON
+
+			err := runShowInline(env, showInlineOptions{session: sessionID, all: true, funcs: []string{"baz"}})
+			require.NoError(t, err)
+
+			out := env.Out.String()
+			assert.Contains(t, out, `"function": "bar.Baz"`)
+			assert.NotContains(t, out, `"function": "Foo"`)
+			assert.NotContains(t, out, `"function": "Qux"`)
 		})
 	})
 
@@ -219,6 +265,27 @@ func oldHelper() {}
 		err := runShowInline(env, showInlineOptions{session: "nonexistent-id"})
 		assert.ErrorContains(t, err, `"nonexistent-id" not found`)
 	})
+}
+
+func TestInlineMessageParts(t *testing.T) {
+	cases := []struct {
+		msg    string
+		fn     string
+		reason string
+	}{
+		{"cannot inline Foo: too complex", "Foo", "too complex"},
+		{"cannot inline Bar", "Bar", ""},
+		{"inlining call to pkg.Baz", "pkg.Baz", ""},
+		{"can inline Qux", "Qux", ""},
+		// "as: <body>" is stripped — only the cost matters in JSON output
+		{"can inline Foo with cost 64 as: func() { return 1 }", "Foo", "with cost 64"},
+		{"can inline Foo with cost 64 as:", "Foo", "with cost 64"},
+	}
+	for _, tc := range cases {
+		fn, reason := inlineMessageParts(tc.msg)
+		assert.Equal(t, tc.fn, fn, "fn for %q", tc.msg)
+		assert.Equal(t, tc.reason, reason, "reason for %q", tc.msg)
+	}
 }
 
 func TestInlineSiteKind(t *testing.T) {

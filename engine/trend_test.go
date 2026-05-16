@@ -62,6 +62,18 @@ func TestLoadTrendData_noResults(t *testing.T) {
 	data, err := LoadTrendData([]*SessionInfo{s}, 0.95)
 	require.NoError(t, err)
 	assert.Empty(t, data.BenchNames)
+	assert.Empty(t, data.Sessions)
+}
+
+func TestLoadTrendData_filtersSessionsWithoutBenchData(t *testing.T) {
+	withData := makeTrendSession(t, "with-data", "BenchmarkFoo-8   1000000   100 ns/op\n")
+	noData := makeTrendSession(t, "no-data", "")
+
+	data, err := LoadTrendData([]*SessionInfo{withData, noData}, 0.95)
+	require.NoError(t, err)
+
+	require.Len(t, data.Sessions, 1)
+	assert.Equal(t, withData.Id, data.Sessions[0].Id)
 }
 
 func TestPreferredUnitsFirst(t *testing.T) {

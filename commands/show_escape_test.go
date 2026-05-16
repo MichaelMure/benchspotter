@@ -76,9 +76,11 @@ engine/foo.go:30:1: can inline Baz
 			require.NoError(t, err)
 
 			out := env.Out.String()
-			assert.Contains(t, out, `"heap_escape": true`)
-			assert.Contains(t, out, `"leaking_param": true`)
-			assert.NotContains(t, out, "can inline")
+			assert.Contains(t, out, `"kind": "heap_escape"`)
+			assert.Contains(t, out, `"kind": "leaking_param"`)
+			assert.Contains(t, out, `"heap_escape": 1`) // summary
+			assert.Contains(t, out, `"leaking_param": 1`)
+			assert.NotContains(t, out, `"kind": "other"`) // "can inline" filtered out
 		})
 
 		t.Run("all", func(t *testing.T) {
@@ -97,20 +99,24 @@ engine/foo.go:30:1: can inline Baz
 			err := runShowEscape(env, showEscapeOptions{session: sessionID, all: true})
 			require.NoError(t, err)
 
-			assert.Contains(t, env.Out.String(), "can inline")
+			out := env.Out.String()
+			assert.Contains(t, out, `"kind": "heap_escape"`)
+			assert.Contains(t, out, `"kind": "other"`) // "can inline" shown with --all
+			assert.Contains(t, out, "can inline Baz")  // message preserved
 		})
 
 		t.Run("project_filter", func(t *testing.T) {
-			storage := memfs.New()
-			sessionID := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
-
-			escapeData := `engine/foo.go:10:5: bar escapes to heap
+			t.Run("heap_escape_always_shown_from_deps", func(t *testing.T) {
+				// heap_escape and leaking_param from dep files are always included
+				// because they represent real allocation pressure on any caller.
+				storage := memfs.New()
+				sessionID := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
+				escapeData := `engine/foo.go:10:5: bar escapes to heap
 ../../.asdf/installs/golang/1.25/go/src/fmt/format.go:123:4: x escapes to heap
 `
-			dir := filepath.Join("sessions", sessionID)
-			require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.EscapeFilename), []byte(escapeData), 0644))
+				dir := filepath.Join("sessions", sessionID)
+				require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.EscapeFilename), []byte(escapeData), 0644))
 
-			t.Run("default", func(t *testing.T) {
 				env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
 				env.Format = execenv.FormatJSON
 
@@ -118,17 +124,58 @@ engine/foo.go:30:1: can inline Baz
 				require.NoError(t, err)
 				out := env.Out.String()
 				assert.Contains(t, out, "engine/foo.go")
-				assert.NotContains(t, out, "fmt/format.go")
+				assert.Contains(t, out, "fmt/format.go") // heap_escape from deps always shown
 			})
 
-			t.Run("include_deps", func(t *testing.T) {
-				env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
-				env.Format = execenv.FormatJSON
+			t.Run("other_notes_filtered_by_deps_flag", func(t *testing.T) {
+				// "other" compiler notes from deps are noisy and hidden unless
+				// --deps is explicitly passed.
+				storage := memfs.New()
+				sessionID := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
+				escapeData := `engine/foo.go:10:5: can inline Foo
+../../.asdf/installs/golang/1.25/go/src/fmt/format.go:123:4: can inline Fprintf
+`
+				dir := filepath.Join("sessions", sessionID)
+				require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.EscapeFilename), []byte(escapeData), 0644))
 
-				err := runShowEscape(env, showEscapeOptions{session: sessionID, includeDeps: true})
-				require.NoError(t, err)
-				assert.Contains(t, env.Out.String(), "fmt/format.go")
+				t.Run("without_deps", func(t *testing.T) {
+					env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+					env.Format = execenv.FormatJSON
+					err := runShowEscape(env, showEscapeOptions{session: sessionID, all: true})
+					require.NoError(t, err)
+					out := env.Out.String()
+					assert.Contains(t, out, "engine/foo.go")
+					assert.NotContains(t, out, "fmt/format.go")
+				})
+
+				t.Run("with_deps", func(t *testing.T) {
+					env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+					env.Format = execenv.FormatJSON
+					err := runShowEscape(env, showEscapeOptions{session: sessionID, all: true, includeDeps: true})
+					require.NoError(t, err)
+					assert.Contains(t, env.Out.String(), "fmt/format.go")
+				})
 			})
+		})
+
+		t.Run("func_filter", func(t *testing.T) {
+			storage := memfs.New()
+			sessionID := createTestSession(t, storage, "my-session", []string{"BenchmarkFoo"}, "", false)
+			escapeData := `engine/foo.go:10:5: bar escapes to heap
+engine/foo.go:20:3: baz escapes to heap
+`
+			dir := filepath.Join("sessions", sessionID)
+			require.NoError(t, util.WriteFile(storage, filepath.Join(dir, engine.EscapeFilename), []byte(escapeData), 0644))
+
+			env := execenv.NewTestEnv(t.Context(), repository.NewForTesting(memfs.New(), storage, nil))
+			env.Format = execenv.FormatJSON
+
+			err := runShowEscape(env, showEscapeOptions{session: sessionID, funcs: []string{"bar"}})
+			require.NoError(t, err)
+
+			out := env.Out.String()
+			assert.Contains(t, out, "bar escapes to heap")
+			assert.NotContains(t, out, "baz escapes to heap")
 		})
 	})
 
