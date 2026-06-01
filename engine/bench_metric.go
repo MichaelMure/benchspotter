@@ -4,9 +4,9 @@ package engine
 type BenchMetric int
 
 const (
-	MetricNsPerOp    BenchMetric = iota // ns/op
-	MetricBytesPerOp                    // B/op
-	MetricAllocsPerOp                   // allocs/op
+	MetricNsPerOp     BenchMetric = iota // ns/op
+	MetricBytesPerOp                     // B/op
+	MetricAllocsPerOp                    // allocs/op
 	benchMetricCount
 )
 

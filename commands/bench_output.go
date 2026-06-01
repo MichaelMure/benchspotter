@@ -164,7 +164,7 @@ func (p *benchPrinter) fmtValues(withSpread bool) string {
 	for i, unit := range p.units {
 		avg := p.sums[i] / float64(p.n)
 		if withSpread && avg != 0 && p.maxs[i] > p.mins[i] {
-			pct := (p.maxs[i]-p.mins[i]) / (2 * avg) * 100
+			pct := (p.maxs[i] - p.mins[i]) / (2 * avg) * 100
 			spread := fmt.Sprintf("±%.0f%%", pct)
 			if pct > 10 {
 				spread = p.env.Style.Warning(spread)

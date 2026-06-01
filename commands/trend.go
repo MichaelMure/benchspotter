@@ -16,6 +16,7 @@ import (
 	"github.com/NimbleMarkets/ntcharts/v2/linechart"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/spf13/cobra"
+	"github.com/thediveo/enumflag/v2"
 
 	"benchspotter/commands/execenv"
 	"benchspotter/commands/tabwriter"
@@ -28,6 +29,12 @@ type trendOptions struct {
 	sessions   []string
 	last       int
 	confidence float64
+	comparison engine.TrendComparison
+}
+
+var trendComparisonIds = map[engine.TrendComparison][]string{
+	engine.ComparisonSequential: {"sequential"},
+	engine.ComparisonBaseline:   {"baseline"},
 }
 
 func newTrendCommand(env *execenv.Env) *cobra.Command {
@@ -56,6 +63,8 @@ limit to the most recent N sessions.`,
 	flags.StringArrayVar(&opts.sessions, "session", nil, "limit to specific session IDs or names (repeatable)")
 	flags.IntVar(&opts.last, "last", 0, "limit to last N sessions (0 = all)")
 	flags.Float64Var(&opts.confidence, "confidence", 0.95, "confidence level for CI range")
+	flags.Var(enumflag.New(&opts.comparison, "comparison", trendComparisonIds, enumflag.EnumCaseInsensitive),
+		"comparison", "how to compute trend arrows: sequential (each vs previous) or baseline (each vs first)")
 
 	return cmd
 }
@@ -143,8 +152,8 @@ func runTrend(env *execenv.Env, opts trendOptions) error {
 // This avoids repeating session metadata for every benchmark × unit combination.
 
 type trendJSONCompact struct {
-	Sessions   []trendJSONSession       `json:"sessions"`
-	Benchmarks []trendJSONCompactBench  `json:"benchmarks"`
+	Sessions   []trendJSONSession      `json:"sessions"`
+	Benchmarks []trendJSONCompactBench `json:"benchmarks"`
 }
 
 type trendJSONSession struct {
@@ -209,12 +218,12 @@ func renderTrendJSON(env *execenv.Env, data *engine.TrendData, benches []string)
 
 func renderTrendTextPlain(env *execenv.Env, data *engine.TrendData, opts trendOptions) error {
 	if opts.bench != "" {
-		return renderTrendDetailText(env, data, opts.bench)
+		return renderTrendDetailText(env, data, opts)
 	}
-	return renderTrendOverviewText(env, data)
+	return renderTrendOverviewText(env, data, opts)
 }
 
-func renderTrendOverviewText(env *execenv.Env, data *engine.TrendData) error {
+func renderTrendOverviewText(env *execenv.Env, data *engine.TrendData, opts trendOptions) error {
 	unit := data.Units[0]
 	mc := engine.NewMachineContext(data.Sessions)
 	tw := tabwriter.NewWriter(env.Out, 0, 0, 2, ' ', 0)
@@ -247,8 +256,15 @@ func renderTrendOverviewText(env *execenv.Env, data *engine.TrendData) error {
 			}
 			val := formatMetricValue(p.Center, unit)
 			if i > 0 {
-				if prev, hasPrev := ptMap[data.Sessions[i-1].Id]; hasPrev {
-					val += env.Style.TrendArrow(p.Center, prev.Center)
+				var ref engine.TrendPoint
+				var hasRef bool
+				if opts.comparison == engine.ComparisonBaseline {
+					ref, hasRef = ptMap[data.Sessions[0].Id]
+				} else {
+					ref, hasRef = ptMap[data.Sessions[i-1].Id]
+				}
+				if hasRef {
+					val += env.Style.TrendArrow(p.Center, ref.Center)
 				}
 			}
 			fmt.Fprintf(tw, "\t%s", val)
@@ -267,7 +283,8 @@ func renderTrendOverviewText(env *execenv.Env, data *engine.TrendData) error {
 	return nil
 }
 
-func renderTrendDetailText(env *execenv.Env, data *engine.TrendData, bench string) error {
+func renderTrendDetailText(env *execenv.Env, data *engine.TrendData, opts trendOptions) error {
+	bench := opts.bench
 	fmt.Fprintf(env.Out, "Benchmark: %s\n\n", bench)
 	mc := engine.NewMachineContext(data.Sessions)
 	tw := tabwriter.NewWriter(env.Out, 0, 0, 2, ' ', 0)
@@ -285,6 +302,22 @@ func renderTrendDetailText(env *execenv.Env, data *engine.TrendData, bench strin
 	for _, unit := range data.Units {
 		for _, p := range data.Points[bench][unit] {
 			ptMap[ptKey{unit, p.Session.Id}] = p
+		}
+	}
+
+	// Find the first session with any data (used as baseline).
+	var baselineSID string
+	if opts.comparison == engine.ComparisonBaseline {
+		for _, s := range data.Sessions {
+			for _, unit := range data.Units {
+				if _, ok := ptMap[ptKey{unit, s.Id}]; ok {
+					baselineSID = s.Id
+					break
+				}
+			}
+			if baselineSID != "" {
+				break
+			}
 		}
 	}
 
@@ -319,10 +352,19 @@ func renderTrendDetailText(env *execenv.Env, data *engine.TrendData, bench strin
 				continue
 			}
 			val := formatMetricValue(p.Center, unit)
-			if prevSID != "" {
-				if prev, hasPrev := ptMap[ptKey{unit, prevSID}]; hasPrev {
-					val += env.Style.TrendArrow(p.Center, prev.Center)
+			var ref engine.TrendPoint
+			var hasRef bool
+			if opts.comparison == engine.ComparisonBaseline {
+				if baselineSID != "" && s.Id != baselineSID {
+					ref, hasRef = ptMap[ptKey{unit, baselineSID}]
 				}
+			} else {
+				if prevSID != "" {
+					ref, hasRef = ptMap[ptKey{unit, prevSID}]
+				}
+			}
+			if hasRef {
+				val += env.Style.TrendArrow(p.Center, ref.Center)
 			}
 			fmt.Fprintf(tw, "\t%s", val)
 		}
@@ -364,8 +406,9 @@ type trendViewModel struct {
 	width, height int
 	ready         bool
 
-	mode    trendMode
-	unitIdx int
+	mode       trendMode
+	unitIdx    int
+	comparison engine.TrendComparison
 
 	// overview state
 	cursor    int // selected benchmark index
@@ -386,6 +429,7 @@ func newTrendModel(data *engine.TrendData, opts trendOptions, style execenv.Styl
 		data:          data,
 		opts:          opts,
 		style:         style,
+		comparison:    opts.comparison,
 		machineCtx:    engine.NewMachineContext(data.Sessions),
 		machineFilter: -1,
 	}
@@ -495,6 +539,8 @@ func (m trendViewModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if len(m.data.Units) > 0 {
 					m.unitIdx = (m.unitIdx + 1) % len(m.data.Units)
 				}
+			case "c":
+				m.comparison = m.comparison.Next()
 			case "f":
 				if m.machineCtx != nil {
 					m.machineFilter++
@@ -535,6 +581,8 @@ func (m trendViewModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m = m.rebuildChart()
 					}
 				}
+			case "c":
+				m.comparison = m.comparison.Next()
 			case "f":
 				if m.machineCtx != nil {
 					m.machineFilter++
@@ -801,13 +849,20 @@ func (m trendViewModel) viewOverview() string {
 			val := formatMetricValue(p.Center, unit)
 			cellBg := defaultBg()
 			var arrow string
-			if j > 0 {
-				if prev, hasPrev := row.ptMap[sessions[j-1].Id]; hasPrev {
-					if bg, ok := m.style.TrendCellBg(p.Center / prev.Center); ok {
-						cellBg = bg
-					}
-					arrow = m.style.TrendArrow(p.Center, prev.Center, cellBg)
+			var ref engine.TrendPoint
+			var hasRef bool
+			if m.comparison == engine.ComparisonBaseline {
+				if allSessions[0].Id != s.Id {
+					ref, hasRef = row.ptMap[allSessions[0].Id]
 				}
+			} else if j > 0 {
+				ref, hasRef = row.ptMap[sessions[j-1].Id]
+			}
+			if hasRef {
+				if bg, ok := m.style.TrendCellBg(p.Center / ref.Center); ok {
+					cellBg = bg
+				}
+				arrow = m.style.TrendArrow(p.Center, ref.Center, cellBg)
 			}
 			arrowW := lipgloss.Width(arrow)
 			line += withBg("  "+fmt.Sprintf("%-*s", overviewColW-2-arrowW, val), cellBg) + arrow
@@ -829,6 +884,7 @@ func (m trendViewModel) viewOverview() string {
 		"[↵] detail",
 		"[←→hl] scroll cols",
 		"[m] cycle unit",
+		"[c] vs: " + m.comparison.String(),
 	}
 	if m.machineCtx != nil {
 		machineLabel := "all"
@@ -889,13 +945,24 @@ func (m trendViewModel) viewDetail() string {
 		sid := p.Session.Id
 
 		nsVal := formatMetricValue(p.Center, unit)
-		if prevID != "" {
+		var refCenter float64
+		var hasRef bool
+		if m.comparison == engine.ComparisonBaseline {
+			if i > 0 {
+				refCenter = pts[0].Center
+				hasRef = true
+			}
+		} else if prevID != "" {
 			for _, prev := range pts {
 				if prev.Session.Id == prevID {
-					nsVal += " " + m.style.TrendArrow(p.Center, prev.Center)
+					refCenter = prev.Center
+					hasRef = true
 					break
 				}
 			}
+		}
+		if hasRef {
+			nsVal += " " + m.style.TrendArrow(p.Center, refCenter)
 		}
 
 		bVal := "-"
@@ -932,6 +999,7 @@ func (m trendViewModel) viewDetail() string {
 	statusParts := []string{
 		"[←→hl] cycle benchmark",
 		"[m] cycle unit",
+		"[c] vs: " + m.comparison.String(),
 	}
 	if m.machineCtx != nil {
 		machineLabel := "all"

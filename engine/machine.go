@@ -14,16 +14,16 @@ import (
 // MachineInfo captures the hardware and OS context of the machine that produced
 // a session. Stored in meta.json.
 type MachineInfo struct {
-	GOOS          string `json:"goos"`
-	GOARCH        string `json:"goarch"`
-	NumCPU        int    `json:"num_cpu"`
-	PhysicalCores int    `json:"physical_cores,omitempty"`
-	ThreadsPerCore int   `json:"threads_per_core,omitempty"`
-	CPU           string `json:"cpu,omitempty"`
-	CacheL1D      int    `json:"cache_l1d,omitempty"`
-	CacheL2       int    `json:"cache_l2,omitempty"`
-	CacheL3       int    `json:"cache_l3,omitempty"`
-	VM            bool   `json:"vm,omitempty"`
+	GOOS           string `json:"goos"`
+	GOARCH         string `json:"goarch"`
+	NumCPU         int    `json:"num_cpu"`
+	PhysicalCores  int    `json:"physical_cores,omitempty"`
+	ThreadsPerCore int    `json:"threads_per_core,omitempty"`
+	CPU            string `json:"cpu,omitempty"`
+	CacheL1D       int    `json:"cache_l1d,omitempty"`
+	CacheL2        int    `json:"cache_l2,omitempty"`
+	CacheL3        int    `json:"cache_l3,omitempty"`
+	VM             bool   `json:"vm,omitempty"`
 }
 
 // Hash returns a short, versioned fingerprint suitable for grouping sessions

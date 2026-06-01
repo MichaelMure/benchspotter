@@ -40,7 +40,6 @@ func InputCorrelations(results []EvaluatedPoint, metrics []string) map[string]ma
 	return out
 }
 
-
 func pearsonCorr(xs, ys []float64) float64 {
 	n := float64(len(xs))
 	var sx, sy, sxy, sx2, sy2 float64

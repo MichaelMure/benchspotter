@@ -8,6 +8,20 @@ import (
 	"golang.org/x/perf/benchmath"
 )
 
+// TrendComparison controls which reference session each data point is compared against.
+type TrendComparison int
+
+const (
+	ComparisonSequential TrendComparison = iota // each session vs the previous one
+	ComparisonBaseline                          // each session vs the first session
+	trendComparisonCount
+)
+
+var trendComparisonNames = [trendComparisonCount]string{"sequential", "baseline"}
+
+func (c TrendComparison) String() string        { return trendComparisonNames[c] }
+func (c TrendComparison) Next() TrendComparison { return (c + 1) % trendComparisonCount }
+
 // TrendPoint is one session's summarised result for a benchmark/unit pair.
 type TrendPoint struct {
 	Session *SessionInfo

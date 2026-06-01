@@ -25,4 +25,4 @@ func (m MapGitSource) FileAtCommit(_ context.Context, commit, relPath string) ([
 }
 
 func (m MapGitSource) HeadCommit(_ context.Context) (string, error) { return "", fmt.Errorf("no HEAD") }
-func (m MapGitSource) Diff(_ context.Context) ([]byte, error)        { return nil, nil }
+func (m MapGitSource) Diff(_ context.Context) ([]byte, error)       { return nil, nil }

@@ -10,12 +10,12 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"benchspotter/commands/execenv"
+	"benchspotter/commands/inputs"
+	"benchspotter/engine"
 	"charm.land/huh/v2"
 	"github.com/spf13/cobra"
 	"github.com/thediveo/enumflag/v2"
-"benchspotter/commands/execenv"
-	"benchspotter/commands/inputs"
-	"benchspotter/engine"
 )
 
 type benchOptions struct {
@@ -327,7 +327,7 @@ func runBench(env *execenv.Env, options benchOptions) error {
 		pp := newProfilePrinter(env, prof.kind, len(selection), nameWidth, kindWidth)
 		for _, info := range selection {
 			start := time.Now()
-			err = env.Spinner().Title(prof.kind+" "+info.Name).ActionWithErr(func(ctx context.Context) error {
+			err = env.Spinner().Title(prof.kind + " " + info.Name).ActionWithErr(func(ctx context.Context) error {
 				return it()
 			}).Context(env.Ctx).Run()
 			if err != nil {
