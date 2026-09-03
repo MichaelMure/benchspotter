@@ -1,4 +1,4 @@
-module benchspotter
+module github.com/MichaelMure/benchspotter
 
 go 1.25.8
 

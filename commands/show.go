@@ -3,7 +3,7 @@ package commands
 import (
 	"github.com/spf13/cobra"
 
-	"benchspotter/commands/execenv"
+	"github.com/MichaelMure/benchspotter/commands/execenv"
 )
 
 func newShowCommand(env *execenv.Env) *cobra.Command {

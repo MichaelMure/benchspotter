@@ -14,9 +14,9 @@ import (
 	"github.com/alecthomas/chroma/lexers"
 	"github.com/alecthomas/chroma/styles"
 
-	"benchspotter/commands/execenv"
-	"benchspotter/engine"
-	"benchspotter/repository"
+	"github.com/MichaelMure/benchspotter/commands/execenv"
+	"github.com/MichaelMure/benchspotter/engine"
+	"github.com/MichaelMure/benchspotter/repository"
 )
 
 // sourceViewBase holds the source-reading infrastructure shared by show escape

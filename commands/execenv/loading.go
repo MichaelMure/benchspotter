@@ -3,7 +3,7 @@ package execenv
 import (
 	"github.com/spf13/cobra"
 
-	"benchspotter/repository"
+	"github.com/MichaelMure/benchspotter/repository"
 )
 
 // LoadRepo is a pre-run function that load the repository for use in a command

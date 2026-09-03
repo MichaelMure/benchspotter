@@ -9,7 +9,7 @@ import (
 
 	"charm.land/huh/v2"
 
-	"benchspotter/repository"
+	"github.com/MichaelMure/benchspotter/repository"
 )
 
 var _ In = &TestIn{}

@@ -12,7 +12,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/colorprofile"
 
-	"benchspotter/repository"
+	"github.com/MichaelMure/benchspotter/repository"
 )
 
 // Env is the environment of a command

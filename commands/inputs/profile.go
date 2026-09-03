@@ -3,7 +3,7 @@ package inputs
 import (
 	"charm.land/huh/v2"
 
-	"benchspotter/commands/execenv"
+	"github.com/MichaelMure/benchspotter/commands/execenv"
 )
 
 // BenchOption is a benchmark entry for display in the profile bench selector.

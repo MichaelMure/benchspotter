@@ -7,7 +7,7 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      - -s -w -X benchspotter/commands.version={{.Tag}}
+      - -s -w -X github.com/MichaelMure/benchspotter/commands.version={{.Tag}}
     env:
       - CGO_ENABLED=0
     goos:

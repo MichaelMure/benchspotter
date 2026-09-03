@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/thediveo/enumflag/v2"
 
-	"benchspotter/commands/execenv"
+	"github.com/MichaelMure/benchspotter/commands/execenv"
 )
 
 const RootCmdName = "benchspotter"

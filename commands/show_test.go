@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"benchspotter/commands/execenv"
-	"benchspotter/repository"
+	"github.com/MichaelMure/benchspotter/commands/execenv"
+	"github.com/MichaelMure/benchspotter/repository"
 )
 
 func TestShowDiff(t *testing.T) {

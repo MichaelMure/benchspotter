@@ -10,10 +10,10 @@ import (
 	"golang.org/x/perf/benchmath"
 	"golang.org/x/perf/benchproc"
 
-	"benchspotter/commands/benchstat/benchtab"
-	"benchspotter/commands/execenv"
-	"benchspotter/commands/inputs"
-	"benchspotter/engine"
+	"github.com/MichaelMure/benchspotter/commands/benchstat/benchtab"
+	"github.com/MichaelMure/benchspotter/commands/execenv"
+	"github.com/MichaelMure/benchspotter/commands/inputs"
+	"github.com/MichaelMure/benchspotter/engine"
 )
 
 type compareBenchOptions struct {

@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/perf/benchfmt"
 
-	"benchspotter/commands/execenv"
-	"benchspotter/repository"
+	"github.com/MichaelMure/benchspotter/commands/execenv"
+	"github.com/MichaelMure/benchspotter/repository"
 )
 
 func newBenchOutputTestEnv(t *testing.T) *execenv.Env {

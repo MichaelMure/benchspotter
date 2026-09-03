@@ -7,8 +7,8 @@ import (
 
 	"charm.land/huh/v2"
 
-	"benchspotter/commands/execenv"
-	"benchspotter/engine"
+	"github.com/MichaelMure/benchspotter/commands/execenv"
+	"github.com/MichaelMure/benchspotter/engine"
 )
 
 func SelectBenchmark(env *execenv.Env, preSelect string) (engine.BenchInfo, error) {

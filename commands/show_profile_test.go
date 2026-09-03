@@ -14,9 +14,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"benchspotter/commands/execenv"
-	"benchspotter/engine"
-	"benchspotter/repository"
+	"github.com/MichaelMure/benchspotter/commands/execenv"
+	"github.com/MichaelMure/benchspotter/engine"
+	"github.com/MichaelMure/benchspotter/repository"
 )
 
 // profileFilename mirrors the encoding used by engine.RunProfile.

@@ -14,8 +14,8 @@ import (
 	"golang.org/x/perf/benchproc"
 	"golang.org/x/perf/benchunit"
 
-	"benchspotter/commands/benchstat/texttab"
-	"benchspotter/commands/execenv"
+	"github.com/MichaelMure/benchspotter/commands/benchstat/texttab"
+	"github.com/MichaelMure/benchspotter/commands/execenv"
 )
 
 // A Table summarizes and compares benchmark results in a 2D grid.

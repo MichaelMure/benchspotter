@@ -9,7 +9,7 @@ import (
 	"golang.org/x/perf/benchmath"
 	"golang.org/x/sys/execabs"
 
-	"benchspotter/benchinput"
+	"github.com/MichaelMure/benchspotter/benchinput"
 )
 
 // ParamAssignment pins one input to a specific value.

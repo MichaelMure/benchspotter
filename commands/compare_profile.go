@@ -13,10 +13,10 @@ import (
 	"github.com/thediveo/enumflag/v2"
 	"golang.org/x/sys/execabs"
 
-	"benchspotter/commands/execenv"
-	"benchspotter/commands/inputs"
-	"benchspotter/commands/tabwriter"
-	"benchspotter/engine"
+	"github.com/MichaelMure/benchspotter/commands/execenv"
+	"github.com/MichaelMure/benchspotter/commands/inputs"
+	"github.com/MichaelMure/benchspotter/commands/tabwriter"
+	"github.com/MichaelMure/benchspotter/engine"
 )
 
 // compareProfileViewModel implements execenv.InteractiveModel for profile diffs.

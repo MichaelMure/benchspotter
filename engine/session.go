@@ -17,7 +17,7 @@ import (
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/google/uuid"
 
-	"benchspotter/commands/execenv"
+	"github.com/MichaelMure/benchspotter/commands/execenv"
 )
 
 const sessionDir = "sessions"

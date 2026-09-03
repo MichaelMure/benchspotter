@@ -10,7 +10,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"golang.org/x/perf/benchfmt"
 
-	"benchspotter/commands/execenv"
+	"github.com/MichaelMure/benchspotter/commands/execenv"
 )
 
 // benchPrinter streams benchmark results with in-place updates on terminals.

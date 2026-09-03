@@ -10,12 +10,13 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"benchspotter/commands/execenv"
-	"benchspotter/commands/inputs"
-	"benchspotter/engine"
 	"charm.land/huh/v2"
 	"github.com/spf13/cobra"
 	"github.com/thediveo/enumflag/v2"
+
+	"github.com/MichaelMure/benchspotter/commands/execenv"
+	"github.com/MichaelMure/benchspotter/commands/inputs"
+	"github.com/MichaelMure/benchspotter/engine"
 )
 
 type benchOptions struct {

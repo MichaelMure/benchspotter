@@ -6,7 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"benchspotter/commands"
+	"github.com/MichaelMure/benchspotter/commands"
 )
 
 func main() {

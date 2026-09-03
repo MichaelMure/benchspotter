@@ -8,9 +8,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"benchspotter/commands/execenv"
-	"benchspotter/commands/inputs"
-	"benchspotter/engine"
+	"github.com/MichaelMure/benchspotter/commands/execenv"
+	"github.com/MichaelMure/benchspotter/commands/inputs"
+	"github.com/MichaelMure/benchspotter/engine"
 )
 
 type showEscapeOptions struct {

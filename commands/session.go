@@ -11,10 +11,10 @@ import (
 	"charm.land/huh/v2"
 	"github.com/spf13/cobra"
 
-	"benchspotter/commands/execenv"
-	"benchspotter/commands/inputs"
-	"benchspotter/commands/tabwriter"
-	"benchspotter/engine"
+	"github.com/MichaelMure/benchspotter/commands/execenv"
+	"github.com/MichaelMure/benchspotter/commands/inputs"
+	"github.com/MichaelMure/benchspotter/commands/tabwriter"
+	"github.com/MichaelMure/benchspotter/engine"
 )
 
 func newSessionCommand(env *execenv.Env) *cobra.Command {

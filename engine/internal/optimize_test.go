@@ -10,7 +10,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"benchspotter/benchinput"
+	"github.com/MichaelMure/benchspotter/benchinput"
 )
 
 // ── BenchmarkHybridSort ───────────────────────────────────────────────────────

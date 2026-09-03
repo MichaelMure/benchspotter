@@ -1,5 +1,5 @@
 TAG:=$(shell git name-rev --name-only --tags HEAD)
-LDFLAGS:=-X benchspotter/commands.version="${TAG}"
+LDFLAGS:=-X github.com/MichaelMure/benchspotter/commands.version="${TAG}"
 
 all: build
 

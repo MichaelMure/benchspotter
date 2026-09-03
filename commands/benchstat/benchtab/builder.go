@@ -20,7 +20,7 @@ import (
 	"golang.org/x/perf/benchmath"
 	"golang.org/x/perf/benchproc"
 
-	"benchspotter/commands/execenv"
+	"github.com/MichaelMure/benchspotter/commands/execenv"
 )
 
 // A Builder collects benchmark results into a Tables set.

@@ -8,8 +8,8 @@ import (
 
 	"charm.land/huh/v2"
 
-	"benchspotter/commands/execenv"
-	"benchspotter/engine"
+	"github.com/MichaelMure/benchspotter/commands/execenv"
+	"github.com/MichaelMure/benchspotter/engine"
 )
 
 // SelectSession prompts for one session. flag names what the caller expects

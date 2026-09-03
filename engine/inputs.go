@@ -302,7 +302,7 @@ func Inputs(rootDir string) (res []InputInfo, err error) {
 				if !ok {
 					return true
 				}
-				if fn.Pkg() == nil || fn.Pkg().Path() != "benchspotter/benchinput" {
+				if fn.Pkg() == nil || fn.Pkg().Path() != "github.com/MichaelMure/benchspotter/benchinput" {
 					return true
 				}
 				sig := fn.Type().(*types.Signature)

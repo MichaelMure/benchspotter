@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"benchspotter/commands/execenv"
-	"benchspotter/engine"
+	"github.com/MichaelMure/benchspotter/commands/execenv"
+	"github.com/MichaelMure/benchspotter/engine"
 )
 
 // ── Command & run ─────────────────────────────────────────────────────────────

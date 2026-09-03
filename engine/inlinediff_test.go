@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"benchspotter/engine"
+	"github.com/MichaelMure/benchspotter/engine"
 )
 
 func TestDiffInlineAnalysis(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/mod/semver"
 
-	"benchspotter/commands/execenv"
+	"github.com/MichaelMure/benchspotter/commands/execenv"
 )
 
 func newVersionCommand(env *execenv.Env) *cobra.Command {

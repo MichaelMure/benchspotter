@@ -18,9 +18,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/thediveo/enumflag/v2"
 
-	"benchspotter/commands/execenv"
-	"benchspotter/commands/tabwriter"
-	"benchspotter/engine"
+	"github.com/MichaelMure/benchspotter/commands/execenv"
+	"github.com/MichaelMure/benchspotter/commands/tabwriter"
+	"github.com/MichaelMure/benchspotter/engine"
 )
 
 type trendOptions struct {

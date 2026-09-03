@@ -10,7 +10,7 @@ import (
 	"io"
 	"testing"
 
-	. "benchspotter/commands/tabwriter"
+	. "github.com/MichaelMure/benchspotter/commands/tabwriter"
 )
 
 type buffer struct {

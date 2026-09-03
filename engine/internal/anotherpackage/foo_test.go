@@ -3,7 +3,7 @@ package internal
 import (
 	"testing"
 
-	"benchspotter/benchinput"
+	"github.com/MichaelMure/benchspotter/benchinput"
 )
 
 func BenchmarkBaz(b *testing.B) {
