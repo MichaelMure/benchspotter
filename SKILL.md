@@ -1,234 +1,160 @@
 ---
 name: benchspotter
-description: benchspotter is a performance measurement backend CLI tool. It runs Go benchmarks, persists the results as named **sessions**, and provides tools for comparison, trend analysis, profiling, compiler analysis, and parameter optimization. Think of it as a long-lived performance logbook: sessions accumulate across weeks or months, across machines, and across code changes.
+description: Run, store and analyse Go benchmarks — compare runs, track trends over time, read cpu/mem/mutex/block profiles, diff compiler escape and inlining decisions, and search for optimal tuning constants. Use whenever working on Go performance: measuring a change, chasing a regression, or hunting allocations.
 ---
 
-## Core concept: sessions
+## Sessions
 
-Every `benchspotter bench` run creates a session. A session can contain any
-combination of:
+Every `benchspotter bench` run records a **session** under `.benchspotter/`: the
+benchmark results, whichever profiles were captured, the git commit, the uncommitted
+diff, and machine metadata. Sessions accumulate over weeks and across machines, so any
+two runs stay comparable. Every analysis command reads sessions; none of them re-run
+anything.
 
-- **bench results** — raw `go test -bench` output (ns/op, B/op, allocs/op, …)
-- **CPU profile** — where wall-clock time is spent
-- **memory profile** — heap allocation sites
-- **mutex / block profiles** — lock contention and goroutine blocking
-- **escape analysis** — which variables the compiler moved to the heap
-- **inlining decisions** — which functions the compiler refused to inline
-- **git diff snapshot** — the uncommitted diff at the time of the run
+Prefer `benchspotter` over raw `go test -bench`, `go tool pprof` or `-gcflags=-m`: the
+output lands in a session and becomes comparable against every other run.
 
-Sessions have a human name, a git commit hash, machine metadata, and
-optionally tags.
+## Start here
 
-## Agent / headless use
+Run `benchspotter --no-prompt session ls` before anything else. It shows what has
+already been recorded — names, commits, which profiles each session carries, which
+machine produced it — so you find an existing baseline instead of spending minutes
+re-measuring one. If it reports no sessions, nothing has been recorded yet.
 
-Add `--no-prompt` (a persistent root flag) to any command to disable all
-interactive prompts. If a prompt would be triggered without a required flag,
-the command errors immediately naming the missing flag. Use this whenever
-driving benchspotter from a script or agent.
+**Record the baseline before touching the code.** A session captures the git commit and
+the uncommitted diff at the moment it runs. Once you have edited, the "before" state is
+gone and no later command can reconstruct it. This is the only mistake here that cannot
+be undone.
 
-**Working directory**: by default `benchspotter` auto-detects the project root
-from the current directory. Use `-C <dir>` / `--dir <dir>` to point it at a
-different directory without `cd`.
+## Driving it headlessly
 
-**`-c` is required for `bench` mode**: when `-p bench` is included and `-c` is
-omitted, the count prompt fires. Under `--no-prompt` that becomes an error.
-Always pass `-c`.
+Pass `--no-prompt` (a root flag) on every invocation. Any prompt that would have fired
+becomes an immediate error naming the flag to supply instead, so nothing ever hangs.
+`-C <dir>` runs against another directory without `cd`.
 
-```bash
-benchspotter --no-prompt bench -p bench -n "my session" --bench BenchmarkFoo -c 5 --format json
-# → {"id":"<uuid>","name":"my session","profiles":["bench"],"benchmarks":["BenchmarkFoo"]}
+Under `--no-prompt`, `bench` requires:
 
-benchspotter --no-prompt session ls --format json
-benchspotter --no-prompt compare bench --session <id1> --session <id2> --format json
-```
+| flag | |
+|---|---|
+| `-p/--profile` (or `--all-profile`) | what to capture: `bench,cpu,mem,mutex,block,escape,inline` |
+| `-b/--bench` (or `--all-bench`) | which benchmarks; regexp, repeatable, OR-ed |
+| `-n/--name` | session name; `""` is valid and means unnamed |
+| `-c/--count` | **only** when `-p` includes `bench` |
 
-**Capturing the session ID**: use `--print-id` (text format only) to print just the UUID to stdout —
-progress output goes to stderr, so the shell capture is clean:
+## Naming a session
 
-```bash
-ID=$(benchspotter --no-prompt bench -p bench -n "baseline" --all-bench -c 5 --print-id)
-benchspotter --no-prompt compare bench --session "$ID" --session "after refactor" --format json
-```
-
-`--format json` is an alternative when you also need the full session metadata:
+`bench -n` names the session, and that name is what every later command takes:
 
 ```bash
-benchspotter --no-prompt bench -p bench -n "baseline" --all-bench -c 5 --format json
-# → {"id":"<uuid>","name":"baseline","profiles":["bench"],"benchmarks":[...]}
+benchspotter --no-prompt bench -p bench -b BenchmarkFoo -n "baseline" -c 10
+benchspotter --no-prompt compare bench --session "baseline" --session "after"
 ```
 
-## Running benchmarks
+`--session`, `--base` and `--new` all accept a UUID, the name shown by `session ls`, or
+the name passed to `-n`. Reusing a name is safe: `session ls` disambiguates it
+(`baseline-3c`), and an ambiguous lookup fails with the alternatives spelled out.
+
+`--print-id` makes `bench` print only the UUID on stdout — progress goes to stderr, so
+`ID=$(benchspotter ... --print-id)` is clean. Text format only.
+
+## Choosing an output format
+
+The rule: **text, unless the command renders source code.** Text output is a table, and
+JSON costs 3–6× the tokens to say the same thing — `session ls`, `trend`,
+`compare bench` and every `show`/`compare` of a cpu, mem, mutex or block profile are all
+smaller and just as precise as text.
+
+The exception is `escape` and `inline`. In text mode those annotate the source line by
+line, which is enormous: on a small project `show escape` is 864 KB as text against
+459 KB as JSON, and `compare escape` is 24 KB against 1.5 KB. Use `-f json` for all four
+of `show escape|inline` and `compare escape|inline`.
+
+Narrow `show escape` and `show inline` with `--func`, using function names taken from
+`show cpu` — that is what turns compiler output into something actionable.
+
+Use `-f raw` only to pipe into another tool: it gives binary pprof from the profile
+commands, `.bench` text from `compare bench` (feed it to `benchstat`), a unified diff
+from `show diff`, and one line per change from `compare escape|inline`.
+
+## Avoid
+
+- Running `go test -bench`, `go tool pprof` or `go build -gcflags=-m` directly. Nothing
+  is persisted and nothing becomes comparable.
+- Re-running a benchmark to look at it again. Sessions are permanent; read the stored
+  one with `show`.
+- `--web` on any profile command. It opens a browser and blocks.
+- `show escape` or `show inline` without `--func`. Unfiltered they dump the whole
+  project, ~175 KB of JSON.
+
+## Recipes
+
+### Did my change help?
 
 ```bash
-benchspotter bench -p bench -n "my session" --bench BenchmarkFoo -c 5
+# 1. before editing anything
+benchspotter --no-prompt bench -p bench,cpu,mem --all-bench -n "before" -c 10
 
-# regex filter — OR-ed, repeatable
-benchspotter bench -p bench -n "reads" --bench Read -c 5
+# 2. make the change
 
-# all benchmarks / all profiles
-benchspotter bench -p bench -n "full sweep" --all-bench -c 5
-benchspotter bench --all-profile --all-bench -n "full sweep"
-
-# multiple profile types at once
-benchspotter bench -p bench,cpu,mem,escape -n "baseline" --bench BenchmarkFoo -c 5
-
-# -p accepts: bench, cpu, mem, mutex, block, escape, inline
-# --bench / -b: regexp, repeatable; --all-bench: every discovered benchmark
-# --all-profile: all modes; -n: session name; -c: iteration count (bench only)
+# 3. after
+benchspotter --no-prompt bench -p bench,cpu,mem --all-bench -n "after" -c 10
+benchspotter --no-prompt compare bench --session "before" --session "after"
 ```
 
-## Listing and managing sessions
+Capture `cpu` and `mem` on the baseline even when you only want timings. Each profile
+type costs one extra benchmark run, but `compare cpu` refuses to run when either side
+lacks the profile — and by the time you want it, the old code is gone. Add
+`escape,inline` too if compiler behaviour is in question; those only compile, so they
+are nearly free.
+
+Use `-c 10` or more. A result that stays `~` at a high count is an answer — the change
+is below the benchmark's noise floor — not a reason to keep re-running.
+
+### Where did the time go?
+
+`compare bench` says a benchmark regressed; `compare cpu` says which function did.
 
 ```bash
-# list
-benchspotter session ls --format json
-benchspotter session ls --tag my-tag --format json
-benchspotter session ls --bench Foo --format json        # filter by benchmark regexp
-
-# show full metadata for one session (including full note text)
-benchspotter session show <id> --format json
-
-# manage
-benchspotter session tag    <id> <tag>
-benchspotter session untag  <id> <tag>
-benchspotter session rename <id> <new-name>
-benchspotter session note   <id> "<text>"
-benchspotter session rm  -y <id>                         # -y skips confirmation
+benchspotter --no-prompt compare cpu --base "before" --new "after" --bench BenchmarkFoo
 ```
 
-`session ls` and `session show` JSON fields: `id`, `human_name`, `time`,
-`commit`, `has_diff`, `profiles`, `tags`, `notes`, `benchmarks`, `machine`,
-`go_version`. In `session ls` text mode, `notes` is truncated; use
-`session show` when you need the full text.
+Positive deltas are the regression. Sort with `--sort` and widen with `--top` if the
+culprit is not in the default 20.
 
-When sessions originate from different machines, `session ls` flags them.
-Use tags to keep machine groups filterable:
+### Where are the allocations?
 
 ```bash
-benchspotter session tag <id> ci-runner
-benchspotter trend --tag ci-runner --format text
+benchspotter --no-prompt compare mem --base "before" --new "after" --bench BenchmarkFoo
+benchspotter --no-prompt show mem --session "after" --bench BenchmarkFoo --metric alloc_objects
 ```
 
-## Comparing benchmark results
+A memory profile needs `-c 10` or more at capture time; with fewer iterations everything
+collapses into `runtime.mallocgc`.
+
+Then ask why the compiler put it on the heap, using the function names the profile gave
+you:
 
 ```bash
-benchspotter compare bench \
-  --session "before refactor" \
-  --session "after refactor" \
-  --format json
+benchspotter --no-prompt show escape --session "after" --func myHotFunc -f json
 ```
 
-The first `--session` is the baseline unless `--baseline` overrides it:
+### Is a hot function being inlined?
 
 ```bash
-benchspotter compare bench \
-  --session <id1> --session <id2> --session <id3> \
-  --baseline <id2> \
-  --format json
+benchspotter --no-prompt show inline --session "after" --func myHotFunc -f json
 ```
 
-JSON output: tables → benchmarks → sessions, each with `center`, `range`,
-`delta` (% change vs. baseline), and `stats` (significance).
-
-Other useful flags:
-- `--alpha 0.05` — significance threshold
-- `--filter 'BenchmarkFoo*'` — scope to specific benchmarks (benchstat filter syntax)
-- `--col .config` — split columns by benchmark configuration keys
-- `--skip-machine-check` — suppress the cross-machine warning
-- `--format raw` — raw `.bench` text, suitable for piping into `benchstat`
-
-## Trend over time
+`cannot_inline` sites carry the compiler's reason, e.g. `function too complex: cost 122
+exceeds budget 80`. To see what a change did to inlining across the board:
 
 ```bash
-# readable table — default for human/agent use
-benchspotter trend --format text
-benchspotter trend --tag my-tag --last 20 --format text
-benchspotter trend --bench Foo --format text             # error if pattern matches nothing
-
-# machine-consumable nested JSON (benchmarks[] → units[] → points[])
-benchspotter trend --format json
+benchspotter --no-prompt compare inline --base "before" --new "after" -f json
 ```
 
-JSON point fields: `session_id`, `human_name`, `time`, `center`, `lo`, `hi`, `n`.
+### Tune a constant
 
-## Inspecting sessions
-
-Use `benchspotter show/compare` rather than raw `go tool pprof` or `gcflags`
-— results land in a session and are comparable across code changes.
-
-### Profiles
-
-```bash
-# capture
-benchspotter bench -p cpu                               # or mem, mutex, block
-benchspotter bench -p mem -c 10                         # mem needs ≥10 iterations;
-                                                        # fewer collapses to runtime.mallocgc
-
-# inspect — structured top-N table
-benchspotter show cpu   --session <name> --format json --top 30
-benchspotter show mem   --session <name> --format json --metric alloc_objects
-benchspotter show block --session <name> --format json
-benchspotter show mutex --session <name> --format json
-# json fields: name, file, line, flat_ns, cum_ns, flat_pct, cum_pct
-# mem metrics: alloc_space (default) | alloc_objects | inuse_space | inuse_objects
-
-# compare between two sessions
-benchspotter compare cpu   --base <name> --new <name> --bench BenchmarkFoo --format json
-benchspotter compare mem   --base <name> --new <name> --bench BenchmarkFoo --format json
-benchspotter compare block --base <name> --new <name> --bench BenchmarkFoo --format json
-benchspotter compare mutex --base <name> --new <name> --bench BenchmarkFoo --format json
-# json fields: name, file, line, base_flat_ns, new_flat_ns, delta_flat_ns, delta_flat_pct, ...
-
-# raw pprof — only when you need interactive go tool pprof exploration
-benchspotter show cpu    --session <name> --format raw > cpu.pprof
-benchspotter compare cpu --base <name> --new <name> --format raw > diff.pprof  # positive = regression
-go tool pprof cpu.pprof
-```
-
-### Compiler analysis
-
-```bash
-# capture (instead of go build -gcflags='-m=2')
-benchspotter bench -p escape
-benchspotter bench -p inline
-
-# inspect
-benchspotter show escape --session <name> --format json
-# JSON: {"summary":{"heap_escape":N,"leaking_param":N,"other":N},"files":[{"file":"...","sites":[{"line":N,"kind":"heap_escape"|"leaking_param"|"other","message":"..."}]}]}
-# By default only heap_escape and leaking_param are shown; --all includes all compiler notes.
-# heap_escape and leaking_param are always shown from deps; other notes are project-only unless --deps.
-
-benchspotter show inline --session <name> --format json
-# JSON: {"summary":{"cannot_inline":N,"inlining_call":N,"can_inline":N},"files":[{"file":"...","sites":[{"line":N,"kind":"cannot_inline"|"inlining_call"|"can_inline","function":"Foo","reason":"too complex"}]}]}
-# reason is omitted when empty; for can_inline the verbose "as: <body>" is stripped — cost only.
-# By default only cannot_inline sites are shown; --all includes all decisions.
-# cannot_inline is always shown from deps; others are project-only unless --deps.
-
-# --func: filter to entries whose function/message contains this string (repeatable, OR logic, case-insensitive)
-benchspotter show inline --session <name> --func Foo --func Bar --format json
-benchspotter show escape --session <name> --func escapes --format json
-
-# diff between two sessions
-benchspotter compare escape --base <name> --new <name> --format json
-benchspotter compare inline --base <name> --new <name> --format json
-# JSON: {"summary":{"added":N,"removed":N,"same":N},"files":[{"file":"...","sites":[...]}]}
-# escape site fields: line, kind, message, status ("added"|"removed"|"same"), base_line (same-shifted only)
-# inline site fields: line, kind, function, reason, status, base_line (same-shifted only)
-# --all to include unchanged (same) entries; --deps and --func work the same as for show
-# --format raw: one line per change: "+ file:line:col: msg" / "- file:line:col: msg"
-```
-
-### Git diff
-
-```bash
-benchspotter show diff --session <name> --format raw    # unified diff
-benchspotter show diff --session <name> --format json   # fields: session_id, session_name, diff
-```
-
-## Parameter optimization
-
-Requires `benchinput` declarations in the codebase. Add instrumentation with a
-one-line change (temporary — revert after tuning):
+Requires a `benchinput` declaration in the code — a one-line temporary change, reverted
+after tuning:
 
 ```diff
 +import "github.com/MichaelMure/benchspotter/benchinput"
@@ -237,41 +163,141 @@ one-line change (temporary — revert after tuning):
 +var bufSize = benchinput.Int("bufSize", 1024, 64, 65536)
 ```
 
-Supported: `benchinput.Bool`, `Int`, `IntLog`, `Float`, `FloatLog`. Values are
-injected via `BENCHSPOTTER_<NAME>` env vars at runtime; `optimize` sets them
-automatically. `IntLog` / `FloatLog` sample on a log scale — better for
-parameters spanning orders of magnitude.
-
 ```bash
-benchspotter optimize \
-  --bench BenchmarkFoo \   # regexp; error if zero or multiple benchmarks match
-  --param bufSize \
-  --metric ns/op \
-  --strategy random \
-  --max-trials 50 \
-  --timeout 5m \
-  --format json
+benchspotter --no-prompt optimize -b BenchmarkFoo --param bufSize \
+  -m ns/op -s random --max-trials 50 --timeout 5m -f json
 ```
 
-Three strategies:
-- `random` — uniform sampling; unbiased, reliable correlation matrix.
-- `coord` — coordinate descent; fast for smooth surfaces, stops on convergence.
-- `sa` — simulated annealing; better than `coord` at escaping local optima.
+`Bool`, `Int`, `IntLog`, `Float`, `FloatLog` are supported; the `Log` variants sample on
+a log scale. `--param` is repeatable. `-s` picks `random`, `coord` (coordinate descent)
+or `sa` (simulated annealing) — prefer `random` when you want the correlation matrix,
+since the others sample too narrowly for it to mean anything. `--maximize` flips the
+objective, `--count` sets iterations per trial. Always pair `--max-trials` with
+`--timeout`.
 
-Use `--maximize` to flip the objective. `--count` sets benchmark iterations
-per trial (increase for noisy benchmarks).
+JSON: `benchmark`, `strategy`, `metric`, `minimize`, `trials[]` (`n`, `params`,
+`metrics`), `best`, and a `correlation` matrix once ≥3 trials have run — that matrix
+tells you which parameters actually matter.
 
-JSON output: `benchmark`, `strategy`, `metric`, `minimize`, `trials[]` (each
-with `n`, `params`, `metrics`), `best`, and a `correlation` matrix (once ≥3
-trials). The correlation matrix maps each parameter to each metric — useful for
-deciding which parameters actually matter.
+## Command reference
 
-## Scripting tips
+### bench
 
-- **Session names as a fallback** — `--session`, `--base`, and `--new` also accept the human
-  name (e.g. `--session "after refactor"`). The command errors if the name matches multiple
-  sessions and tells you to use the UUID instead.
-- `--format raw` on profile commands yields binary pprof; pipe into `go tool pprof`.
-- `--format raw` on `compare bench` yields raw `.bench` text for `benchstat`.
-- For `optimize`, use `--max-trials` + `--timeout` together: trials caps total
-  work, timeout guards against slow benchmarks that would exceed wall-clock budget.
+```bash
+benchspotter bench -p bench,cpu,mem -b BenchmarkFoo -b BenchmarkBar -n "baseline" -c 10
+benchspotter bench --all-profile --all-bench -n "full sweep" -c 10
+```
+
+### session
+
+```bash
+benchspotter session ls                       # add --tag <t> or --bench <regexp> to filter
+benchspotter session show <id-or-name>        # full metadata, including the whole note
+benchspotter session tag    <id-or-name> <tag>
+benchspotter session untag  <id-or-name> <tag>
+benchspotter session rename <id-or-name> <new-name>
+benchspotter session note   <id-or-name> "<text>"
+benchspotter session rm -y  <id-or-name>
+```
+
+JSON fields: `id`, `name`, `human_name`, `time`, `commit`, `has_diff`, `profiles`,
+`tags`, `notes`, `benchmarks`, `machine`, `go_version`. `name` is what was passed to
+`-n` (absent if unnamed); `human_name` is the de-duplicated display name. In `ls` text
+mode `notes` is truncated — use `session show` for the full text.
+
+Two markers are benchspotter's own, and appear in `trend` and `compare bench` tables
+too: `±` after a commit hash means the session ran with uncommitted changes (`show diff`
+retrieves them), and `⚙1`/`⚙2` mark different machines, with a legend under the table.
+Timings across machines are not comparable — say so rather than reporting the delta. Tag
+machine groups to keep them filterable: `session tag <id> ci-runner`, then
+`trend --tag ci-runner`.
+
+### compare bench
+
+```bash
+benchspotter compare bench --session "before" --session "after"
+benchspotter compare bench --session <a> --session <b> --session <c> --baseline <b>
+```
+
+First `--session` is the baseline unless `--baseline` says otherwise. Also:
+`--alpha 0.05` (significance), `--table/--row/--col` (projections; defaults
+`.config`/`.fullname`/`.file`), `--skip-machine-check`.
+
+`--filter` takes benchfilter syntax — `key:value`, never a bare pattern. The name
+carries no `Benchmark` prefix, and `/…/` is a regexp: `--filter '.name:Foo'` for one
+benchmark, `--filter '.name:/Foo/'` for every name containing `Foo`.
+
+JSON is an array of `{unit, benchmarks[]}` — one entry per unit (`sec/op`, `B/op`,
+`allocs/op`). Each benchmark holds `sessions[]` of `{name, center, range}`, and every
+non-baseline session adds `delta` and `stats`. `delta` and `range` are display
+**strings** (`"~"`, `"+2.31%"`, `"∞"`), not numbers.
+
+### trend
+
+```bash
+benchspotter trend                            # every session, one column each
+benchspotter trend --tag ci-runner --last 20
+benchspotter trend --bench Foo                # errors if the regexp matches nothing
+benchspotter trend --comparison baseline      # arrows vs first session, not vs previous
+```
+
+Also `--session` (repeatable) and `--confidence` (default 0.95).
+
+JSON is `{sessions: [{i, name, time}], benchmarks: [{name, metrics: {unit: [...]}}]}`.
+The metric arrays are **formatted display strings** (`"5.92µs"`) positionally aligned
+with `sessions[]` — no easier to compute with than the text table, and 5× larger.
+
+### show / compare profiles
+
+```bash
+benchspotter show cpu   --session "after" --bench BenchmarkFoo --top 30
+benchspotter show mem   --session "after" --bench BenchmarkFoo --metric alloc_objects
+benchspotter compare cpu --base "before" --new "after" --bench BenchmarkFoo
+```
+
+`--bench` is required whenever the session holds more than one profile of that kind;
+omitting it fails with the list of available benchmarks. `show` and `compare` both take
+`--top` and `--sort`. `--metric` exists only on the `mem` commands: `alloc_space`
+(default), `alloc_objects`, `inuse_space`, `inuse_objects`.
+
+JSON: `show` gives `name`, `file`, `line`, `flat_ns`, `cum_ns`, `flat_pct`, `cum_pct`;
+`compare` gives `base_flat_ns`, `new_flat_ns`, `delta_flat_ns`, `delta_flat_pct`, ….
+
+```bash
+benchspotter show cpu    --session "after" --bench BenchmarkFoo -f raw > cpu.pprof
+benchspotter compare cpu --base "before" --new "after" --bench BenchmarkFoo \
+  -f raw > diff.pprof                                          # positive = regression
+go tool pprof cpu.pprof
+```
+
+### show / compare escape and inline
+
+```bash
+benchspotter show escape    --session "after" --func myFunc -f json
+benchspotter compare inline --base "before" --new "after" -f json
+```
+
+`--func` is repeatable, OR-ed, case-insensitive; it matches the message for `escape` and
+the function name for `inline`.
+
+`show escape` JSON: `{summary: {heap_escape, leaking_param, other}, files: [{file,
+sites: [{line, kind, message}]}]}`. Only `heap_escape` and `leaking_param` are shown by
+default; `--all` adds the rest.
+
+`show inline` JSON: `{summary: {cannot_inline, inlining_call, can_inline}, files:
+[{file, sites: [{line, kind, function, reason}]}]}`. Only `cannot_inline` by default;
+`--all` adds the rest.
+
+`compare` replaces the summary with `{added, removed, same}` and adds `status`
+(`"added"`/`"removed"`/`"same"`) plus `base_line` to each site; `--all` includes
+unchanged sites.
+
+In both, project code only unless `--deps`, except that `heap_escape`, `leaking_param`
+and `cannot_inline` are always reported from dependencies too.
+
+### show diff
+
+```bash
+benchspotter show diff --session "after" -f raw     # unified diff
+benchspotter show diff --session "after" -f json    # session_id, session_name, diff
+```
