@@ -24,6 +24,7 @@ type benchOptions struct {
 	bench      []string
 	allBench   bool
 	name       string
+	nameSet    bool
 	count      int
 	printID    bool
 }
@@ -47,10 +48,6 @@ var profileHelp = map[engine.Profile]string{
 	engine.ProfileEscape: "Capture escape analysis",
 	engine.ProfileInline: "Capture inlining decisions",
 }
-
-// unsetStringMarker is a value marking a string not being set in a string flag.
-// It's an invalid utf8 string.
-const unsetStringMarker = "\x80"
 
 func newBenchCommand(env *execenv.Env) *cobra.Command {
 	options := benchOptions{}
@@ -96,6 +93,9 @@ your last selection and pre-populate it the next time you run this command.
 Any interactive prompt can be bypassed with the corresponding flags.`,
 		PreRunE: execenv.LoadRepo(env),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// An empty name is a valid choice, so "was it given?" cannot be
+			// answered by the value alone.
+			options.nameSet = cmd.Flags().Changed("name")
 			return runBench(env, options)
 		},
 	}
@@ -112,7 +112,7 @@ Any interactive prompt can be bypassed with the corresponding flags.`,
 	flags.BoolVar(&options.allProfile, "all-profile", false, "Run all profiling modes")
 	flags.StringArrayVarP(&options.bench, "bench", "b", []string{}, "Run only benchmarks matching `regexp` (repeatable, patterns are OR-ed)")
 	flags.BoolVarP(&options.allBench, "all-bench", "a", false, "Run all benchmarks")
-	flags.StringVarP(&options.name, "name", "n", unsetStringMarker, "A name for the benchmark session, for the user to record what is being tested")
+	flags.StringVarP(&options.name, "name", "n", "", "A name for the benchmark session, for the user to record what is being tested")
 	flags.IntVarP(&options.count, "count", "c", -1, "Run benchmarks `n` times")
 	flags.BoolVar(&options.printID, "print-id", false, "Print only the session UUID to stdout (useful for scripting)")
 
@@ -218,7 +218,7 @@ func runBench(env *execenv.Env, options benchOptions) error {
 		}
 	}
 
-	if options.name == unsetStringMarker {
+	if !options.nameSet {
 		err = env.FormSingle("-n/--name", huh.NewInput().
 			Title("Name of the session (optional)").
 			Validate(func(s string) error {

@@ -260,7 +260,12 @@ func newShowProfileCommand(env *execenv.Env, profileType engine.Profile, use, sh
 	flags := cmd.Flags()
 	flags.StringVar(&options.session, "session", "", "Session ID to inspect")
 	flags.StringVar(&options.bench, "bench", "", "Benchmark name to show (default: merge all)")
-	flags.Var(enumflag.New(&options.metric, "metric", memMetricIds, enumflag.EnumCaseInsensitive), "metric", "mem metric (alloc_space, alloc_objects, inuse_space, inuse_objects)")
+	// Only a memory profile carries several sample types to choose between;
+	// for the others the value index is derived from the profile type.
+	if profileType == engine.ProfileMem {
+		flags.Var(enumflag.New(&options.metric, "metric", memMetricIds, enumflag.EnumCaseInsensitive),
+			"metric", "which allocation metric to report (alloc_space, alloc_objects, inuse_space, inuse_objects)")
+	}
 	flags.Var(enumflag.New(&options.sort, "sort", sortOrderIds, enumflag.EnumCaseInsensitive), "sort", "sort order (flat, cumulative, name)")
 	flags.IntVar(&options.top, "top", options.top, "Number of top functions to show")
 	flags.BoolVar(&options.web, "web", false, "Open profile in pprof web UI instead of TUI")

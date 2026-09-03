@@ -198,8 +198,12 @@ func newCompareProfileCommand(env *execenv.Env, profileType engine.Profile, use,
 	flags.StringVar(&options.baseSession, "base", "", "Base session ID or name")
 	flags.StringVar(&options.newSession, "new", "", "New session ID or name")
 	flags.StringVar(&options.bench, "bench", "", "Benchmark name to compare (default: use common benchmark)")
-	flags.Var(enumflag.New(&options.metric, "metric", memMetricIds, enumflag.EnumCaseInsensitive),
-		"metric", "mem metric (alloc_space, alloc_objects, inuse_space, inuse_objects)")
+	// Only a memory profile carries several sample types to choose between;
+	// for the others the value index is derived from the profile type.
+	if profileType == engine.ProfileMem {
+		flags.Var(enumflag.New(&options.metric, "metric", memMetricIds, enumflag.EnumCaseInsensitive),
+			"metric", "which allocation metric to report (alloc_space, alloc_objects, inuse_space, inuse_objects)")
+	}
 	flags.Var(enumflag.New(&options.sort, "sort", diffSortOrderIds, enumflag.EnumCaseInsensitive),
 		"sort", "sort order (|flat|, flat, |cum|, cum, name)")
 	flags.IntVar(&options.top, "top", options.top, "Number of top functions to show")
