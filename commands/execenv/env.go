@@ -10,7 +10,7 @@ import (
 	"charm.land/huh/v2"
 	"charm.land/huh/v2/spinner"
 	"charm.land/lipgloss/v2"
-	"github.com/muesli/termenv"
+	"github.com/charmbracelet/colorprofile"
 
 	"benchspotter/repository"
 )
@@ -35,8 +35,8 @@ func NewEnv(ctx context.Context) *Env {
 		Ctx:    ctx,
 		Repo:   nil,
 		In:     in{Reader: os.Stdin},
-		Out:    out{out: termenv.NewOutput(os.Stdout)},
-		Err:    out{out: termenv.NewOutput(os.Stderr)},
+		Out:    out{out: colorprofile.NewWriter(os.Stdout, os.Environ())},
+		Err:    out{out: colorprofile.NewWriter(os.Stderr, os.Environ())},
 		Style:  NewStyle(tf, isDark),
 		Format: FormatText,
 	}

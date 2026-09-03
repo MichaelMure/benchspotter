@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/muesli/termenv"
+	"github.com/charmbracelet/colorprofile"
 	"golang.org/x/term"
 )
 
@@ -42,7 +42,7 @@ type Out interface {
 var _ Out = &out{}
 
 type out struct {
-	out *termenv.Output
+	out *colorprofile.Writer
 }
 
 func (o out) Printf(format string, a ...interface{}) {
@@ -71,7 +71,7 @@ func (o out) PrintJSON(v interface{}) error {
 }
 
 func (o out) IsTerminal() bool {
-	if f, ok := o.out.Writer().(*os.File); ok {
+	if f, ok := o.out.Forward.(*os.File); ok {
 		return isTerminal(f)
 	}
 	return false
@@ -88,7 +88,7 @@ func (o out) Width() int {
 }
 
 func (o out) Raw() io.Writer {
-	return o.out.Writer()
+	return o.out.Forward
 }
 
 func (o out) String() string {

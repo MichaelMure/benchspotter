@@ -346,7 +346,9 @@ func runShowProfile(env *execenv.Env, options showProfileOptions) error {
 
 	switch env.Format {
 	case execenv.FormatRaw:
-		return engine.ReadProfileRaw(env.Repo.Storage(), selection.Path, options.profileType, options.bench, env.Out)
+		// Raw() bypasses the color-profile writer: a pprof profile is binary
+		// protobuf, and ANSI stripping on a non-terminal would corrupt it.
+		return engine.ReadProfileRaw(env.Repo.Storage(), selection.Path, options.profileType, options.bench, env.Out.Raw())
 
 	case execenv.FormatJSON:
 		funcs, err := engine.ReadProfileFunctions(env.Repo.Storage(), selection.Path, options.profileType, options.bench)

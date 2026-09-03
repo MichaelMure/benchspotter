@@ -333,7 +333,9 @@ func runCompareProfile(env *execenv.Env, options compareProfileOptions) error {
 
 	switch env.Format {
 	case execenv.FormatRaw:
-		return engine.DiffProfileRaw(env.Repo.Storage(), baseInfo.Path, newInfo.Path, options.profileType, options.bench, env.Out)
+		// Raw() bypasses the color-profile writer: a pprof profile is binary
+		// protobuf, and ANSI stripping on a non-terminal would corrupt it.
+		return engine.DiffProfileRaw(env.Repo.Storage(), baseInfo.Path, newInfo.Path, options.profileType, options.bench, env.Out.Raw())
 
 	case execenv.FormatText:
 		model := &compareProfileViewModel{
