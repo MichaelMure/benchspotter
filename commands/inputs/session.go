@@ -12,7 +12,10 @@ import (
 	"benchspotter/engine"
 )
 
-func SelectSession(env *execenv.Env, title, preSelect string, filter func(info *engine.SessionInfo) bool) (*engine.SessionInfo, error) {
+// SelectSession prompts for one session. flag names what the caller expects
+// instead of the prompt when --no-prompt is set: a flag like "--base", or
+// "<id>" for the commands taking the session as a positional argument.
+func SelectSession(env *execenv.Env, flag, title, preSelect string, filter func(info *engine.SessionInfo) bool) (*engine.SessionInfo, error) {
 	var sessions []*engine.SessionInfo
 
 	err := env.Spinner().Title("Finding sessions").
@@ -59,7 +62,7 @@ func SelectSession(env *execenv.Env, title, preSelect string, filter func(info *
 	if mc != nil {
 		fields = append([]huh.Field{machineLegendNote(env, mc)}, fields...)
 	}
-	err = env.Form("--session", huh.NewGroup(fields...)).
+	err = env.Form(flag, huh.NewGroup(fields...)).
 		RunWithContext(env.Ctx)
 	if err != nil {
 		return nil, err
@@ -68,7 +71,8 @@ func SelectSession(env *execenv.Env, title, preSelect string, filter func(info *
 	return selection, nil
 }
 
-func SelectSessions(env *execenv.Env, preSelect []string) ([]*engine.SessionInfo, error) {
+// SelectSessions prompts for several sessions. flag is used as in SelectSession.
+func SelectSessions(env *execenv.Env, flag string, preSelect []string) ([]*engine.SessionInfo, error) {
 	var sessions []*engine.SessionInfo
 
 	err := env.Spinner().Title("Finding sessions").
@@ -106,7 +110,7 @@ func SelectSessions(env *execenv.Env, preSelect []string) ([]*engine.SessionInfo
 	if mc != nil {
 		fields = append([]huh.Field{machineLegendNote(env, mc)}, fields...)
 	}
-	err = env.Form("--session", huh.NewGroup(fields...)).
+	err = env.Form(flag, huh.NewGroup(fields...)).
 		RunWithContext(env.Ctx)
 	if err != nil {
 		return nil, err

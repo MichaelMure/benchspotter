@@ -278,7 +278,7 @@ func runShowProfile(env *execenv.Env, options showProfileOptions) error {
 
 	if interactive {
 		preSelected := env.Repo.GetRecall(sessionRecallKey)
-		selection, err = inputs.SelectSession(env, "Select session", preSelected,
+		selection, err = inputs.SelectSession(env, "--session", "Select session", preSelected,
 			func(info *engine.SessionInfo) bool {
 				return info.HasProfile(options.profileType)
 			})

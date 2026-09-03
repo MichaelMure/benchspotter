@@ -36,7 +36,7 @@ func resolveAnalysisSessions(
 	var err error
 
 	if options.baseSession == "" {
-		baseInfo, err = inputs.SelectSession(env, "Select base session", env.Repo.GetRecall(baseRecallKey), profileFilter)
+		baseInfo, err = inputs.SelectSession(env, "--base", "Select base session", env.Repo.GetRecall(baseRecallKey), profileFilter)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -54,7 +54,7 @@ func resolveAnalysisSessions(
 	}
 
 	if options.newSession == "" {
-		newInfo, err = inputs.SelectSession(env, "Select new session", env.Repo.GetRecall(newRecallKey), profileFilter)
+		newInfo, err = inputs.SelectSession(env, "--new", "Select new session", env.Repo.GetRecall(newRecallKey), profileFilter)
 		if err != nil {
 			return nil, nil, err
 		}

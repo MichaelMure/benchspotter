@@ -128,16 +128,47 @@ func TestLocateSession(t *testing.T) {
 
 	t.Run("by_name_ambiguous", func(t *testing.T) {
 		_, err := LocateSession(fs, "alpha")
-		assert.ErrorContains(t, err, "ambiguous")
-		assert.ErrorContains(t, err, "2")
+		require.ErrorContains(t, err, "ambiguous")
+		require.ErrorContains(t, err, "2")
+	})
+
+	// The two "alpha" sessions are only reachable through the de-duplicated
+	// names that `session ls` displays, so those must resolve as well.
+	t.Run("by_human_name", func(t *testing.T) {
+		sessions, err := LocateSessions(fs)
+		require.NoError(t, err)
+
+		byId := make(map[string]string, len(sessions))
+		for _, s := range sessions {
+			byId[s.Id] = s.HumanName
+		}
+		require.NotEqual(t, byId[id1], byId[id3], "duplicate names should be de-duplicated")
+
+		for _, id := range []string{id1, id3} {
+			s, err := LocateSession(fs, byId[id])
+			require.NoError(t, err)
+			require.Equal(t, id, s.Id)
+		}
+	})
+
+	// An ambiguous name is only actionable if the error says what to type instead.
+	t.Run("ambiguous_error_names_alternatives", func(t *testing.T) {
+		sessions, err := LocateSessions(fs)
+		require.NoError(t, err)
+
+		_, err = LocateSession(fs, "alpha")
+		require.Error(t, err)
+		for _, s := range sessions {
+			if s.Name == "alpha" {
+				require.ErrorContains(t, err, s.HumanName)
+			}
+		}
 	})
 
 	t.Run("not_found", func(t *testing.T) {
 		_, err := LocateSession(fs, "nonexistent")
-		assert.ErrorContains(t, err, "not found")
+		require.ErrorContains(t, err, "not found")
 	})
-
-	_ = id3
 }
 
 func TestRemoveSession(t *testing.T) {

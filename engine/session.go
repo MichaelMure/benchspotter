@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-git/go-billy/v5"
@@ -213,34 +215,40 @@ func LocateSessions(fs billy.Filesystem, tagFilter ...string) ([]*SessionInfo, e
 	return res, nil
 }
 
-// LocateSession returns the session matching query (UUID or name).
-// It is an error if query matches nothing, or if a name matches multiple sessions.
-// HumanName is set to a simple fallback; call GenerateNames on the assembled list
-// when displaying multiple sessions together to get de-duplicated names.
+// LocateSession returns the session matching query, which may be a session UUID,
+// the de-duplicated name shown by `session ls` (HumanName), or the raw name given
+// to `bench -n`. Matching is exact and tried in that order.
+//
+// It is an error if query matches nothing, or if a raw name is shared by several
+// sessions; in that case the error names the de-duplicated alternatives, which
+// are unambiguous.
+//
+// HumanName on the result is de-duplicated against every stored session. Callers
+// assembling a subset for display should call GenerateNames on that subset.
 func LocateSession(fs billy.Filesystem, query string) (*SessionInfo, error) {
-	uid, err := uuid.Parse(query)
-	if err == nil && uid.Version() == 7 {
-		s, err := readSession(fs, query)
-		if err != nil {
-			return nil, fmt.Errorf("session %q not found", query)
-		}
-		return s, nil
-	}
-
-	dirs, err := fs.ReadDir(sessionDir)
-	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("no sessions found, use the `bench` command to create one")
-	}
+	sessions, err := LocateSessions(fs)
 	if err != nil {
 		return nil, err
 	}
 
-	var matches []*SessionInfo
-	for _, dir := range dirs {
-		s, err := readSession(fs, dir.Name())
-		if err != nil {
-			return nil, err
+	if uid, err := uuid.Parse(query); err == nil && uid.Version() == 7 {
+		for _, s := range sessions {
+			if s.uid == uid {
+				return s, nil
+			}
 		}
+		return nil, fmt.Errorf("session %q not found", query)
+	}
+
+	// HumanName is unique by construction, so it resolves to at most one session.
+	for _, s := range sessions {
+		if s.HumanName == query {
+			return s, nil
+		}
+	}
+
+	var matches []*SessionInfo
+	for _, s := range sessions {
 		if s.Name == query {
 			matches = append(matches, s)
 		}
@@ -252,7 +260,12 @@ func LocateSession(fs billy.Filesystem, query string) (*SessionInfo, error) {
 	case 1:
 		return matches[0], nil
 	default:
-		return nil, fmt.Errorf("session name %q is ambiguous (%d matches); use a session ID instead", query, len(matches))
+		names := make([]string, len(matches))
+		for i, s := range matches {
+			names[i] = strconv.Quote(s.HumanName)
+		}
+		return nil, fmt.Errorf("session name %q is ambiguous (%d matches); use %s, or a session ID",
+			query, len(matches), strings.Join(names, " or "))
 	}
 }
 

@@ -62,7 +62,7 @@ func runShowEscape(env *execenv.Env, options showEscapeOptions) error {
 		const recallKey = "show_escape_session"
 		preSelected := env.Repo.GetRecall(recallKey)
 		var err error
-		selection, err = inputs.SelectSession(env, "Select session", preSelected,
+		selection, err = inputs.SelectSession(env, "--session", "Select session", preSelected,
 			func(info *engine.SessionInfo) bool { return info.HasProfile(engine.ProfileEscape) })
 		if err != nil {
 			return err

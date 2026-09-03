@@ -87,7 +87,7 @@ func runCompareBench(env *execenv.Env, options compareBenchOptions) error {
 		const recallKey = "compare_bench_sessions"
 		preSelected := env.Repo.GetRecalls(recallKey)
 
-		selection, err = inputs.SelectSessions(env, preSelected)
+		selection, err = inputs.SelectSessions(env, "--session", preSelected)
 		if err != nil {
 			return err
 		}

@@ -262,22 +262,14 @@ func runSessionShow(env *execenv.Env, args []string) error {
 	var s *engine.SessionInfo
 
 	if len(args) >= 1 {
-		sessions, err := engine.LocateSessions(env.Repo.Storage())
+		var err error
+		s, err = engine.LocateSession(env.Repo.Storage(), args[0])
 		if err != nil {
 			return err
 		}
-		for _, candidate := range sessions {
-			if candidate.Id == args[0] {
-				s = candidate
-				break
-			}
-		}
-		if s == nil {
-			return fmt.Errorf("session %q not found", args[0])
-		}
 	} else {
 		var err error
-		s, err = inputs.SelectSession(env, "Select session to show", env.Repo.GetRecall("session_show_session"), nil)
+		s, err = inputs.SelectSession(env, "<id>", "Select session to show", env.Repo.GetRecall("session_show_session"), nil)
 		if err != nil {
 			return err
 		}
@@ -374,7 +366,7 @@ func runSessionTag(env *execenv.Env, args []string) error {
 	if len(args) >= 2 {
 		sessionID, tag = args[0], args[1]
 	} else {
-		selection, err := inputs.SelectSession(env, "Select session to tag", env.Repo.GetRecall("session_tag_session"), nil)
+		selection, err := inputs.SelectSession(env, "<id>", "Select session to tag", env.Repo.GetRecall("session_tag_session"), nil)
 		if err != nil {
 			return err
 		}
@@ -400,19 +392,9 @@ func runSessionTag(env *execenv.Env, args []string) error {
 		return fmt.Errorf("tag name cannot be empty")
 	}
 
-	sessions, err := engine.LocateSessions(env.Repo.Storage())
+	target, err := engine.LocateSession(env.Repo.Storage(), sessionID)
 	if err != nil {
 		return err
-	}
-	var target *engine.SessionInfo
-	for _, s := range sessions {
-		if s.Id == sessionID {
-			target = s
-			break
-		}
-	}
-	if target == nil {
-		return fmt.Errorf("session %q not found", sessionID)
 	}
 
 	return engine.TagSession(env.Repo.Storage(), target.Path, tag)
@@ -440,7 +422,7 @@ func runSessionUntag(env *execenv.Env, args []string) error {
 	if len(args) >= 2 {
 		sessionID, tag = args[0], args[1]
 	} else {
-		selection, err := inputs.SelectSession(env, "Select session to untag", env.Repo.GetRecall("session_untag_session"),
+		selection, err := inputs.SelectSession(env, "<id>", "Select session to untag", env.Repo.GetRecall("session_untag_session"),
 			func(s *engine.SessionInfo) bool { return len(s.Tags) > 0 })
 		if err != nil {
 			return err
@@ -468,16 +450,12 @@ func runSessionUntag(env *execenv.Env, args []string) error {
 		}
 	}
 
-	sessions, err := engine.LocateSessions(env.Repo.Storage())
+	s, err := engine.LocateSession(env.Repo.Storage(), sessionID)
 	if err != nil {
 		return err
 	}
-	for _, s := range sessions {
-		if s.Id == sessionID {
-			return engine.UntagSession(env.Repo.Storage(), s.Path, tag)
-		}
-	}
-	return fmt.Errorf("session %q not found", sessionID)
+
+	return engine.UntagSession(env.Repo.Storage(), s.Path, tag)
 }
 
 func newSessionRenameCommand(env *execenv.Env) *cobra.Command {
@@ -504,7 +482,7 @@ func runSessionRename(env *execenv.Env, args []string) error {
 	if len(args) >= 2 {
 		sessionID, name = args[0], args[1]
 	} else {
-		selection, err := inputs.SelectSession(env, "Select session to rename", env.Repo.GetRecall("session_rename_session"), nil)
+		selection, err := inputs.SelectSession(env, "<id>", "Select session to rename", env.Repo.GetRecall("session_rename_session"), nil)
 		if err != nil {
 			return err
 		}
@@ -531,16 +509,12 @@ func runSessionRename(env *execenv.Env, args []string) error {
 		return fmt.Errorf("name cannot be empty")
 	}
 
-	sessions, err := engine.LocateSessions(env.Repo.Storage())
+	s, err := engine.LocateSession(env.Repo.Storage(), sessionID)
 	if err != nil {
 		return err
 	}
-	for _, s := range sessions {
-		if s.Id == sessionID {
-			return engine.RenameSession(env.Repo.Storage(), s.Path, name)
-		}
-	}
-	return fmt.Errorf("session %q not found", sessionID)
+
+	return engine.RenameSession(env.Repo.Storage(), s.Path, name)
 }
 
 func newSessionNoteCommand(env *execenv.Env) *cobra.Command {
@@ -568,7 +542,7 @@ func runSessionNote(env *execenv.Env, args []string) error {
 	if len(args) >= 2 {
 		sessionID, note = args[0], strings.Join(args[1:], " ")
 	} else {
-		selection, err := inputs.SelectSession(env, "Select session to annotate", env.Repo.GetRecall("session_note_session"), nil)
+		selection, err := inputs.SelectSession(env, "<id>", "Select session to annotate", env.Repo.GetRecall("session_note_session"), nil)
 		if err != nil {
 			return err
 		}
@@ -592,16 +566,12 @@ func runSessionNote(env *execenv.Env, args []string) error {
 		}
 	}
 
-	sessions, err := engine.LocateSessions(env.Repo.Storage())
+	s, err := engine.LocateSession(env.Repo.Storage(), sessionID)
 	if err != nil {
 		return err
 	}
-	for _, s := range sessions {
-		if s.Id == sessionID {
-			return engine.NoteSession(env.Repo.Storage(), s.Path, note)
-		}
-	}
-	return fmt.Errorf("session %q not found", sessionID)
+
+	return engine.NoteSession(env.Repo.Storage(), s.Path, note)
 }
 
 type sessionRmOptions struct {
@@ -630,22 +600,14 @@ func runSessionRm(env *execenv.Env, args []string, opts sessionRmOptions) error 
 	var target *engine.SessionInfo
 
 	if len(args) >= 1 {
-		sessions, err := engine.LocateSessions(env.Repo.Storage())
+		var err error
+		target, err = engine.LocateSession(env.Repo.Storage(), args[0])
 		if err != nil {
 			return err
 		}
-		for _, s := range sessions {
-			if s.Id == args[0] {
-				target = s
-				break
-			}
-		}
-		if target == nil {
-			return fmt.Errorf("session %q not found", args[0])
-		}
 	} else {
 		var err error
-		target, err = inputs.SelectSession(env, "Select session to remove", env.Repo.GetRecall("session_rm_session"), nil)
+		target, err = inputs.SelectSession(env, "<id>", "Select session to remove", env.Repo.GetRecall("session_rm_session"), nil)
 		if err != nil {
 			return err
 		}

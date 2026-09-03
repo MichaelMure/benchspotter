@@ -54,7 +54,7 @@ func runShowDiffCommand(env *execenv.Env, options showDiffOptions) error {
 	if len(options.session) == 0 {
 		const recallKey = "show_diff_session"
 		preSelected := env.Repo.GetRecall(recallKey)
-		selection, err = inputs.SelectSession(env, "Select session", preSelected,
+		selection, err = inputs.SelectSession(env, "--session", "Select session", preSelected,
 			func(info *engine.SessionInfo) bool {
 				return info.HasGitDiff()
 			})
