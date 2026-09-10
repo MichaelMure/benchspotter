@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"charm.land/lipgloss/v2"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-billy/v5/util"
@@ -199,4 +200,70 @@ func TestShowProfile(t *testing.T) {
 			assert.ErrorContains(t, err, "no cpu profile found for benchmark")
 		})
 	})
+}
+
+func TestRenderProfileTableAnnotate(t *testing.T) {
+	style := execenv.TestStyle()
+
+	funcs := []engine.ProfileFunc{
+		{
+			Name:       "github.com/MichaelMure/gotomerge/column/rle.readU64",
+			File:       "/project/column/rle/reader.go",
+			StartLine:  238,
+			Flat:       330 * time.Millisecond,
+			Cumulative: 930 * time.Millisecond,
+			FlatPct:    22.30,
+			CumPct:     62.84,
+		},
+	}
+
+	getSource := func(file string, startLine int64) (string, []string) {
+		return "column/rle/reader.go", []string{"func readU64(r io.ByteReader) (uint64, error) {"}
+	}
+
+	// [s] restyles a different column for each sort order, so the header carries
+	// a different number of escape bytes each time. The annotation must line up
+	// under FUNCTION in all of them.
+	for _, order := range []engine.SortOrder{engine.SortFlat, engine.SortCumulative, engine.SortName} {
+		t.Run(order.String(), func(t *testing.T) {
+			out := renderProfileTable(funcs, 1, func(d time.Duration) string {
+				return d.String()
+			}, order, style, getSource)
+
+			lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+			require.Len(t, lines, 4, "header, function row, file:line, one source line")
+
+			// Measure in display columns: "▼" is three bytes but one column.
+			plain := ansiStrip(lines[0])
+			wantCol := lipgloss.Width(plain[:strings.Index(plain, "FUNCTION")])
+			require.Positive(t, wantCol)
+
+			for _, line := range lines[2:] {
+				require.Equal(t, wantCol, indentOf(line),
+					"annotation must be indented to the FUNCTION column, not to its byte offset in the styled header")
+			}
+		})
+	}
+}
+
+// indentOf returns the number of leading spaces of a line.
+func indentOf(line string) int {
+	return len(line) - len(strings.TrimLeft(line, " "))
+}
+
+// ansiStrip removes SGR escape sequences so a line can be measured in columns.
+func ansiStrip(s string) string {
+	var out strings.Builder
+	var inEsc bool
+	for i := 0; i < len(s); i++ {
+		switch c := s[i]; {
+		case c == 0x1b:
+			inEsc = true
+		case inEsc && ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')):
+			inEsc = false
+		case !inEsc:
+			out.WriteByte(c)
+		}
+	}
+	return out.String()
 }

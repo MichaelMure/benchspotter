@@ -14,10 +14,10 @@ test:
 
 .PHONY: demo
 demo:
-	vhs demo/tapes/bench.tape
-	vhs demo/tapes/compare.tape
-	vhs demo/tapes/show-diff.tape
-	vhs demo/tapes/show-cpu.tape
-	vhs demo/tapes/show-escape.tape
-	vhs demo/tapes/trend.tape
-	vhs demo/tapes/optimize.tape
+	vhs doc/demo/tapes/bench.tape
+	vhs doc/demo/tapes/compare.tape
+	vhs doc/demo/tapes/show-diff.tape
+	vhs doc/demo/tapes/show-cpu.tape
+	vhs doc/demo/tapes/show-escape.tape
+	vhs doc/demo/tapes/trend.tape
+	vhs doc/demo/tapes/optimize.tape

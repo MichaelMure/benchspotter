@@ -1,4 +1,4 @@
-Output demo/show-cpu.gif
+Output doc/demo/show-cpu.gif
 
 Set Theme "Catppuccin Mocha"
 Set FontFamily "Fira Code"
@@ -10,76 +10,81 @@ Set TypingSpeed 40ms
 Set Padding 2
 
 Hide
-Type "cd /home/michael/dev/benchspotter"
+Type "cd /home/michael/dev/gotomerge"
+Enter
+# Prompts remember the last selection: start from a clean slate so the
+# keystrokes below always land on the same session and benchmark.
+Type "rm -rf .benchspotter/recall"
 Enter
 Type "clear"
 Enter
 Show
 
 Sleep 1s
-Type "./benchspotter show cpu"
+Type "benchspotter show cpu"
 Enter
 
-# ── Session selection (SingleSelect) ─────────────────────────────────────
-# Sessions with CPU profiles (chronological):
-#   0. based       ← recall pre-selects this
-#   1. with escape
-#   2. after escape
-#   3. (unnamed)
-Sleep 1500ms
-Down         # peek at "with escape"
-Sleep 400ms
-Up           # back to "based"
-Sleep 300ms
-Enter        # select "based"
-
-# ── Benchmark selection (SingleSelect) ────────────────────────────────────
-# Benchmarks in session order from meta.json:
-#   0. BenchmarkBaz   (anotherpackage)
-#   1. BenchmarkBoz   (anotherpackage)
-#   2. BenchmarkFoo   ← recall pre-selects this
-#   3. BenchmarkBar
-#   ...
-Sleep 1500ms
-Down         # peek at BenchmarkBar
-Sleep 400ms
-Up           # back to BenchmarkFoo
-Sleep 300ms
-Enter        # select BenchmarkFoo
-
-# ── CPU profile table ─────────────────────────────────────────────────────
-Sleep 1500ms
-
-# Scroll down through top functions
+# ── Session selection (Select) ───────────────────────────────────────────
+# Only sessions holding a cpu profile are listed, chronologically:
+#   0. baseline2            3. a8de0a5 column/rle: optimize allocations
+#   1. rope-62              4. perf improvements
+#   2. 83b99ef format: ...  5. readers by value
+Wait+Screen@60s /Select session/
+Sleep 1200ms
 Down
-Sleep 150ms
+Sleep 250ms
 Down
-Sleep 150ms
+Sleep 250ms
 Down
-Sleep 150ms
+Sleep 250ms
 Down
-Sleep 300ms
-
-# Toggle source annotations
-Type "a"
+Sleep 250ms
+Down
 Sleep 800ms
+Enter
 
-# Scroll through annotated view
+# ── Benchmark selection (Select) ─────────────────────────────────────────
+# Listed per package with their total cpu time:
+#   0. BenchmarkInt64Reader  1. BenchmarkStringReader  2. BenchmarkUint64Reader
+Wait+Screen@60s /BenchmarkUint64Reader/
+Sleep 1200ms
 Down
-Sleep 200ms
+Sleep 300ms
 Down
-Sleep 200ms
-PageDown
-Sleep 600ms
+Sleep 800ms
+Enter
 
-# Cycle sort: flat → cumulative → name → flat
-Type "s"
-Sleep 500ms
-Type "s"
-Sleep 500ms
-Type "s"
-Sleep 400ms
+# ── Hot functions ────────────────────────────────────────────────────────
+Wait+Screen@60s /FUNCTION/
+Sleep 3s
 
-# Quit
+# [a] annotates each row with the source at the recorded line.
+Type "a"
+Sleep 3500ms
+Down
+Sleep 250ms
+Down
+Sleep 250ms
+Down
+Sleep 250ms
+Down
+Sleep 250ms
+Down
+Sleep 250ms
+Down
+Sleep 3s
+
+# Toggle it back off to return to the compact table.
+Type "a"
+Sleep 2s
+
+# [s] cycles the sort order: flat → cumulative → name.
+Type "s"
+Sleep 2500ms
+Type "s"
+Sleep 2500ms
+Type "s"
+Sleep 1500ms
+
 Type "q"
-Sleep 500ms
+Sleep 800ms

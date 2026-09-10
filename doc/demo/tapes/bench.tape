@@ -1,4 +1,4 @@
-Output demo/bench.gif
+Output doc/demo/bench.gif
 
 Set Theme "Catppuccin Mocha"
 Set FontFamily "Fira Code"
@@ -10,55 +10,85 @@ Set TypingSpeed 40ms
 Set Padding 2
 
 Hide
-Type "cd /home/michael/dev/benchspotter"
+Type "cd /home/michael/dev/gotomerge"
+Enter
+# Prompts remember the last selection: start from a clean slate so the
+# keystrokes below always land on the same options.
+Type "rm -rf .benchspotter/recall"
 Enter
 Type "clear"
 Enter
 Show
 
 Sleep 1s
-Type "./benchspotter bench"
+Type "benchspotter bench"
 Enter
 
 # ── Profile selection (MultiSelect) ──────────────────────────────────────
-# Recall pre-selects "Benchmark" (index 0). Cursor starts there.
+# Options: Benchmark, CPU, Memory, Mutex, Blocking, Escape analysis, Inlining.
+# Nothing is pre-selected, so pick Benchmark + Memory + Escape analysis.
 Sleep 1500ms
-Down         # peek at CPU profile option
-Sleep 400ms
-Down         # peek at Memory
-Sleep 300ms
-Up           # go back up
-Sleep 300ms
-Up           # back to Benchmark (pre-selected)
-Sleep 300ms
-Enter        # confirm: only Benchmark
+Space        # Benchmark
+Sleep 500ms
+Down
+Sleep 250ms
+Down
+Sleep 250ms
+Space        # Memory
+Sleep 500ms
+Down
+Sleep 250ms
+Down
+Sleep 250ms
+Down
+Sleep 250ms
+Space        # Escape analysis
+Sleep 800ms
+# The list is taller than its viewport, so scroll back to the top: all three
+# ticked options are then on screen when the form is submitted.
+Up
+Sleep 150ms
+Up
+Sleep 150ms
+Up
+Sleep 150ms
+Up
+Sleep 150ms
+Up
+Sleep 800ms
+Enter
 
 # ── Benchmark selection (MultiSelect) ────────────────────────────────────
-# Recall pre-selects BenchmarkFoo and BenchmarkBar.
+# Take the first four so the demo stays short.
 Sleep 1500ms
-Down         # browse the list
-Sleep 300ms
+Space        # BenchmarkReadMetadata
+Sleep 400ms
 Down
-Sleep 300ms
+Sleep 200ms
+Space        # BenchmarkWriteMetadata
+Sleep 400ms
 Down
-Sleep 300ms
-Up           # scroll back up
-Sleep 300ms
-Up
-Sleep 300ms
-Up
-Sleep 300ms
-Enter        # confirm pre-selected BenchmarkFoo + BenchmarkBar
+Sleep 200ms
+Space        # BenchmarkUint64Reader
+Sleep 400ms
+Down
+Sleep 200ms
+Space        # BenchmarkInt64Reader
+Sleep 800ms
+Enter
 
 # ── Session name ──────────────────────────────────────────────────────────
 Sleep 800ms
-Type "after fix"
+Type "baseline"
 Enter
 
 # ── Iteration count ───────────────────────────────────────────────────────
 Sleep 500ms
-Type "5"
+Type "3"
 Enter
 
-# ── Benchmarks running ────────────────────────────────────────────────────
-Sleep 15s
+# ── Benchmarks, memory profiles, then the compiler analysis ──────────────
+# The "escape" line is the very last thing printed, so wait for it rather
+# than guessing a duration.
+Wait+Screen@300s /escape +[0-9]/
+Sleep 3s

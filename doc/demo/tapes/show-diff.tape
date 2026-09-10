@@ -1,4 +1,4 @@
-Output demo/show-diff.gif
+Output doc/demo/show-diff.gif
 
 Set Theme "Catppuccin Mocha"
 Set FontFamily "Fira Code"

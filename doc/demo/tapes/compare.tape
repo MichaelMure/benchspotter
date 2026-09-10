@@ -1,4 +1,4 @@
-Output demo/compare.gif
+Output doc/demo/compare.gif
 
 Set Theme "Catppuccin Mocha"
 Set FontFamily "Fira Code"
@@ -10,46 +10,58 @@ Set TypingSpeed 40ms
 Set Padding 2
 
 Hide
-Type "cd /home/michael/dev/benchspotter"
+Type "cd /home/michael/dev/gotomerge"
+Enter
+# Prompts remember the last selection: start from a clean slate so the
+# keystrokes below always land on the same sessions.
+Type "rm -rf .benchspotter/recall"
 Enter
 Type "clear"
 Enter
 Show
 
 Sleep 1s
-Type "./benchspotter compare stat"
+Type "benchspotter compare bench"
 Enter
 
 # ── Session selection (MultiSelect, / to filter) ──────────────────────────
-# Recall pre-selects "based", "with escape", "after escape".
-# Sessions in chronological order:
-#   0. based        (pre-selected)
-#   1. with escape  (pre-selected)
-#   2. after escape (pre-selected)
-#   3. (unnamed)
-#   4. after fix    (newest, not pre-selected)
-Sleep 1500ms
-Down         # browse to "with escape"
+# Sessions are listed chronologically; the two to compare are 9th and 10th:
+#   8. perf improvements  (8f47b64)
+#   9. readers by value   (cf0af76)
+Wait+Screen@60s /Select sessions/
+Sleep 1200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 500ms
+Space        # perf improvements — baseline
+Sleep 600ms
+Down
 Sleep 300ms
-Down         # browse to "after escape"
-Sleep 300ms
-Down         # browse to unnamed
-Sleep 300ms
-Down         # browse to "after fix" — toggle it in too
-Space
-Sleep 300ms
-Up           # scroll back up
-Sleep 300ms
-Up
-Sleep 300ms
-Up
-Sleep 300ms
-Up
-Sleep 300ms
-Enter        # confirm selection (4 sessions)
+Space        # readers by value — compared against the baseline
+Sleep 1s
+Enter
 
 # ── Comparison table viewport ─────────────────────────────────────────────
-Sleep 2s
+# Scroll down 26 lines, which walks the column and column/rle packages: their
+# rows are narrow enough to fit. Stop there — docproxy's row labels
+# (Map/build/increasing_put/ops=10000-12) run past the viewport, which
+# truncates rather than wraps.
+Wait+Screen@60s /geomean/
+# Hold on the first table: three regressions, +10.46% on WriteMetadata.
+Sleep 3500ms
 Down
 Sleep 200ms
 Down
@@ -57,13 +69,51 @@ Sleep 200ms
 Down
 Sleep 200ms
 Down
-Sleep 300ms
-Down
-Sleep 300ms
-Up
 Sleep 200ms
-Up
-Sleep 300ms
-# Quit
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+# column/rle sec/op: -51.80%, -52.31%, -29.07%
+Sleep 3s
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+# ... paid for in B/op: +40.35%, +40.35%, +62.50%
+Sleep 2500ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+# ... and won back in allocs/op: -90.00%, -90.00%, -66.67%
+Sleep 3500ms
 Type "q"
-Sleep 500ms
+Sleep 800ms

@@ -1,4 +1,4 @@
-Output demo/show-escape.gif
+Output doc/demo/show-escape.gif
 
 Set Theme "Catppuccin Mocha"
 Set FontFamily "Fira Code"

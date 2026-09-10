@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/lipgloss/v2"
 	"github.com/google/pprof/profile"
 	"github.com/spf13/cobra"
 	"github.com/thediveo/enumflag/v2"
@@ -61,7 +62,7 @@ func (m *profileViewModel) Render() string {
 		valueIdx = engine.PickValueIndex(m.prof, m.profileType)
 	}
 	funcs := engine.AggregateFuncs(m.prof, valueIdx, m.sort)
-	var getSource func(string, int64) []string
+	var getSource func(string, int64) (string, []string)
 	if m.annotate && m.sourcesRoot != "" {
 		getSource = m.getSourceLines
 	}
@@ -72,10 +73,11 @@ func (m *profileViewModel) Render() string {
 	return content
 }
 
-// getSourceLines returns up to 3 source lines starting at startLine for the
-// given file path, reading from disk. It tries sourcesRoot-relative first,
-// then falls back to absFile directly (for stdlib and dependencies).
-func (m *profileViewModel) getSourceLines(absFile string, startLine int64) []string {
+// getSourceLines returns a short path to display and up to 3 source lines
+// starting at startLine for the given file path, reading from disk. It tries
+// sourcesRoot-relative first, then falls back to absFile directly (for stdlib
+// and dependencies).
+func (m *profileViewModel) getSourceLines(absFile string, startLine int64) (string, []string) {
 	content, seen := m.sourceCache[absFile]
 	if !seen {
 		rel, err := filepath.Rel(m.sourcesRoot, absFile)
@@ -88,12 +90,12 @@ func (m *profileViewModel) getSourceLines(absFile string, startLine int64) []str
 		m.sourceCache[absFile] = content // nil if not found — skip next time
 	}
 	if content == nil {
-		return nil
+		return "", nil
 	}
 	lines := bytes.Split(content, []byte("\n"))
 	start := int(startLine) - 1
 	if start < 0 || start >= len(lines) {
-		return nil
+		return "", nil
 	}
 	end := start + 3
 	if end > len(lines) {
@@ -103,7 +105,22 @@ func (m *profileViewModel) getSourceLines(absFile string, startLine int64) []str
 	for i, l := range lines[start:end] {
 		result[i] = strings.TrimRight(string(l), "\r")
 	}
-	return result
+	return m.displayPath(absFile), result
+}
+
+// displayPath shortens a source path for display. Files inside the project are
+// shown relative to its root, so the path can be opened as-is. Everything else
+// — the standard library, module dependencies — is reduced to its file name:
+// the FUNCTION column above already spells out the package, and the absolute
+// path is long enough to push the annotation off the side of the terminal.
+func (m *profileViewModel) displayPath(absFile string) string {
+	if m.sourcesRoot != "" {
+		rel, err := filepath.Rel(m.sourcesRoot, absFile)
+		if err == nil && !strings.HasPrefix(rel, "..") {
+			return filepath.ToSlash(rel)
+		}
+	}
+	return filepath.Base(absFile)
 }
 
 func (m *profileViewModel) Status() string {
@@ -416,7 +433,7 @@ func runShowProfile(env *execenv.Env, options showProfileOptions) error {
 	}
 }
 
-func renderProfileTable(funcs []engine.ProfileFunc, top int, fmtValue func(time.Duration) string, order engine.SortOrder, style execenv.Style, getSource func(file string, startLine int64) []string) string {
+func renderProfileTable(funcs []engine.ProfileFunc, top int, fmtValue func(time.Duration) string, order engine.SortOrder, style execenv.Style, getSource func(file string, startLine int64) (string, []string)) string {
 	top = min(top, len(funcs))
 	var buf bytes.Buffer
 	w := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
@@ -451,10 +468,12 @@ func renderProfileTable(funcs []engine.ProfileFunc, top int, fmtValue func(time.
 
 	// Post-process: insert source annotation lines after each function row.
 	tableLines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
-	// Determine indentation for the FUNCTION column from the header.
-	funcColStart := strings.Index(tableLines[0], "FUNCTION")
-	if funcColStart < 0 {
-		funcColStart = 0
+	// Determine indentation for the FUNCTION column from the header. The header
+	// is styled, so the byte offset of "FUNCTION" counts the ANSI escapes too —
+	// measure the display width of what precedes it instead.
+	funcColStart := 0
+	if i := strings.Index(tableLines[0], "FUNCTION"); i > 0 {
+		funcColStart = lipgloss.Width(tableLines[0][:i])
 	}
 	indent := strings.Repeat(" ", funcColStart)
 
@@ -469,11 +488,11 @@ func renderProfileTable(funcs []engine.ProfileFunc, top int, fmtValue func(time.
 		if f.File == "" || f.StartLine <= 0 {
 			continue
 		}
-		srcLines := getSource(f.File, f.StartLine)
+		path, srcLines := getSource(f.File, f.StartLine)
 		if len(srcLines) == 0 {
 			continue
 		}
-		fmt.Fprintf(&out, "%s%s:%s\n", indent, f.File, strconv.FormatInt(f.StartLine, 10))
+		fmt.Fprintf(&out, "%s%s:%s\n", indent, path, strconv.FormatInt(f.StartLine, 10))
 		for _, l := range srcLines {
 			fmt.Fprintf(&out, "%s│ %s\n", indent, l)
 		}

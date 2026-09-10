@@ -1,4 +1,4 @@
-Output demo/trend.gif
+Output doc/demo/trend.gif
 
 Set Theme "Catppuccin Mocha"
 Set FontFamily "Fira Code"

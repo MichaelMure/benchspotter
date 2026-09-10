@@ -1,4 +1,4 @@
-Output demo/optimize.gif
+Output doc/demo/optimize.gif
 
 Set Theme "Catppuccin Mocha"
 Set FontFamily "Fira Code"
