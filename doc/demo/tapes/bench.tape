@@ -2,9 +2,9 @@ Output doc/demo/bench.gif
 
 Set Theme "Catppuccin Mocha"
 Set FontFamily "Fira Code"
-Set FontSize 14
-Set Width 800
-Set Height 600
+Set FontSize 21
+Set Width 1140
+Set Height 880
 Set Framerate 12
 Set TypingSpeed 40ms
 Set Padding 2

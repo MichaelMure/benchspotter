@@ -2,77 +2,107 @@ Output doc/demo/show-escape.gif
 
 Set Theme "Catppuccin Mocha"
 Set FontFamily "Fira Code"
-Set FontSize 14
-Set Width 800
-Set Height 600
+Set FontSize 21
+Set Width 1140
+Set Height 880
 Set Framerate 12
 Set TypingSpeed 40ms
 Set Padding 2
 
 Hide
-Type "cd /home/michael/dev/benchspotter"
+Type "cd /home/michael/dev/gotomerge"
+Enter
+# Prompts remember the last selection: start from a clean slate so the
+# keystrokes below always land on the same session.
+Type "rm -rf .benchspotter/recall"
 Enter
 Type "clear"
 Enter
 Show
 
 Sleep 1s
-Type "./benchspotter show escape"
+Type "benchspotter show escape"
 Enter
 
-# ── Session selection (SingleSelect) ─────────────────────────────────────
-# Sessions with escape analysis:
-#   0. with escape  ← recall pre-selects this
-#   1. after escape
-Sleep 1500ms
-Down         # peek at "after escape"
-Sleep 500ms
-Up           # back to "with escape"
+# ── Session selection (Select) ───────────────────────────────────────────
+# Only sessions carrying compiler analysis are listed:
+#   0. 83b99ef format: ...        3. readers by value
+#   1. a8de0a5 column/rle: ...    4. baseline   ← recorded at the current HEAD,
+#   2. perf improvements                          so the annotated source matches
+Wait+Screen@60s /Select session/
+Sleep 1200ms
+Down
 Sleep 300ms
-Enter        # select "with escape"
+Down
+Sleep 300ms
+Down
+Sleep 300ms
+Down
+Sleep 900ms
+Enter
 
-# ── Escape analysis viewport ──────────────────────────────────────────────
-# Default: heap escapes + leaking params only, project code only
+# ── Escape analysis ──────────────────────────────────────────────────────
+# 1071 heap escapes across 332 functions. The sidebar lists every function with
+# escapes; the pane annotates the source at each site.
+Wait+Screen@60s /heap escape/
+Sleep 2500ms
+
+# [Tab] walks from one escape site to the next, sidebar tracking along.
+Tab
+Sleep 500ms
+Tab
+Sleep 500ms
+Tab
+Sleep 500ms
+Tab
 Sleep 1500ms
 
-# Scroll through escape sites
-Down
-Sleep 150ms
-Down
-Sleep 150ms
-Down
-Sleep 150ms
-Down
-Sleep 150ms
+# [f] unfolds the dataflow chain that explains how each value reached the heap.
+Type "f"
+Sleep 3000ms
+Tab
+Sleep 800ms
+Tab
+Sleep 800ms
+Tab
+Sleep 800ms
+Tab
+Sleep 800ms
+Tab
+Sleep 2000ms
+
+# Sweep through the rest: leaking params, &T{...} escapes to heap, one file
+# after another.
 PageDown
-Sleep 500ms
-
-# Toggle to show all compiler notes
-Type "a"
-Sleep 700ms
+Sleep 900ms
+PageDown
+Sleep 900ms
+PageDown
+Sleep 900ms
+PageDown
+Sleep 1500ms
 Down
-Sleep 150ms
+Sleep 200ms
 Down
-Sleep 150ms
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 1200ms
 PageDown
-Sleep 400ms
-
-# Toggle back to heap+leaking only
-Type "a"
-Sleep 500ms
-
-# Include stdlib + deps
-Type "p"
-Sleep 700ms
+Sleep 900ms
 PageDown
-Sleep 500ms
+Sleep 900ms
 PageDown
-Sleep 400ms
+Sleep 2000ms
 
-# Back to project-only
-Type "p"
-Sleep 400ms
-
-# Quit
 Type "q"
-Sleep 500ms
+Sleep 800ms

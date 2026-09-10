@@ -2,63 +2,72 @@ Output doc/demo/show-diff.gif
 
 Set Theme "Catppuccin Mocha"
 Set FontFamily "Fira Code"
-Set FontSize 14
-Set Width 800
-Set Height 600
+Set FontSize 21
+Set Width 1140
+Set Height 880
 Set Framerate 12
 Set TypingSpeed 40ms
 Set Padding 2
 
 Hide
-Type "cd /home/michael/dev/benchspotter"
+Type "cd /home/michael/dev/gotomerge"
+Enter
+# Prompts remember the last selection: start from a clean slate so the
+# keystrokes below always land on the same session.
+Type "rm -rf .benchspotter/recall"
 Enter
 Type "clear"
 Enter
 Show
 
 Sleep 1s
-Type "./benchspotter show diff"
+Type "benchspotter show diff"
 Enter
 
-# ── Session selection (SingleSelect) ─────────────────────────────────────
-# Only sessions with a stored diff are shown:
-#   0. based       ← recall pre-selects this
-#   1. with escape
-Sleep 1500ms
-Down         # peek at "with escape"
-Sleep 500ms
-Up           # back to "based"
+# ── Session selection (Select) ───────────────────────────────────────────
+# Only sessions carrying a stored diff are listed:
+#   0. baseline2   1. flate pool   2. rope-0d   3. rope-62   4. rope3
+Wait+Screen@60s /Select session/
+Sleep 1200ms
+Down
 Sleep 300ms
-Enter        # select "based"
+Down
+Sleep 300ms
+Down
+Sleep 300ms
+Down
+Sleep 900ms
+Enter
 
-# ── Diff viewport ─────────────────────────────────────────────────────────
-Sleep 1500ms
-Down
-Sleep 100ms
-Down
-Sleep 100ms
-Down
-Sleep 100ms
-Down
-Sleep 100ms
-Down
-Sleep 150ms
-Down
-Sleep 150ms
-Down
-Sleep 150ms
+# ── Diff viewport ────────────────────────────────────────────────────────
+# 525 lines over 7 files: the working tree as it stood when the benchmarks ran.
+Wait+Screen@60s /diff --git/
+Sleep 3s
 Down
 Sleep 200ms
 Down
 Sleep 200ms
 Down
 Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+Sleep 200ms
+Down
+# docproxy/listview.go: a linear ListElements scan replaced by ListTail
+Sleep 3s
+
 PageDown
-Sleep 500ms
+# docproxy/textview.go: ListElements → ListAt / ListLen
+Sleep 3s
 PageDown
-Sleep 500ms
+Sleep 3s
 PageUp
-Sleep 400ms
-# Quit
+Sleep 2s
+
 Type "q"
-Sleep 500ms
+Sleep 800ms
