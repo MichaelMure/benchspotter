@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780313071811,
+  "lastUpdate": 1789043582022,
   "repoUrl": "https://github.com/MichaelMure/benchspotter",
   "entries": {
     "Go Benchmark": [
@@ -11712,6 +11712,846 @@ window.BENCHMARK_DATA = {
             "value": 0,
             "unit": "allocs/op",
             "extra": "162192883 times\n2 procs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "batolettre@gmail.com",
+            "name": "Michael Muré",
+            "username": "MichaelMure"
+          },
+          "committer": {
+            "email": "batolettre@gmail.com",
+            "name": "Michael Muré",
+            "username": "MichaelMure"
+          },
+          "distinct": true,
+          "id": "1fe19c1e6330f9d9ee7ba39e7899cb69f05f7eb6",
+          "message": "show/profile: fix rendering on the sources",
+          "timestamp": "2026-09-10T14:31:04+02:00",
+          "tree_id": "bbf8f02f590282841c860cb2e1fec36650816b0a",
+          "url": "https://github.com/MichaelMure/benchspotter/commit/1fe19c1e6330f9d9ee7ba39e7899cb69f05f7eb6"
+        },
+        "date": 1789043580696,
+        "tool": "go",
+        "benches": [
+          {
+            "name": "BenchmarkTable/1x10/new (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 1356,
+            "unit": "ns/op\t    2144 B/op\t      31 allocs/op",
+            "extra": "904389 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x10/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 1356,
+            "unit": "ns/op",
+            "extra": "904389 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x10/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 2144,
+            "unit": "B/op",
+            "extra": "904389 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x10/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 31,
+            "unit": "allocs/op",
+            "extra": "904389 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x10/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 830.3,
+            "unit": "ns/op\t     640 B/op\t      10 allocs/op",
+            "extra": "1435159 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x10/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 830.3,
+            "unit": "ns/op",
+            "extra": "1435159 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x10/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 640,
+            "unit": "B/op",
+            "extra": "1435159 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x10/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 10,
+            "unit": "allocs/op",
+            "extra": "1435159 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x1000/new (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 104430,
+            "unit": "ns/op\t  174945 B/op\t    2024 allocs/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x1000/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 104430,
+            "unit": "ns/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x1000/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 174945,
+            "unit": "B/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x1000/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 2024,
+            "unit": "allocs/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x1000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 85983,
+            "unit": "ns/op\t   64008 B/op\t    1000 allocs/op",
+            "extra": "13976 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x1000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 85983,
+            "unit": "ns/op",
+            "extra": "13976 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x1000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 64008,
+            "unit": "B/op",
+            "extra": "13976 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x1000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 1000,
+            "unit": "allocs/op",
+            "extra": "13976 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x100000/new (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 17327449,
+            "unit": "ns/op\t24685048 B/op\t  200056 allocs/op",
+            "extra": "69 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x100000/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 17327449,
+            "unit": "ns/op",
+            "extra": "69 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x100000/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 24685048,
+            "unit": "B/op",
+            "extra": "69 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x100000/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 200056,
+            "unit": "allocs/op",
+            "extra": "69 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x100000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 7918693,
+            "unit": "ns/op\t 6524392 B/op\t  100680 allocs/op",
+            "extra": "147 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x100000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 7918693,
+            "unit": "ns/op",
+            "extra": "147 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x100000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 6524392,
+            "unit": "B/op",
+            "extra": "147 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/1x100000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 100680,
+            "unit": "allocs/op",
+            "extra": "147 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x10/new (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 6684,
+            "unit": "ns/op\t   11440 B/op\t     131 allocs/op",
+            "extra": "179912 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x10/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 6684,
+            "unit": "ns/op",
+            "extra": "179912 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x10/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 11440,
+            "unit": "B/op",
+            "extra": "179912 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x10/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 131,
+            "unit": "allocs/op",
+            "extra": "179912 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x10/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 5222,
+            "unit": "ns/op\t    6400 B/op\t     100 allocs/op",
+            "extra": "228694 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x10/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 5222,
+            "unit": "ns/op",
+            "extra": "228694 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x10/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 6400,
+            "unit": "B/op",
+            "extra": "228694 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x10/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 100,
+            "unit": "allocs/op",
+            "extra": "228694 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x1000/new (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 609193,
+            "unit": "ns/op\t 1035128 B/op\t   11038 allocs/op",
+            "extra": "1898 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x1000/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 609193,
+            "unit": "ns/op",
+            "extra": "1898 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x1000/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 1035128,
+            "unit": "B/op",
+            "extra": "1898 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x1000/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 11038,
+            "unit": "allocs/op",
+            "extra": "1898 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x1000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 527822,
+            "unit": "ns/op\t  640176 B/op\t   10000 allocs/op",
+            "extra": "2276 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x1000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 527822,
+            "unit": "ns/op",
+            "extra": "2276 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x1000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 640176,
+            "unit": "B/op",
+            "extra": "2276 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x1000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 10000,
+            "unit": "allocs/op",
+            "extra": "2276 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x100000/new (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 74599035,
+            "unit": "ns/op\t111012811 B/op\t 1100072 allocs/op",
+            "extra": "15 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x100000/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 74599035,
+            "unit": "ns/op",
+            "extra": "15 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x100000/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 111012811,
+            "unit": "B/op",
+            "extra": "15 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x100000/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 1100072,
+            "unit": "allocs/op",
+            "extra": "15 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x100000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 55813286,
+            "unit": "ns/op\t66350659 B/op\t 1005003 allocs/op",
+            "extra": "20 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x100000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 55813286,
+            "unit": "ns/op",
+            "extra": "20 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x100000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 66350659,
+            "unit": "B/op",
+            "extra": "20 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/10x100000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 1005003,
+            "unit": "allocs/op",
+            "extra": "20 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x10/new (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 57232,
+            "unit": "ns/op\t  103280 B/op\t    1041 allocs/op",
+            "extra": "20613 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x10/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 57232,
+            "unit": "ns/op",
+            "extra": "20613 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x10/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 103280,
+            "unit": "B/op",
+            "extra": "20613 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x10/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 1041,
+            "unit": "allocs/op",
+            "extra": "20613 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x10/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 49641,
+            "unit": "ns/op\t   64001 B/op\t    1000 allocs/op",
+            "extra": "24078 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x10/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 49641,
+            "unit": "ns/op",
+            "extra": "24078 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x10/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 64001,
+            "unit": "B/op",
+            "extra": "24078 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x10/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 1000,
+            "unit": "allocs/op",
+            "extra": "24078 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x1000/new (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 6304923,
+            "unit": "ns/op\t 9670572 B/op\t  101052 allocs/op",
+            "extra": "189 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x1000/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 6304923,
+            "unit": "ns/op",
+            "extra": "189 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x1000/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 9670572,
+            "unit": "B/op",
+            "extra": "189 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x1000/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 101052,
+            "unit": "allocs/op",
+            "extra": "189 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x1000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 4983712,
+            "unit": "ns/op\t 6413653 B/op\t  100004 allocs/op",
+            "extra": "240 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x1000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 4983712,
+            "unit": "ns/op",
+            "extra": "240 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x1000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 6413653,
+            "unit": "B/op",
+            "extra": "240 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x1000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 100004,
+            "unit": "allocs/op",
+            "extra": "240 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x100000/new (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 624078152,
+            "unit": "ns/op\t974042144 B/op\t10100089 allocs/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x100000/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 624078152,
+            "unit": "ns/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x100000/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 974042144,
+            "unit": "B/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x100000/new (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 10100089,
+            "unit": "allocs/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x100000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 589053162,
+            "unit": "ns/op\t807020992 B/op\t10050044 allocs/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x100000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 589053162,
+            "unit": "ns/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x100000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 807020992,
+            "unit": "B/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTable/100x100000/reuse (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 10050044,
+            "unit": "allocs/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/10 (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 4152,
+            "unit": "ns/op\t    7736 B/op\t      80 allocs/op",
+            "extra": "272066 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/10 (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 4152,
+            "unit": "ns/op",
+            "extra": "272066 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/10 (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 7736,
+            "unit": "B/op",
+            "extra": "272066 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/10 (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 80,
+            "unit": "allocs/op",
+            "extra": "272066 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/100 (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 313343,
+            "unit": "ns/op\t  727324 B/op\t    5180 allocs/op",
+            "extra": "3577 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/100 (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 313343,
+            "unit": "ns/op",
+            "extra": "3577 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/100 (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 727324,
+            "unit": "B/op",
+            "extra": "3577 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/100 (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 5180,
+            "unit": "allocs/op",
+            "extra": "3577 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/1000 (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 32399271,
+            "unit": "ns/op\t67574908 B/op\t  501554 allocs/op",
+            "extra": "39 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/1000 (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 32399271,
+            "unit": "ns/op",
+            "extra": "39 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/1000 (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 67574908,
+            "unit": "B/op",
+            "extra": "39 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkPyramid/1000 (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 501554,
+            "unit": "allocs/op",
+            "extra": "39 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkRagged/10 (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 4570,
+            "unit": "ns/op\t    7888 B/op\t      87 allocs/op",
+            "extra": "267295 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkRagged/10 (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 4570,
+            "unit": "ns/op",
+            "extra": "267295 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkRagged/10 (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 7888,
+            "unit": "B/op",
+            "extra": "267295 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkRagged/10 (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 87,
+            "unit": "allocs/op",
+            "extra": "267295 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkRagged/100 (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 43401,
+            "unit": "ns/op\t   78368 B/op\t     750 allocs/op",
+            "extra": "27750 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkRagged/100 (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 43401,
+            "unit": "ns/op",
+            "extra": "27750 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkRagged/100 (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 78368,
+            "unit": "B/op",
+            "extra": "27750 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkRagged/100 (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 750,
+            "unit": "allocs/op",
+            "extra": "27750 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkRagged/1000 (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 430134,
+            "unit": "ns/op\t  768980 B/op\t    7285 allocs/op",
+            "extra": "2778 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkRagged/1000 (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 430134,
+            "unit": "ns/op",
+            "extra": "2778 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkRagged/1000 (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 768980,
+            "unit": "B/op",
+            "extra": "2778 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkRagged/1000 (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 7285,
+            "unit": "allocs/op",
+            "extra": "2778 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCode (github.com/MichaelMure/benchspotter/commands/tabwriter)",
+            "value": 1394,
+            "unit": "ns/op\t    1344 B/op\t      33 allocs/op",
+            "extra": "853180 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCode (github.com/MichaelMure/benchspotter/commands/tabwriter) - ns/op",
+            "value": 1394,
+            "unit": "ns/op",
+            "extra": "853180 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCode (github.com/MichaelMure/benchspotter/commands/tabwriter) - B/op",
+            "value": 1344,
+            "unit": "B/op",
+            "extra": "853180 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCode (github.com/MichaelMure/benchspotter/commands/tabwriter) - allocs/op",
+            "value": 33,
+            "unit": "allocs/op",
+            "extra": "853180 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkFoo (github.com/MichaelMure/benchspotter/engine/internal)",
+            "value": 111.2,
+            "unit": "ns/op\t     456 B/op\t       3 allocs/op",
+            "extra": "11077132 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkFoo (github.com/MichaelMure/benchspotter/engine/internal) - ns/op",
+            "value": 111.2,
+            "unit": "ns/op",
+            "extra": "11077132 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkFoo (github.com/MichaelMure/benchspotter/engine/internal) - B/op",
+            "value": 456,
+            "unit": "B/op",
+            "extra": "11077132 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkFoo (github.com/MichaelMure/benchspotter/engine/internal) - allocs/op",
+            "value": 3,
+            "unit": "allocs/op",
+            "extra": "11077132 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBar (github.com/MichaelMure/benchspotter/engine/internal)",
+            "value": 111.5,
+            "unit": "ns/op\t     456 B/op\t       3 allocs/op",
+            "extra": "10842775 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBar (github.com/MichaelMure/benchspotter/engine/internal) - ns/op",
+            "value": 111.5,
+            "unit": "ns/op",
+            "extra": "10842775 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBar (github.com/MichaelMure/benchspotter/engine/internal) - B/op",
+            "value": 456,
+            "unit": "B/op",
+            "extra": "10842775 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBar (github.com/MichaelMure/benchspotter/engine/internal) - allocs/op",
+            "value": 3,
+            "unit": "allocs/op",
+            "extra": "10842775 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBaz/foo/bar (github.com/MichaelMure/benchspotter/engine/internal)",
+            "value": 115.1,
+            "unit": "ns/op\t     456 B/op\t       3 allocs/op",
+            "extra": "11117458 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBaz/foo/bar (github.com/MichaelMure/benchspotter/engine/internal) - ns/op",
+            "value": 115.1,
+            "unit": "ns/op",
+            "extra": "11117458 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBaz/foo/bar (github.com/MichaelMure/benchspotter/engine/internal) - B/op",
+            "value": 456,
+            "unit": "B/op",
+            "extra": "11117458 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBaz/foo/bar (github.com/MichaelMure/benchspotter/engine/internal) - allocs/op",
+            "value": 3,
+            "unit": "allocs/op",
+            "extra": "11117458 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/first (github.com/MichaelMure/benchspotter/engine/internal)",
+            "value": 6.061,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "200789210 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/first (github.com/MichaelMure/benchspotter/engine/internal) - ns/op",
+            "value": 6.061,
+            "unit": "ns/op",
+            "extra": "200789210 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/first (github.com/MichaelMure/benchspotter/engine/internal) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "200789210 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/first (github.com/MichaelMure/benchspotter/engine/internal) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "200789210 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/second (github.com/MichaelMure/benchspotter/engine/internal)",
+            "value": 5.972,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "200250609 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/second (github.com/MichaelMure/benchspotter/engine/internal) - ns/op",
+            "value": 5.972,
+            "unit": "ns/op",
+            "extra": "200250609 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/second (github.com/MichaelMure/benchspotter/engine/internal) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "200250609 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSiblings/second (github.com/MichaelMure/benchspotter/engine/internal) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "200250609 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkHybridSort (github.com/MichaelMure/benchspotter/engine/internal)",
+            "value": 420950,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "2828 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkHybridSort (github.com/MichaelMure/benchspotter/engine/internal) - ns/op",
+            "value": 420950,
+            "unit": "ns/op",
+            "extra": "2828 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkHybridSort (github.com/MichaelMure/benchspotter/engine/internal) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "2828 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkHybridSort (github.com/MichaelMure/benchspotter/engine/internal) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "2828 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMapOps (github.com/MichaelMure/benchspotter/engine/internal)",
+            "value": 114727,
+            "unit": "ns/op\t  295552 B/op\t      33 allocs/op",
+            "extra": "9627 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMapOps (github.com/MichaelMure/benchspotter/engine/internal) - ns/op",
+            "value": 114727,
+            "unit": "ns/op",
+            "extra": "9627 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMapOps (github.com/MichaelMure/benchspotter/engine/internal) - B/op",
+            "value": 295552,
+            "unit": "B/op",
+            "extra": "9627 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMapOps (github.com/MichaelMure/benchspotter/engine/internal) - allocs/op",
+            "value": 33,
+            "unit": "allocs/op",
+            "extra": "9627 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBaz (github.com/MichaelMure/benchspotter/engine/internal/anotherpackage)",
+            "value": 5.855,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "205069501 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBaz (github.com/MichaelMure/benchspotter/engine/internal/anotherpackage) - ns/op",
+            "value": 5.855,
+            "unit": "ns/op",
+            "extra": "205069501 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBaz (github.com/MichaelMure/benchspotter/engine/internal/anotherpackage) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "205069501 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBaz (github.com/MichaelMure/benchspotter/engine/internal/anotherpackage) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "205069501 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBoz (github.com/MichaelMure/benchspotter/engine/internal/anotherpackage)",
+            "value": 6.022,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "204955166 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBoz (github.com/MichaelMure/benchspotter/engine/internal/anotherpackage) - ns/op",
+            "value": 6.022,
+            "unit": "ns/op",
+            "extra": "204955166 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBoz (github.com/MichaelMure/benchspotter/engine/internal/anotherpackage) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "204955166 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBoz (github.com/MichaelMure/benchspotter/engine/internal/anotherpackage) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "204955166 times\n4 procs"
           }
         ]
       }
